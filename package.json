@@ -1,0 +1,12 @@
+{
+  "name": "kksonline-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix kksonline-backend\" \"npm run dev --prefix react-frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
+
