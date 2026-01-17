@@ -1,9 +1,9 @@
 import type { UploadApiResponse, TransformationOptions } from 'cloudinary';
-import { cloudinary, CLOUDINARY_FOLDERS, UPLOAD_PRESETS } from '../config/cloudinary.config.ts';
-import { db } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { InternalServerError, NotFoundError } from '../utils/errors.ts';
-import { CacheKeys, generateCacheKey, getFromCache, setInCache, deleteByPattern } from '../utils/cache.ts';
+import { cloudinary, CLOUDINARY_FOLDERS, UPLOAD_PRESETS } from '../config/cloudinary.config';
+import { db } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { InternalServerError, NotFoundError } from '../utils/errors';
+import { CacheKeys, generateCacheKey, getFromCache, setInCache, deleteByPattern } from '../utils/cache';
 
 export type EntityCategory = 'products' | 'brands' | 'categories' | 'customers';
 

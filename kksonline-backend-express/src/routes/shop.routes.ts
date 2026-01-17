@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
-import { shopRepository } from '../repositories/shop.repository.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { sendSuccess } from '../utils/response.ts';
+import { shopRepository } from '../repositories/shop.repository';
+import { asyncHandler } from '../middleware/error.middleware';
+import { sendSuccess } from '../utils/response';
 
 const router = Router();
 

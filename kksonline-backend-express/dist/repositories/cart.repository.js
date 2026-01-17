@@ -1,23 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cartRepository = exports.CartRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
 class CartRepository {
     /**
      * Get cart items for a customer (basic)
      */
     async findByCustomerId(customerId) {
         try {
-            const cartItems = await database_config_ts_1.db.cart.findMany({
+            const cartItems = await database_config_1.db.cart.findMany({
                 where: { customer_id: customerId },
             });
             return cartItems;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching cart items', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching cart items', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -25,7 +25,7 @@ class CartRepository {
      */
     async findWithDetails(customerId) {
         try {
-            const cartItems = await database_config_ts_1.db.cart.findMany({
+            const cartItems = await database_config_1.db.cart.findMany({
                 where: { customer_id: customerId },
                 include: {
                     variant: {
@@ -57,8 +57,8 @@ class CartRepository {
             }));
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching cart with details', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching cart with details', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -67,7 +67,7 @@ class CartRepository {
     async addItem(customerId, variantId, quantity) {
         try {
             // Check if item already exists in cart
-            const existing = await database_config_ts_1.db.cart.findFirst({
+            const existing = await database_config_1.db.cart.findFirst({
                 where: {
                     customer_id: customerId,
                     variant_id: variantId,
@@ -79,7 +79,7 @@ class CartRepository {
                 return this.updateQuantity(existing.cart_id, newQuantity);
             }
             // Insert new item
-            const cartItem = await database_config_ts_1.db.cart.create({
+            const cartItem = await database_config_1.db.cart.create({
                 data: {
                     customer_id: customerId,
                     variant_id: variantId,
@@ -89,8 +89,8 @@ class CartRepository {
             return cartItem;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error adding to cart', { error, customerId, variantId });
-            throw new errors_ts_1.InternalServerError('Failed to add item to cart');
+            logger_1.logger.error('Error adding to cart', { error, customerId, variantId });
+            throw new errors_1.InternalServerError('Failed to add item to cart');
         }
     }
     /**
@@ -99,10 +99,10 @@ class CartRepository {
     async updateQuantity(cartId, newQuantity) {
         if (newQuantity <= 0) {
             await this.removeItem(cartId);
-            throw new errors_ts_1.BadRequestError('Item removed from cart');
+            throw new errors_1.BadRequestError('Item removed from cart');
         }
         try {
-            const cartItem = await database_config_ts_1.db.cart.update({
+            const cartItem = await database_config_1.db.cart.update({
                 where: { cart_id: cartId },
                 data: { quantity: newQuantity.toString() },
             });
@@ -110,10 +110,10 @@ class CartRepository {
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Cart item not found');
+                throw new errors_1.NotFoundError('Cart item not found');
             }
-            logger_ts_1.logger.error('Error updating cart quantity', { error, cartId });
-            throw new errors_ts_1.InternalServerError('Failed to update cart');
+            logger_1.logger.error('Error updating cart quantity', { error, cartId });
+            throw new errors_1.InternalServerError('Failed to update cart');
         }
     }
     /**
@@ -122,29 +122,29 @@ class CartRepository {
     async updateByVariant(customerId, variantId, newQuantity) {
         if (newQuantity <= 0) {
             await this.removeByVariant(customerId, variantId);
-            throw new errors_ts_1.BadRequestError('Item removed from cart');
+            throw new errors_1.BadRequestError('Item removed from cart');
         }
         try {
-            const cartItem = await database_config_ts_1.db.cart.findFirst({
+            const cartItem = await database_config_1.db.cart.findFirst({
                 where: {
                     customer_id: customerId,
                     variant_id: variantId,
                 },
             });
             if (!cartItem) {
-                throw new errors_ts_1.NotFoundError('Cart item not found');
+                throw new errors_1.NotFoundError('Cart item not found');
             }
-            const updated = await database_config_ts_1.db.cart.update({
+            const updated = await database_config_1.db.cart.update({
                 where: { cart_id: cartItem.cart_id },
                 data: { quantity: newQuantity.toString() },
             });
             return updated;
         }
         catch (error) {
-            if (error instanceof errors_ts_1.NotFoundError)
+            if (error instanceof errors_1.NotFoundError)
                 throw error;
-            logger_ts_1.logger.error('Error updating cart by variant', { error, customerId, variantId });
-            throw new errors_ts_1.InternalServerError('Failed to update cart');
+            logger_1.logger.error('Error updating cart by variant', { error, customerId, variantId });
+            throw new errors_1.InternalServerError('Failed to update cart');
         }
     }
     /**
@@ -152,7 +152,7 @@ class CartRepository {
      */
     async removeItem(cartId) {
         try {
-            await database_config_ts_1.db.cart.delete({
+            await database_config_1.db.cart.delete({
                 where: { cart_id: cartId },
             });
             return true;
@@ -160,10 +160,10 @@ class CartRepository {
         catch (error) {
             // Handle case where item doesn't exist (P2025)
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Cart item not found');
+                throw new errors_1.NotFoundError('Cart item not found');
             }
-            logger_ts_1.logger.error('Error removing cart item', { error, cartId });
-            throw new errors_ts_1.InternalServerError('Failed to remove item from cart');
+            logger_1.logger.error('Error removing cart item', { error, cartId });
+            throw new errors_1.InternalServerError('Failed to remove item from cart');
         }
     }
     /**
@@ -171,7 +171,7 @@ class CartRepository {
      */
     async removeByVariant(customerId, variantId) {
         try {
-            await database_config_ts_1.db.cart.deleteMany({
+            await database_config_1.db.cart.deleteMany({
                 where: {
                     customer_id: customerId,
                     variant_id: variantId,
@@ -180,8 +180,8 @@ class CartRepository {
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error removing cart item by variant', { error, customerId, variantId });
-            throw new errors_ts_1.InternalServerError('Failed to remove item from cart');
+            logger_1.logger.error('Error removing cart item by variant', { error, customerId, variantId });
+            throw new errors_1.InternalServerError('Failed to remove item from cart');
         }
     }
     /**
@@ -189,14 +189,14 @@ class CartRepository {
      */
     async clearCart(customerId) {
         try {
-            await database_config_ts_1.db.cart.deleteMany({
+            await database_config_1.db.cart.deleteMany({
                 where: { customer_id: customerId },
             });
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error clearing cart', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Failed to clear cart');
+            logger_1.logger.error('Error clearing cart', { error, customerId });
+            throw new errors_1.InternalServerError('Failed to clear cart');
         }
     }
     /**
@@ -204,13 +204,13 @@ class CartRepository {
      */
     async getItemCount(customerId) {
         try {
-            const count = await database_config_ts_1.db.cart.count({
+            const count = await database_config_1.db.cart.count({
                 where: { customer_id: customerId },
             });
             return count;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error getting cart count', { error, customerId });
+            logger_1.logger.error('Error getting cart count', { error, customerId });
             return 0;
         }
     }
@@ -219,7 +219,7 @@ class CartRepository {
      */
     async canAddToCart(variantId, quantity) {
         try {
-            const variant = await database_config_ts_1.db.productVariant.findUnique({
+            const variant = await database_config_1.db.productVariant.findUnique({
                 where: { variant_id: variantId },
                 select: { stock: true, is_visible: true },
             });
@@ -229,7 +229,7 @@ class CartRepository {
             return (variant.stock || 0) >= quantity;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error validating add to cart', { error, variantId, quantity });
+            logger_1.logger.error('Error validating add to cart', { error, variantId, quantity });
             return false;
         }
     }
@@ -239,10 +239,10 @@ class CartRepository {
     async checkShopLimit(customerId, variantId, newQuantity) {
         try {
             // Get shop settings
-            const shop = await database_config_ts_1.db.shop.findFirst();
+            const shop = await database_config_1.db.shop.findFirst();
             const maxAllowed = shop ? Number(shop.max_allowed_item_quantity) : 50;
             // Get current cart total for this item
-            const cartItem = await database_config_ts_1.db.cart.findFirst({
+            const cartItem = await database_config_1.db.cart.findFirst({
                 where: {
                     customer_id: customerId,
                     variant_id: variantId,
@@ -259,7 +259,7 @@ class CartRepository {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error checking shop limit', { error, customerId, variantId });
+            logger_1.logger.error('Error checking shop limit', { error, customerId, variantId });
             return {
                 allowed: false,
                 canAddQuantity: 0,
@@ -274,7 +274,7 @@ class CartRepository {
      */
     async validateCartStock(customerId) {
         try {
-            const cartItems = await database_config_ts_1.db.cart.findMany({
+            const cartItems = await database_config_1.db.cart.findMany({
                 where: { customer_id: customerId },
                 include: {
                     variant: {
@@ -313,7 +313,7 @@ class CartRepository {
             });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error validating cart stock', { error, customerId });
+            logger_1.logger.error('Error validating cart stock', { error, customerId });
             return [];
         }
     }
@@ -324,12 +324,12 @@ class CartRepository {
         try {
             for (const adjustment of adjustments) {
                 if (adjustment.shouldRemove) {
-                    await database_config_ts_1.db.cart.delete({
+                    await database_config_1.db.cart.delete({
                         where: { cart_id: adjustment.cartId },
                     });
                 }
                 else if (adjustment.adjustedQuantity !== adjustment.requestedQuantity) {
-                    await database_config_ts_1.db.cart.update({
+                    await database_config_1.db.cart.update({
                         where: { cart_id: adjustment.cartId },
                         data: { quantity: adjustment.adjustedQuantity.toString() },
                     });
@@ -338,7 +338,7 @@ class CartRepository {
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error applying cart adjustments', { error, customerId });
+            logger_1.logger.error('Error applying cart adjustments', { error, customerId });
             return false;
         }
     }
@@ -347,13 +347,13 @@ class CartRepository {
      */
     async transferToKiosk(customerId, kioskSessionId) {
         try {
-            const cartItems = await database_config_ts_1.db.cart.findMany({
+            const cartItems = await database_config_1.db.cart.findMany({
                 where: { customer_id: customerId },
             });
             if (cartItems.length === 0)
                 return false;
             // Create kiosk cart items
-            await database_config_ts_1.db.kioskCart.createMany({
+            await database_config_1.db.kioskCart.createMany({
                 data: cartItems
                     .filter((item) => item.variant_id)
                     .map((item) => ({
@@ -367,7 +367,7 @@ class CartRepository {
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error transferring cart to kiosk', { error, customerId, kioskSessionId });
+            logger_1.logger.error('Error transferring cart to kiosk', { error, customerId, kioskSessionId });
             return false;
         }
     }

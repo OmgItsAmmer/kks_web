@@ -13,6 +13,7 @@ export declare class WishlistRepository {
         productName: string;
         salePrice: string | null;
         basePrice: string | null;
+        priceRange: string | null;
         createdAt: Date;
     }[]>;
     /**

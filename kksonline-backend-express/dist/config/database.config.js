@@ -16,7 +16,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkDatabaseConnection = exports.disconnectDatabase = exports.db = exports.getPrismaClient = void 0;
 const client_1 = require("@prisma/client");
-const logger_ts_1 = require("../utils/logger.ts");
+const logger_1 = require("../utils/logger");
 // Singleton instance
 let prisma;
 // Create and configure Prisma client
@@ -31,15 +31,15 @@ const createPrismaClient = () => {
     // Log queries in development
     if (process.env.NODE_ENV === 'development') {
         client.$on('query', (e) => {
-            logger_ts_1.logger.debug(`Query: ${e.query}`);
-            logger_ts_1.logger.debug(`Duration: ${e.duration}ms`);
+            logger_1.logger.debug(`Query: ${e.query}`);
+            logger_1.logger.debug(`Duration: ${e.duration}ms`);
         });
     }
     client.$on('error', (e) => {
-        logger_ts_1.logger.error('Prisma error:', e);
+        logger_1.logger.error('Prisma error:', e);
     });
     client.$on('warn', (e) => {
-        logger_ts_1.logger.warn('Prisma warning:', e);
+        logger_1.logger.warn('Prisma warning:', e);
     });
     return client;
 };
@@ -57,7 +57,7 @@ exports.db = (0, exports.getPrismaClient)();
 const disconnectDatabase = async () => {
     if (prisma) {
         await prisma.$disconnect();
-        logger_ts_1.logger.info('Database connection closed');
+        logger_1.logger.info('Database connection closed');
     }
 };
 exports.disconnectDatabase = disconnectDatabase;
@@ -68,7 +68,7 @@ const checkDatabaseConnection = async () => {
         return true;
     }
     catch (error) {
-        logger_ts_1.logger.error('Database connection check failed:', error);
+        logger_1.logger.error('Database connection check failed:', error);
         return false;
     }
 };

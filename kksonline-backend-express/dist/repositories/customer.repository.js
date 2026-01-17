@@ -1,31 +1,31 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.customerRepository = exports.CustomerRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
-const cache_ts_1 = require("../utils/cache.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
+const cache_1 = require("../utils/cache");
 class CustomerRepository {
     /**
      * Get customer by ID
      */
     async findById(customerId) {
-        const cacheKey = (0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.CUSTOMER, { id: customerId });
-        const cached = (0, cache_ts_1.getFromCache)(cacheKey);
+        const cacheKey = (0, cache_1.generateCacheKey)(cache_1.CacheKeys.CUSTOMER, { id: customerId });
+        const cached = (0, cache_1.getFromCache)(cacheKey);
         if (cached)
             return cached;
         try {
-            const customer = await database_config_ts_1.db.customer.findUnique({
+            const customer = await database_config_1.db.customer.findUnique({
                 where: { customer_id: customerId },
             });
             if (customer) {
-                (0, cache_ts_1.setInCache)(cacheKey, customer);
+                (0, cache_1.setInCache)(cacheKey, customer);
             }
             return customer;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customer by ID', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching customer by ID', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -33,14 +33,14 @@ class CustomerRepository {
      */
     async findByAuthUid(authUid) {
         try {
-            const customer = await database_config_ts_1.db.customer.findUnique({
+            const customer = await database_config_1.db.customer.findUnique({
                 where: { auth_uid: authUid },
             });
             return customer;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customer by auth UID', { error, authUid });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching customer by auth UID', { error, authUid });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -48,14 +48,14 @@ class CustomerRepository {
      */
     async findByEmail(email) {
         try {
-            const customer = await database_config_ts_1.db.customer.findFirst({
+            const customer = await database_config_1.db.customer.findFirst({
                 where: { email },
             });
             return customer;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customer by email', { error, email });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching customer by email', { error, email });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -63,14 +63,14 @@ class CustomerRepository {
      */
     async create(customer) {
         try {
-            const newCustomer = await database_config_ts_1.db.customer.create({
+            const newCustomer = await database_config_1.db.customer.create({
                 data: customer,
             });
             return newCustomer;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating customer', { error, email: customer.email });
-            throw new errors_ts_1.InternalServerError('Failed to create customer');
+            logger_1.logger.error('Error creating customer', { error, email: customer.email });
+            throw new errors_1.InternalServerError('Failed to create customer');
         }
     }
     /**
@@ -78,20 +78,20 @@ class CustomerRepository {
      */
     async update(customerId, updates) {
         try {
-            const customer = await database_config_ts_1.db.customer.update({
+            const customer = await database_config_1.db.customer.update({
                 where: { customer_id: customerId },
                 data: updates,
             });
             // Invalidate cache
-            (0, cache_ts_1.deleteFromCache)((0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.CUSTOMER, { id: customerId }));
+            (0, cache_1.deleteFromCache)((0, cache_1.generateCacheKey)(cache_1.CacheKeys.CUSTOMER, { id: customerId }));
             return customer;
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Customer not found');
+                throw new errors_1.NotFoundError('Customer not found');
             }
-            logger_ts_1.logger.error('Error updating customer', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Failed to update customer');
+            logger_1.logger.error('Error updating customer', { error, customerId });
+            throw new errors_1.InternalServerError('Failed to update customer');
         }
     }
     /**
@@ -118,15 +118,15 @@ class CustomerRepository {
      */
     async updateFcmToken(customerId, fcmToken) {
         try {
-            await database_config_ts_1.db.customer.update({
+            await database_config_1.db.customer.update({
                 where: { customer_id: customerId },
                 data: { fcm_token: fcmToken },
             });
             // Invalidate cache
-            (0, cache_ts_1.deleteFromCache)((0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.CUSTOMER, { id: customerId }));
+            (0, cache_1.deleteFromCache)((0, cache_1.generateCacheKey)(cache_1.CacheKeys.CUSTOMER, { id: customerId }));
         }
         catch (error) {
-            logger_ts_1.logger.error('Error updating FCM token', { error, customerId });
+            logger_1.logger.error('Error updating FCM token', { error, customerId });
         }
     }
     /**
@@ -134,16 +134,16 @@ class CustomerRepository {
      */
     async delete(customerId) {
         try {
-            await database_config_ts_1.db.customer.delete({
+            await database_config_1.db.customer.delete({
                 where: { customer_id: customerId },
             });
             // Invalidate cache
-            (0, cache_ts_1.deleteFromCache)((0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.CUSTOMER, { id: customerId }));
+            (0, cache_1.deleteFromCache)((0, cache_1.generateCacheKey)(cache_1.CacheKeys.CUSTOMER, { id: customerId }));
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error deleting customer', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Failed to delete customer');
+            logger_1.logger.error('Error deleting customer', { error, customerId });
+            throw new errors_1.InternalServerError('Failed to delete customer');
         }
     }
     /**
@@ -151,13 +151,13 @@ class CustomerRepository {
      */
     async exists(customerId) {
         try {
-            const count = await database_config_ts_1.db.customer.count({
+            const count = await database_config_1.db.customer.count({
                 where: { customer_id: customerId },
             });
             return count > 0;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error checking customer existence', { error, customerId });
+            logger_1.logger.error('Error checking customer existence', { error, customerId });
             return false;
         }
     }
@@ -166,13 +166,13 @@ class CustomerRepository {
      */
     async emailExists(email) {
         try {
-            const count = await database_config_ts_1.db.customer.count({
+            const count = await database_config_1.db.customer.count({
                 where: { email },
             });
             return count > 0;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error checking email existence', { error, email });
+            logger_1.logger.error('Error checking email existence', { error, email });
             return false;
         }
     }
@@ -201,19 +201,19 @@ class CustomerRepository {
                 ];
             }
             const [customers, total] = await Promise.all([
-                database_config_ts_1.db.customer.findMany({
+                database_config_1.db.customer.findMany({
                     where,
                     orderBy: { created_at: 'desc' },
                     skip: offset,
                     take: pageSize,
                 }),
-                database_config_ts_1.db.customer.count({ where }),
+                database_config_1.db.customer.count({ where }),
             ]);
             return { customers, total };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customers', { error });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching customers', { error });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
 }

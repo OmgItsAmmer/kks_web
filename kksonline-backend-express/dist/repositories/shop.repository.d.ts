@@ -1,4 +1,4 @@
-import { Prisma } from '../config/database.config.ts';
+import { Prisma } from '../config/database.config';
 import type { Shop, AppVersion } from '@prisma/client';
 export declare class ShopRepository {
     /**

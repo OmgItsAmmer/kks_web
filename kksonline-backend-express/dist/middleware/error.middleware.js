@@ -1,23 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.asyncHandler = exports.notFoundHandler = exports.errorHandler = void 0;
-const errors_ts_1 = require("../utils/errors.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const env_config_ts_1 = require("../config/env.config.ts");
+const errors_1 = require("../utils/errors");
+const logger_1 = require("../utils/logger");
+const env_config_1 = require("../config/env.config");
 /**
  * Global error handling middleware
  */
 const errorHandler = (err, req, res, _next) => {
     // Log the error
-    if ((0, errors_ts_1.isOperationalError)(err)) {
-        logger_ts_1.logger.warn('Operational error', {
+    if ((0, errors_1.isOperationalError)(err)) {
+        logger_1.logger.warn('Operational error', {
             error: err.message,
             path: req.path,
             method: req.method,
         });
     }
     else {
-        logger_ts_1.logger.error('Unexpected error', {
+        logger_1.logger.error('Unexpected error', {
             error: err.message,
             stack: err.stack,
             path: req.path,
@@ -25,14 +25,14 @@ const errorHandler = (err, req, res, _next) => {
         });
     }
     // Handle API errors
-    if (err instanceof errors_ts_1.ApiError) {
+    if (err instanceof errors_1.ApiError) {
         const response = {
             success: false,
             error: err.message,
             errorCode: err.errorCode,
         };
         // Add validation errors if present
-        if (err instanceof errors_ts_1.ValidationError) {
+        if (err instanceof errors_1.ValidationError) {
             response.errors = err.errors;
         }
         return res.status(err.statusCode).json(response);
@@ -85,14 +85,14 @@ const errorHandler = (err, req, res, _next) => {
     }
     // Default error response
     const statusCode = 500;
-    const message = env_config_ts_1.config.server.isProduction
+    const message = env_config_1.config.server.isProduction
         ? 'Internal server error'
         : err.message;
     return res.status(statusCode).json({
         success: false,
         error: message,
         errorCode: 'INTERNAL_ERROR',
-        ...(env_config_ts_1.config.server.isDevelopment && { stack: err.stack }),
+        ...(env_config_1.config.server.isDevelopment && { stack: err.stack }),
     });
 };
 exports.errorHandler = errorHandler;

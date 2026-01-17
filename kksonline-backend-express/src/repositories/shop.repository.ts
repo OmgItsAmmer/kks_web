@@ -1,7 +1,7 @@
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { InternalServerError, NotFoundError } from '../utils/errors.ts';
-import { CacheKeys, withCache, deleteFromCache } from '../utils/cache.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { InternalServerError, NotFoundError } from '../utils/errors';
+import { CacheKeys, withCache, deleteFromCache } from '../utils/cache';
 import type { Shop, AppVersion } from '@prisma/client';
 
 export class ShopRepository {

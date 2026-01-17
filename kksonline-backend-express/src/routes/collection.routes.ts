@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { collectionRepository } from '../repositories/collection.repository.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response.ts';
-import { logger } from '../utils/logger.ts';
+import { collectionRepository } from '../repositories/collection.repository';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response';
+import { logger } from '../utils/logger';
 
 const router = Router();
 

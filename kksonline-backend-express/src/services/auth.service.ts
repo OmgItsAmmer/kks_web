@@ -1,9 +1,9 @@
 import { OAuth2Client } from 'google-auth-library';
-import { config } from '../config/env.config.ts';
-import { customerRepository } from '../repositories/customer.repository.ts';
-import { generateToken } from '../utils/jwt.utils.ts';
-import { logger } from '../utils/logger.ts';
-import { InternalServerError, UnauthorizedError } from '../utils/errors.ts';
+import { config } from '../config/env.config';
+import { customerRepository } from '../repositories/customer.repository';
+import { generateToken } from '../utils/jwt.utils';
+import { logger } from '../utils/logger';
+import { InternalServerError, UnauthorizedError } from '../utils/errors';
 
 const client = new OAuth2Client(config.auth.googleClientId);
 
@@ -22,7 +22,7 @@ export class AuthService {
             // Decode token to see what audience it was issued for (for debugging)
             try {
                 const tokenParts = idToken.split('.');
-                if (tokenParts.length === 3) {
+                if (tokenParts.length === 3 && tokenParts[1]) {
                     const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
                     logger.info('Token payload audience:', {
                         audience: payload.aud,

@@ -1,12 +1,12 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
-import { orderRepository } from '../repositories/order.repository.ts';
-import { checkoutService } from '../services/checkout.service.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { requireCustomer } from '../middleware/customer.middleware.ts';
-import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../utils/response.ts';
-import type { CustomerRequest, ErrorCode } from '../types/api.types.ts';
+import { orderRepository } from '../repositories/order.repository';
+import { checkoutService } from '../services/checkout.service';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { requireCustomer } from '../middleware/customer.middleware';
+import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../utils/response';
+import type { CustomerRequest, ErrorCode } from '../types/api.types';
 
 const router = Router();
 

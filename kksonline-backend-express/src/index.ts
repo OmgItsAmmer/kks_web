@@ -5,11 +5,11 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 
-import { config } from "./config/env.config.ts";
-import { logger } from "./utils/logger.ts";
-import { errorHandler, notFoundHandler } from "./middleware/error.middleware.ts";
-import { extractCustomerId } from "./middleware/customer.middleware.ts";
-import routes from "./routes/index.ts";
+import { config } from "./config/env.config";
+import { logger } from "./utils/logger";
+import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
+import { extractCustomerId } from "./middleware/customer.middleware";
+import routes from "./routes/index";
 import { setTimeout } from 'node:timers';
 
 // Create Express app

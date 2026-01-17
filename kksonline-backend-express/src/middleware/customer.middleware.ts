@@ -1,7 +1,7 @@
 import type { Response, NextFunction, Request } from 'express';
-import type { CustomerRequest } from '../types/api.types.ts';
-import { verifyToken } from '../utils/jwt.utils.ts';
-import { sendError } from '../utils/response.ts';
+import type { CustomerRequest } from '../types/api.types';
+import { verifyToken } from '../utils/jwt.utils';
+import { sendError } from '../utils/response';
 
 /**
  * Middleware to extract customer ID from request.

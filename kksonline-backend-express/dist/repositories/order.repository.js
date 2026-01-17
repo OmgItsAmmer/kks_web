@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.orderRepository = exports.OrderRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
 class OrderRepository {
     /**
      * Get orders for a customer
@@ -17,19 +17,19 @@ class OrderRepository {
                 where.status = status;
             }
             const [orders, total] = await Promise.all([
-                database_config_ts_1.db.order.findMany({
+                database_config_1.db.order.findMany({
                     where,
                     orderBy: { order_date: 'desc' },
                     skip: offset,
                     take: pageSize,
                 }),
-                database_config_ts_1.db.order.count({ where }),
+                database_config_1.db.order.count({ where }),
             ]);
             return { orders, total };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching orders', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching orders', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -37,14 +37,14 @@ class OrderRepository {
      */
     async findById(orderId) {
         try {
-            const order = await database_config_ts_1.db.order.findUnique({
+            const order = await database_config_1.db.order.findUnique({
                 where: { order_id: orderId },
             });
             return order;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching order', { error, orderId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching order', { error, orderId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -52,7 +52,7 @@ class OrderRepository {
      */
     async findByIdWithDetails(orderId) {
         try {
-            const order = await database_config_ts_1.db.order.findUnique({
+            const order = await database_config_1.db.order.findUnique({
                 where: { order_id: orderId },
                 include: {
                     address: true,
@@ -70,7 +70,7 @@ class OrderRepository {
             if (!order)
                 return null;
             // Get order items
-            const items = await database_config_ts_1.db.orderItem.findMany({
+            const items = await database_config_1.db.orderItem.findMany({
                 where: { order_id: orderId },
                 include: {
                     product: {
@@ -80,7 +80,7 @@ class OrderRepository {
             });
             // Get variant names
             const variantIds = items.map((item) => item.variant_id);
-            const variants = await database_config_ts_1.db.productVariant.findMany({
+            const variants = await database_config_1.db.productVariant.findMany({
                 where: { variant_id: { in: variantIds } },
                 select: { variant_id: true, variant_name: true },
             });
@@ -101,8 +101,8 @@ class OrderRepository {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching order with details', { error, orderId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching order with details', { error, orderId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -110,14 +110,14 @@ class OrderRepository {
      */
     async create(orderData) {
         try {
-            const order = await database_config_ts_1.db.order.create({
+            const order = await database_config_1.db.order.create({
                 data: orderData,
             });
             return order;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating order', { error });
-            throw new errors_ts_1.InternalServerError('Failed to create order');
+            logger_1.logger.error('Error creating order', { error });
+            throw new errors_1.InternalServerError('Failed to create order');
         }
     }
     /**
@@ -125,7 +125,7 @@ class OrderRepository {
      */
     async createOrderItems(items) {
         try {
-            await database_config_ts_1.db.orderItem.createMany({
+            await database_config_1.db.orderItem.createMany({
                 data: items.map((item) => ({
                     order_id: item.order_id,
                     product_id: item.product_id,
@@ -137,8 +137,8 @@ class OrderRepository {
             });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating order items', { error });
-            throw new errors_ts_1.InternalServerError('Failed to create order items');
+            logger_1.logger.error('Error creating order items', { error });
+            throw new errors_1.InternalServerError('Failed to create order items');
         }
     }
     /**
@@ -146,7 +146,7 @@ class OrderRepository {
      */
     async updateStatus(orderId, status) {
         try {
-            const order = await database_config_ts_1.db.order.update({
+            const order = await database_config_1.db.order.update({
                 where: { order_id: orderId },
                 data: { status },
             });
@@ -154,10 +154,10 @@ class OrderRepository {
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Order not found');
+                throw new errors_1.NotFoundError('Order not found');
             }
-            logger_ts_1.logger.error('Error updating order status', { error, orderId });
-            throw new errors_ts_1.InternalServerError('Failed to update order');
+            logger_1.logger.error('Error updating order status', { error, orderId });
+            throw new errors_1.InternalServerError('Failed to update order');
         }
     }
     /**
@@ -165,7 +165,7 @@ class OrderRepository {
      */
     async update(orderId, updates) {
         try {
-            const order = await database_config_ts_1.db.order.update({
+            const order = await database_config_1.db.order.update({
                 where: { order_id: orderId },
                 data: updates,
             });
@@ -173,10 +173,10 @@ class OrderRepository {
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Order not found');
+                throw new errors_1.NotFoundError('Order not found');
             }
-            logger_ts_1.logger.error('Error updating order', { error, orderId });
-            throw new errors_ts_1.InternalServerError('Failed to update order');
+            logger_1.logger.error('Error updating order', { error, orderId });
+            throw new errors_1.InternalServerError('Failed to update order');
         }
     }
     /**
@@ -184,13 +184,13 @@ class OrderRepository {
      */
     async findByIdempotencyKey(idempotencyKey) {
         try {
-            const order = await database_config_ts_1.db.order.findUnique({
+            const order = await database_config_1.db.order.findUnique({
                 where: { idempotency_key: idempotencyKey },
             });
             return order;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error checking idempotency key', { error, idempotencyKey });
+            logger_1.logger.error('Error checking idempotency key', { error, idempotencyKey });
             return null;
         }
     }
@@ -199,14 +199,14 @@ class OrderRepository {
      */
     async getOrderItems(orderId) {
         try {
-            const items = await database_config_ts_1.db.orderItem.findMany({
+            const items = await database_config_1.db.orderItem.findMany({
                 where: { order_id: orderId },
             });
             return items;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching order items', { error, orderId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching order items', { error, orderId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -233,19 +233,19 @@ class OrderRepository {
                 };
             }
             const [orders, total] = await Promise.all([
-                database_config_ts_1.db.order.findMany({
+                database_config_1.db.order.findMany({
                     where,
                     orderBy: { order_date: 'desc' },
                     skip: offset,
                     take: pageSize,
                 }),
-                database_config_ts_1.db.order.count({ where }),
+                database_config_1.db.order.count({ where }),
             ]);
             return { orders, total };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching all orders', { error });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching all orders', { error });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -263,7 +263,7 @@ class OrderRepository {
                     lte: new Date(params.endDate),
                 };
             }
-            const orders = await database_config_ts_1.db.order.findMany({
+            const orders = await database_config_1.db.order.findMany({
                 where,
                 select: { status: true, paid_amount: true },
             });
@@ -289,8 +289,8 @@ class OrderRepository {
             return stats;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error getting order statistics', { error });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error getting order statistics', { error });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
 }

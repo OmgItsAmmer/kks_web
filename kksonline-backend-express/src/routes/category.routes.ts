@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { categoryRepository } from '../repositories/category.repository.ts';
-import { imageService } from '../services/image.service.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { sendSuccess, sendNotFound } from '../utils/response.ts';
+import { categoryRepository } from '../repositories/category.repository';
+import { imageService } from '../services/image.service';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { sendSuccess, sendNotFound } from '../utils/response';
 
 const router = Router();
 

@@ -1,9 +1,10 @@
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { InternalServerError, NotFoundError, ConflictError } from '../utils/errors.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { InternalServerError, NotFoundError, ConflictError } from '../utils/errors';
 import type { Review } from '@prisma/client';
 
-export interface ReviewWithCustomer extends Review {
+export interface ReviewWithCustomer extends Omit<Review, 'review_id'> {
+  review_id: number | bigint;
   customerName?: string;
 }
 

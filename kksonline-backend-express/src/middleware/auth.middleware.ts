@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { verifyToken, type TokenPayload } from '../utils/jwt.utils.ts';
-import { sendError } from '../utils/response.ts';
+import { verifyToken, type TokenPayload } from '../utils/jwt.utils';
+import { sendError } from '../utils/response';
 
 declare global {
     namespace Express {
@@ -11,7 +11,7 @@ declare global {
     }
 }
 
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
     try {
         const authHeader = req.headers.authorization;
 
@@ -33,6 +33,6 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
         next();
     } catch (error) {
-        return sendError(res, 'Invalid token', 401);
+        sendError(res, 'Invalid token', 401);
     }
 };

@@ -1,16 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reviewRepository = exports.ReviewRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
 class ReviewRepository {
     /**
      * Get reviews for a product
      */
     async findByProductId(productId) {
         try {
-            const reviews = await database_config_ts_1.db.review.findMany({
+            const reviews = await database_config_1.db.review.findMany({
                 where: { product_id: productId },
                 include: {
                     customer: {
@@ -28,8 +28,8 @@ class ReviewRepository {
             }));
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching reviews', { error, productId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching reviews', { error, productId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -37,14 +37,14 @@ class ReviewRepository {
      */
     async findById(reviewId) {
         try {
-            const review = await database_config_ts_1.db.review.findUnique({
+            const review = await database_config_1.db.review.findUnique({
                 where: { review_id: reviewId },
             });
             return review;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching review', { error, reviewId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching review', { error, reviewId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -52,7 +52,7 @@ class ReviewRepository {
      */
     async findByCustomerAndProduct(customerId, productId) {
         try {
-            const review = await database_config_ts_1.db.review.findFirst({
+            const review = await database_config_1.db.review.findFirst({
                 where: {
                     customer_id: customerId,
                     product_id: productId,
@@ -61,7 +61,7 @@ class ReviewRepository {
             return review;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customer review', { error, customerId, productId });
+            logger_1.logger.error('Error fetching customer review', { error, customerId, productId });
             return null;
         }
     }
@@ -70,14 +70,14 @@ class ReviewRepository {
      */
     async create(review) {
         try {
-            const newReview = await database_config_ts_1.db.review.create({
+            const newReview = await database_config_1.db.review.create({
                 data: review,
             });
             return newReview;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating review', { error });
-            throw new errors_ts_1.InternalServerError('Failed to create review');
+            logger_1.logger.error('Error creating review', { error });
+            throw new errors_1.InternalServerError('Failed to create review');
         }
     }
     /**
@@ -87,7 +87,7 @@ class ReviewRepository {
         // Check if customer already reviewed this product
         const existing = await this.findByCustomerAndProduct(customerId, productId);
         if (existing) {
-            throw new errors_ts_1.ConflictError('You have already reviewed this product');
+            throw new errors_1.ConflictError('You have already reviewed this product');
         }
         return this.create({
             customer: { connect: { customer_id: customerId } },
@@ -101,7 +101,7 @@ class ReviewRepository {
      */
     async update(reviewId, updates) {
         try {
-            const review = await database_config_ts_1.db.review.update({
+            const review = await database_config_1.db.review.update({
                 where: { review_id: reviewId },
                 data: updates,
             });
@@ -109,10 +109,10 @@ class ReviewRepository {
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Review not found');
+                throw new errors_1.NotFoundError('Review not found');
             }
-            logger_ts_1.logger.error('Error updating review', { error, reviewId });
-            throw new errors_ts_1.InternalServerError('Failed to update review');
+            logger_1.logger.error('Error updating review', { error, reviewId });
+            throw new errors_1.InternalServerError('Failed to update review');
         }
     }
     /**
@@ -120,14 +120,14 @@ class ReviewRepository {
      */
     async delete(reviewId) {
         try {
-            await database_config_ts_1.db.review.delete({
+            await database_config_1.db.review.delete({
                 where: { review_id: reviewId },
             });
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error deleting review', { error, reviewId });
-            throw new errors_ts_1.InternalServerError('Failed to delete review');
+            logger_1.logger.error('Error deleting review', { error, reviewId });
+            throw new errors_1.InternalServerError('Failed to delete review');
         }
     }
     /**
@@ -135,7 +135,7 @@ class ReviewRepository {
      */
     async getAverageRating(productId) {
         try {
-            const reviews = await database_config_ts_1.db.review.findMany({
+            const reviews = await database_config_1.db.review.findMany({
                 where: { product_id: productId },
                 select: { rating: true },
             });
@@ -151,7 +151,7 @@ class ReviewRepository {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error getting average rating', { error, productId });
+            logger_1.logger.error('Error getting average rating', { error, productId });
             return { average: 0, count: 0 };
         }
     }
@@ -160,15 +160,15 @@ class ReviewRepository {
      */
     async findByCustomerId(customerId) {
         try {
-            const reviews = await database_config_ts_1.db.review.findMany({
+            const reviews = await database_config_1.db.review.findMany({
                 where: { customer_id: customerId },
                 orderBy: { sent_at: 'desc' },
             });
             return reviews;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching customer reviews', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching customer reviews', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -176,7 +176,7 @@ class ReviewRepository {
      */
     async belongsToCustomer(reviewId, customerId) {
         try {
-            const review = await database_config_ts_1.db.review.findFirst({
+            const review = await database_config_1.db.review.findFirst({
                 where: {
                     review_id: reviewId,
                     customer_id: customerId,
@@ -201,7 +201,7 @@ class ReviewRepository {
             if (customerId)
                 where.customer_id = customerId;
             const [reviews, total] = await Promise.all([
-                database_config_ts_1.db.review.findMany({
+                database_config_1.db.review.findMany({
                     where,
                     include: {
                         customer: {
@@ -212,7 +212,7 @@ class ReviewRepository {
                     skip: offset,
                     take: pageSize,
                 }),
-                database_config_ts_1.db.review.count({ where }),
+                database_config_1.db.review.count({ where }),
             ]);
             const reviewsWithCustomer = reviews.map((review) => ({
                 ...review,
@@ -224,8 +224,8 @@ class ReviewRepository {
             return { reviews: reviewsWithCustomer, total };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching all reviews', { error });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching all reviews', { error });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -233,7 +233,7 @@ class ReviewRepository {
      */
     async findByMinRating(minRating, limit = 10) {
         try {
-            const reviews = await database_config_ts_1.db.review.findMany({
+            const reviews = await database_config_1.db.review.findMany({
                 where: {
                     rating: {
                         gte: minRating,
@@ -256,8 +256,8 @@ class ReviewRepository {
             }));
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching reviews by min rating', { error, minRating });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching reviews by min rating', { error, minRating });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -265,7 +265,7 @@ class ReviewRepository {
      */
     async getHappyCustomersStats() {
         try {
-            const reviews = await database_config_ts_1.db.review.findMany({
+            const reviews = await database_config_1.db.review.findMany({
                 where: {
                     rating: {
                         gt: 4,
@@ -284,7 +284,7 @@ class ReviewRepository {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error getting happy customers stats', { error });
+            logger_1.logger.error('Error getting happy customers stats', { error });
             return { count: 0, averageRating: 0 };
         }
     }

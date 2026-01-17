@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { ApiError, ValidationError, isOperationalError } from "../utils/errors.ts";
-import { logger } from "../utils/logger.ts";
-import { config } from "../config/env.config.ts";
-import type { ApiResponse } from "../types/api.types.ts";
+import { ApiError, ValidationError, isOperationalError } from "../utils/errors";
+import { logger } from "../utils/logger";
+import { config } from "../config/env.config";
+import type { ApiResponse } from "../types/api.types";
 
 /**
  * Global error handling middleware

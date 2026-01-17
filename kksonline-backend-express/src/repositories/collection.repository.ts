@@ -1,13 +1,13 @@
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { NotFoundError, InternalServerError, BadRequestError } from '../utils/errors.ts';
-import { supabaseImageService } from '../services/supabase-image.service.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { NotFoundError, InternalServerError, BadRequestError } from '../utils/errors';
+import { supabaseImageService } from '../services/supabase-image.service';
 import {
   CacheKeys,
   generateCacheKey,
   deleteByPattern,
   withCache
-} from '../utils/cache.ts';
+} from '../utils/cache';
 
 export interface CollectionWithItems {
   collection_id: number;
@@ -524,7 +524,7 @@ export class CollectionRepository {
         ${activeOnly ? Prisma.sql`WHERE is_active = true` : Prisma.empty}
       `;
 
-      return Number(result[0].count);
+      return Number(result[0]?.count ?? 0);
     } catch (error) {
       logger.error('Error getting collection count', { error });
       return 0;

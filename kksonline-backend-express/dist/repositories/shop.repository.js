@@ -1,23 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shopRepository = exports.ShopRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
-const cache_ts_1 = require("../utils/cache.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
+const cache_1 = require("../utils/cache");
 class ShopRepository {
     /**
      * Get shop configuration
      */
     async getConfig() {
-        return (0, cache_ts_1.withCache)(cache_ts_1.CacheKeys.SHOP_CONFIG, async () => {
+        return (0, cache_1.withCache)(cache_1.CacheKeys.SHOP_CONFIG, async () => {
             try {
-                const shop = await database_config_ts_1.db.shop.findFirst();
+                const shop = await database_config_1.db.shop.findFirst();
                 return shop;
             }
             catch (error) {
-                logger_ts_1.logger.error('Error fetching shop config', { error });
-                throw new errors_ts_1.InternalServerError('Database error');
+                logger_1.logger.error('Error fetching shop config', { error });
+                throw new errors_1.InternalServerError('Database error');
             }
         });
     }
@@ -63,36 +63,36 @@ class ShopRepository {
         // Get current config to get shop_id
         const current = await this.getConfig();
         if (!current) {
-            throw new errors_ts_1.NotFoundError('Shop configuration not found');
+            throw new errors_1.NotFoundError('Shop configuration not found');
         }
         try {
-            const shop = await database_config_ts_1.db.shop.update({
+            const shop = await database_config_1.db.shop.update({
                 where: { shop_id: current.shop_id },
                 data: updates,
             });
             // Invalidate cache
-            (0, cache_ts_1.deleteFromCache)(cache_ts_1.CacheKeys.SHOP_CONFIG);
+            (0, cache_1.deleteFromCache)(cache_1.CacheKeys.SHOP_CONFIG);
             return shop;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error updating shop config', { error });
-            throw new errors_ts_1.InternalServerError('Failed to update shop configuration');
+            logger_1.logger.error('Error updating shop config', { error });
+            throw new errors_1.InternalServerError('Failed to update shop configuration');
         }
     }
     /**
      * Get latest app version
      */
     async getLatestAppVersion() {
-        return (0, cache_ts_1.withCache)(cache_ts_1.CacheKeys.APP_VERSION, async () => {
+        return (0, cache_1.withCache)(cache_1.CacheKeys.APP_VERSION, async () => {
             try {
-                const version = await database_config_ts_1.db.appVersion.findFirst({
+                const version = await database_config_1.db.appVersion.findFirst({
                     orderBy: { created_at: 'desc' },
                 });
                 return version;
             }
             catch (error) {
-                logger_ts_1.logger.error('Error fetching app version', { error });
-                throw new errors_ts_1.InternalServerError('Database error');
+                logger_1.logger.error('Error fetching app version', { error });
+                throw new errors_1.InternalServerError('Database error');
             }
         });
     }
@@ -127,7 +127,7 @@ class ShopRepository {
      */
     async createAppVersion(version) {
         try {
-            const appVersion = await database_config_ts_1.db.appVersion.create({
+            const appVersion = await database_config_1.db.appVersion.create({
                 data: {
                     version: version.version,
                     force_update: version.forceUpdate ?? false,
@@ -137,12 +137,12 @@ class ShopRepository {
                 },
             });
             // Invalidate cache
-            (0, cache_ts_1.deleteFromCache)(cache_ts_1.CacheKeys.APP_VERSION);
+            (0, cache_1.deleteFromCache)(cache_1.CacheKeys.APP_VERSION);
             return appVersion;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating app version', { error });
-            throw new errors_ts_1.InternalServerError('Failed to create app version');
+            logger_1.logger.error('Error creating app version', { error });
+            throw new errors_1.InternalServerError('Failed to create app version');
         }
     }
     /**

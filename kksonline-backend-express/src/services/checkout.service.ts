@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
 import {
   BadRequestError,
   DuplicateOrderError,
@@ -10,12 +10,12 @@ import {
   PhoneNumberRequiredError,
   PaymentFailedError,
   OrderCreationFailedError,
-} from '../utils/errors.ts';
-import { customerRepository } from '../repositories/customer.repository.ts';
-import { cartRepository } from '../repositories/cart.repository.ts';
-import { orderRepository } from '../repositories/order.repository.ts';
-import { addressRepository } from '../repositories/address.repository.ts';
-import { shopRepository } from '../repositories/shop.repository.ts';
+} from '../utils/errors';
+import { customerRepository } from '../repositories/customer.repository';
+import { cartRepository } from '../repositories/cart.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { addressRepository } from '../repositories/address.repository';
+import { shopRepository } from '../repositories/shop.repository';
 import type { PaymentMethod, SeverityLevel, OrderStatus } from '@prisma/client';
 
 export interface CartItem {

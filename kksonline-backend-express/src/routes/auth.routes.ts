@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authService } from '../services/auth.service.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { authenticate } from '../middleware/auth.middleware.ts';
-import { sendSuccess, sendError } from '../utils/response.ts';
-import { logger } from '../utils/logger.ts';
+import { authService } from '../services/auth.service';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { authenticate } from '../middleware/auth.middleware';
+import { sendSuccess, sendError } from '../utils/response';
+import { logger } from '../utils/logger';
 
 const router = Router();
 

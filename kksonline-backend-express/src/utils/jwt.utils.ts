@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env.config.ts';
-import { logger } from './logger.ts';
+import { config } from '../config/env.config';
+import { logger } from './logger';
 
 export interface TokenPayload {
     id: number;

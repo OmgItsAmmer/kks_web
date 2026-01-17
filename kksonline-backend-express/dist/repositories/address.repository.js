@@ -1,24 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.addressRepository = exports.AddressRepository = void 0;
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
 class AddressRepository {
     /**
      * Get all addresses for a customer
      */
     async findByCustomerId(customerId) {
         try {
-            const addresses = await database_config_ts_1.db.address.findMany({
+            const addresses = await database_config_1.db.address.findMany({
                 where: { customer_id: customerId },
                 orderBy: { address_id: 'desc' },
             });
             return addresses;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching addresses', { error, customerId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching addresses', { error, customerId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -26,14 +26,14 @@ class AddressRepository {
      */
     async findById(addressId) {
         try {
-            const address = await database_config_ts_1.db.address.findUnique({
+            const address = await database_config_1.db.address.findUnique({
                 where: { address_id: addressId },
             });
             return address;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching address', { error, addressId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching address', { error, addressId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -41,30 +41,30 @@ class AddressRepository {
      */
     async create(address) {
         try {
-            const newAddress = await database_config_ts_1.db.address.create({
+            const newAddress = await database_config_1.db.address.create({
                 data: address,
             });
             return newAddress;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating address', { error, addressData: address });
+            logger_1.logger.error('Error creating address', { error, addressData: address });
             // Check if it's a Prisma validation error
             if (error.code === 'P2002') {
-                throw new errors_ts_1.InternalServerError('Address with this information already exists');
+                throw new errors_1.InternalServerError('Address with this information already exists');
             }
             if (error.code === 'P2003') {
-                throw new errors_ts_1.InternalServerError('Invalid reference: customer, vendor, salesman, or user not found');
+                throw new errors_1.InternalServerError('Invalid reference: customer, vendor, salesman, or user not found');
             }
             // Check for check constraint violations (PostgreSQL error code 23514)
             const errorMessage = error.message || '';
             if (errorMessage.includes('chk_valid_text_fields') || errorMessage.includes('violates check constraint')) {
-                throw new errors_ts_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
+                throw new errors_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
             }
             // Include more details in development
             const finalMessage = process.env.NODE_ENV === 'development'
                 ? `Failed to create address: ${errorMessage || 'Unknown error'}`
                 : 'Failed to create address';
-            throw new errors_ts_1.InternalServerError(finalMessage);
+            throw new errors_1.InternalServerError(finalMessage);
         }
     }
     /**
@@ -72,7 +72,7 @@ class AddressRepository {
      */
     async update(addressId, updates) {
         try {
-            const address = await database_config_ts_1.db.address.update({
+            const address = await database_config_1.db.address.update({
                 where: { address_id: addressId },
                 data: updates,
             });
@@ -80,15 +80,15 @@ class AddressRepository {
         }
         catch (error) {
             if (error.code === 'P2025') {
-                throw new errors_ts_1.NotFoundError('Address not found');
+                throw new errors_1.NotFoundError('Address not found');
             }
             // Check for check constraint violations
             const errorMessage = error.message || '';
             if (errorMessage.includes('chk_valid_text_fields') || errorMessage.includes('violates check constraint')) {
-                throw new errors_ts_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
+                throw new errors_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
             }
-            logger_ts_1.logger.error('Error updating address', { error, addressId });
-            throw new errors_ts_1.InternalServerError('Failed to update address');
+            logger_1.logger.error('Error updating address', { error, addressId });
+            throw new errors_1.InternalServerError('Failed to update address');
         }
     }
     /**
@@ -96,14 +96,14 @@ class AddressRepository {
      */
     async delete(addressId) {
         try {
-            await database_config_ts_1.db.address.delete({
+            await database_config_1.db.address.delete({
                 where: { address_id: addressId },
             });
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error deleting address', { error, addressId });
-            throw new errors_ts_1.InternalServerError('Failed to delete address');
+            logger_1.logger.error('Error deleting address', { error, addressId });
+            throw new errors_1.InternalServerError('Failed to delete address');
         }
     }
     /**
@@ -116,7 +116,7 @@ class AddressRepository {
             if (!address) {
                 return null;
             }
-            const orderAddress = await database_config_ts_1.db.orderAddress.create({
+            const orderAddress = await database_config_1.db.orderAddress.create({
                 data: {
                     shipping_address: address.shipping_address,
                     phone_number: address.phone_number,
@@ -139,7 +139,7 @@ class AddressRepository {
             return orderAddress.order_address_id;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error copying address to order address', { error, addressId });
+            logger_1.logger.error('Error copying address to order address', { error, addressId });
             return null;
         }
     }
@@ -148,14 +148,14 @@ class AddressRepository {
      */
     async getOrderAddress(orderAddressId) {
         try {
-            const orderAddress = await database_config_ts_1.db.orderAddress.findUnique({
+            const orderAddress = await database_config_1.db.orderAddress.findUnique({
                 where: { order_address_id: orderAddressId },
             });
             return orderAddress;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching order address', { error, orderAddressId });
-            throw new errors_ts_1.InternalServerError('Database error');
+            logger_1.logger.error('Error fetching order address', { error, orderAddressId });
+            throw new errors_1.InternalServerError('Database error');
         }
     }
     /**
@@ -163,7 +163,7 @@ class AddressRepository {
      */
     async belongsToCustomer(addressId, customerId) {
         try {
-            const address = await database_config_ts_1.db.address.findFirst({
+            const address = await database_config_1.db.address.findFirst({
                 where: {
                     address_id: addressId,
                     customer_id: customerId,
@@ -180,13 +180,13 @@ class AddressRepository {
      */
     async getCount(customerId) {
         try {
-            const count = await database_config_ts_1.db.address.count({
+            const count = await database_config_1.db.address.count({
                 where: { customer_id: customerId },
             });
             return count;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error getting address count', { error, customerId });
+            logger_1.logger.error('Error getting address count', { error, customerId });
             return 0;
         }
     }

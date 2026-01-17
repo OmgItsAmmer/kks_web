@@ -1,6 +1,6 @@
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { InternalServerError, NotFoundError } from '../utils/errors.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { InternalServerError, NotFoundError } from '../utils/errors';
 import type { Order, OrderItem, Address, Customer, OrderStatus } from '@prisma/client';
 
 export interface OrderItemWithProduct {

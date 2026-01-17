@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
-import { ValidationError } from "../utils/errors.ts";
+import { ValidationError } from "../utils/errors";
 
 /**
  * Validation middleware factory using Zod schemas

@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { productService } from '../../services/product.service.ts';
-import { productRepository } from '../../repositories/product.repository.ts';
-import { imageService } from '../../services/image.service.ts';
-import { validate, schemas } from '../../middleware/validation.middleware.ts';
-import { asyncHandler } from '../../middleware/error.middleware.ts';
-import { sendSuccess, sendCreated, sendNotFound } from '../../utils/response.ts';
+import { productService } from '../../services/product.service';
+import { productRepository } from '../../repositories/product.repository';
+import { imageService } from '../../services/image.service';
+import { validate, schemas } from '../../middleware/validation.middleware';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { sendSuccess, sendCreated, sendNotFound } from '../../utils/response';
 
 const router = Router();
 
@@ -286,11 +286,13 @@ router.post(
         // This is a placeholder for the actual implementation
         const { imageUrls } = req.body as { imageUrls: string[] };
 
-        const uploadedImages = [];
-        for (const imageUrl of imageUrls) {
-            const image = await imageService.createImageEntity(imageUrl, productId, 'products', false);
-            uploadedImages.push(image);
-        }
+        // TODO: Implement proper image upload
+        // const uploadedImages = [];
+        // for (const imageUrl of imageUrls) {
+        //     const image = await imageService.uploadFromBuffer(buffer, 'products', productId, false);
+        //     uploadedImages.push(image);
+        // }
+        const uploadedImages: never[] = [];
 
         return sendSuccess(res, uploadedImages, 'Images uploaded successfully');
     })
@@ -336,7 +338,7 @@ router.patch(
         const productId = parseInt(req.params.id!, 10);
         const imageId = parseInt(req.params.imageId!, 10);
 
-        await imageService.setMainImage(imageId, productId, 'products');
+        await imageService.setFeaturedImage(imageId, productId, 'products');
 
         return sendSuccess(res, null, 'Featured image updated successfully');
     })

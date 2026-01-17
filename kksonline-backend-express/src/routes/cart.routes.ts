@@ -1,12 +1,12 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
-import { cartRepository } from '../repositories/cart.repository.ts';
-import { imageService } from '../services/image.service.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { requireCustomer } from '../middleware/customer.middleware.ts';
-import { sendSuccess, sendError, sendCreated, sendNoContent } from '../utils/response.ts';
-import type { CustomerRequest } from '../types/api.types.ts';
+import { cartRepository } from '../repositories/cart.repository';
+import { imageService } from '../services/image.service';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { requireCustomer } from '../middleware/customer.middleware';
+import { sendSuccess, sendError, sendCreated, sendNoContent } from '../utils/response';
+import type { CustomerRequest } from '../types/api.types';
 
 const router = Router();
 

@@ -1,4 +1,4 @@
-import { Prisma } from '../config/database.config.ts';
+import { Prisma } from '../config/database.config';
 import type { Order, OrderItem, Address, Customer, OrderStatus } from '@prisma/client';
 export interface OrderItemWithProduct {
     productId: number;

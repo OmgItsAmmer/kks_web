@@ -1,13 +1,13 @@
-import { db, Prisma } from '../config/database.config.ts';
-import { logger } from '../utils/logger.ts';
-import { NotFoundError, InternalServerError } from '../utils/errors.ts';
+import { db, Prisma } from '../config/database.config';
+import { logger } from '../utils/logger';
+import { NotFoundError, InternalServerError } from '../utils/errors';
 import {
   CacheKeys,
   generateCacheKey,
   deleteByPattern,
   withCache
-} from '../utils/cache.ts';
-import { supabaseImageService } from '../services/supabase-image.service.ts';
+} from '../utils/cache';
+import { supabaseImageService } from '../services/supabase-image.service';
 import type { Product, ProductVariant, Category, Brand } from '@prisma/client';
 
 export interface SearchParams {
@@ -225,7 +225,7 @@ export class ProductRepository {
       }
 
       if (tag) {
-        where.tag = tag as Prisma.EnumProductTagFilter;
+        where.tag = tag as any;
       }
 
       // Price filtering

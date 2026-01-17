@@ -1,5 +1,5 @@
 import type { Response, NextFunction } from 'express';
-import type { CustomerRequest } from '../types/api.types.ts';
+import type { CustomerRequest } from '../types/api.types';
 /**
  * Middleware to extract customer ID from request.
  * Supports both JWT token (Authorization header) and X-Customer-Id header.

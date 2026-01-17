@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productService = exports.ProductService = void 0;
-const product_repository_ts_1 = require("../repositories/product.repository.ts");
-const image_service_ts_1 = require("./image.service.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
+const product_repository_1 = require("../repositories/product.repository");
+const image_service_1 = require("./image.service");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
 class ProductService {
     /**
      * Create a new product
@@ -37,12 +37,12 @@ class ProductService {
                     connect: { brandID: input.brandID },
                 };
             }
-            const product = await product_repository_ts_1.productRepository.create(productData);
-            logger_ts_1.logger.info('Product created successfully', { productId: product.product_id });
+            const product = await product_repository_1.productRepository.create(productData);
+            logger_1.logger.info('Product created successfully', { productId: product.product_id });
             return product;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating product', { error, input });
+            logger_1.logger.error('Error creating product', { error, input });
             throw error;
         }
     }
@@ -51,9 +51,9 @@ class ProductService {
      */
     async updateProduct(productId, input) {
         // Check if product exists
-        const existingProduct = await product_repository_ts_1.productRepository.findById(productId);
+        const existingProduct = await product_repository_1.productRepository.findById(productId);
         if (!existingProduct) {
-            throw new errors_ts_1.NotFoundError('Product not found');
+            throw new errors_1.NotFoundError('Product not found');
         }
         try {
             const updateData = {};
@@ -87,12 +87,12 @@ class ProductService {
                     ? { connect: { brandID: input.brandID } }
                     : { disconnect: true };
             }
-            const product = await product_repository_ts_1.productRepository.update(productId, updateData);
-            logger_ts_1.logger.info('Product updated successfully', { productId });
+            const product = await product_repository_1.productRepository.update(productId, updateData);
+            logger_1.logger.info('Product updated successfully', { productId });
             return product;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error updating product', { error, productId, input });
+            logger_1.logger.error('Error updating product', { error, productId, input });
             throw error;
         }
     }
@@ -101,20 +101,20 @@ class ProductService {
      */
     async deleteProduct(productId) {
         // Check if product exists
-        const existingProduct = await product_repository_ts_1.productRepository.findById(productId);
+        const existingProduct = await product_repository_1.productRepository.findById(productId);
         if (!existingProduct) {
-            throw new errors_ts_1.NotFoundError('Product not found');
+            throw new errors_1.NotFoundError('Product not found');
         }
         try {
             // Delete associated images
-            await image_service_ts_1.imageService.deleteAllImagesForEntity(productId, 'products');
+            await image_service_1.imageService.deleteAllImagesForEntity(productId, 'products');
             // Delete product (variants will be cascade deleted by DB)
-            await product_repository_ts_1.productRepository.delete(productId);
-            logger_ts_1.logger.info('Product deleted successfully', { productId });
+            await product_repository_1.productRepository.delete(productId);
+            logger_1.logger.info('Product deleted successfully', { productId });
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error deleting product', { error, productId });
+            logger_1.logger.error('Error deleting product', { error, productId });
             throw error;
         }
     }
@@ -131,13 +131,13 @@ class ProductService {
         // Validate input
         this.validateVariantInput(input);
         // Check if product exists
-        const product = await product_repository_ts_1.productRepository.findById(input.product_id);
+        const product = await product_repository_1.productRepository.findById(input.product_id);
         if (!product) {
-            throw new errors_ts_1.NotFoundError('Product not found');
+            throw new errors_1.NotFoundError('Product not found');
         }
         // Check if SKU is unique (if provided)
         if (input.sku) {
-            const existingVariant = await product_repository_ts_1.productRepository.getVariantById(input.product_id);
+            const existingVariant = await product_repository_1.productRepository.getVariantById(input.product_id);
             // Note: We'd need to add a method to check SKU uniqueness in repository
         }
         try {
@@ -153,14 +153,14 @@ class ProductService {
                     connect: { product_id: input.product_id },
                 },
             };
-            const variant = await product_repository_ts_1.productRepository.createVariant(variantData);
-            logger_ts_1.logger.info('Product variant created successfully', { variantId: variant.variant_id });
+            const variant = await product_repository_1.productRepository.createVariant(variantData);
+            logger_1.logger.info('Product variant created successfully', { variantId: variant.variant_id });
             // Update product price range
             await this.updateProductPriceRange(input.product_id);
             return variant;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating variant', { error, input });
+            logger_1.logger.error('Error creating variant', { error, input });
             throw error;
         }
     }
@@ -169,9 +169,9 @@ class ProductService {
      */
     async updateVariant(variantId, input) {
         // Check if variant exists
-        const existingVariant = await product_repository_ts_1.productRepository.getVariantById(variantId);
+        const existingVariant = await product_repository_1.productRepository.getVariantById(variantId);
         if (!existingVariant) {
-            throw new errors_ts_1.NotFoundError('Variant not found');
+            throw new errors_1.NotFoundError('Variant not found');
         }
         try {
             const updateData = {};
@@ -190,14 +190,14 @@ class ProductService {
             if (input.alert_stock !== undefined)
                 updateData.alert_stock = input.alert_stock;
             updateData.updated_at = new Date();
-            const variant = await product_repository_ts_1.productRepository.updateVariant(variantId, updateData);
-            logger_ts_1.logger.info('Product variant updated successfully', { variantId });
+            const variant = await product_repository_1.productRepository.updateVariant(variantId, updateData);
+            logger_1.logger.info('Product variant updated successfully', { variantId });
             // Update product price range
             await this.updateProductPriceRange(existingVariant.product_id);
             return variant;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error updating variant', { error, variantId, input });
+            logger_1.logger.error('Error updating variant', { error, variantId, input });
             throw error;
         }
     }
@@ -206,19 +206,19 @@ class ProductService {
      */
     async deleteVariant(variantId) {
         // Check if variant exists
-        const existingVariant = await product_repository_ts_1.productRepository.getVariantById(variantId);
+        const existingVariant = await product_repository_1.productRepository.getVariantById(variantId);
         if (!existingVariant) {
-            throw new errors_ts_1.NotFoundError('Variant not found');
+            throw new errors_1.NotFoundError('Variant not found');
         }
         try {
-            await product_repository_ts_1.productRepository.deleteVariant(variantId);
-            logger_ts_1.logger.info('Product variant deleted successfully', { variantId });
+            await product_repository_1.productRepository.deleteVariant(variantId);
+            logger_1.logger.info('Product variant deleted successfully', { variantId });
             // Update product price range
             await this.updateProductPriceRange(existingVariant.product_id);
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Error deleting variant', { error, variantId });
+            logger_1.logger.error('Error deleting variant', { error, variantId });
             throw error;
         }
     }
@@ -241,7 +241,7 @@ class ProductService {
                 results.errors.push({ productId, error: error.message });
             }
         }
-        logger_ts_1.logger.info('Bulk update completed', results);
+        logger_1.logger.info('Bulk update completed', results);
         return results;
     }
     /**
@@ -263,7 +263,7 @@ class ProductService {
                 results.errors.push({ productId, error: error.message });
             }
         }
-        logger_ts_1.logger.info('Bulk delete completed', results);
+        logger_1.logger.info('Bulk delete completed', results);
         return results;
     }
     /**
@@ -271,25 +271,25 @@ class ProductService {
      */
     async updateProductPriceRange(productId) {
         try {
-            const variants = await product_repository_ts_1.productRepository.getAllVariants(productId);
+            const variants = await product_repository_1.productRepository.getAllVariants(productId);
             if (variants.length === 0) {
-                await product_repository_ts_1.productRepository.update(productId, { price_range: '--' });
+                await product_repository_1.productRepository.update(productId, { price_range: '--' });
                 return;
             }
             const prices = variants
                 .filter((v) => v.is_visible)
                 .map((v) => parseFloat(v.sell_price.toString()));
             if (prices.length === 0) {
-                await product_repository_ts_1.productRepository.update(productId, { price_range: '--' });
+                await product_repository_1.productRepository.update(productId, { price_range: '--' });
                 return;
             }
             const minPrice = Math.min(...prices);
             const maxPrice = Math.max(...prices);
             const priceRange = minPrice === maxPrice ? `${minPrice}` : `${minPrice} - ${maxPrice}`;
-            await product_repository_ts_1.productRepository.update(productId, { price_range: priceRange });
+            await product_repository_1.productRepository.update(productId, { price_range: priceRange });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error updating price range', { error, productId });
+            logger_1.logger.error('Error updating price range', { error, productId });
         }
     }
     /**
@@ -297,21 +297,21 @@ class ProductService {
      */
     validateProductInput(input) {
         if (!input.name || input.name.trim().length === 0) {
-            throw new errors_ts_1.BadRequestError('Product name is required');
+            throw new errors_1.BadRequestError('Product name is required');
         }
         if (input.name.length > 255) {
-            throw new errors_ts_1.BadRequestError('Product name is too long (max 255 characters)');
+            throw new errors_1.BadRequestError('Product name is too long (max 255 characters)');
         }
         // Validate prices if provided
         if (input.base_price && isNaN(parseFloat(input.base_price))) {
-            throw new errors_ts_1.BadRequestError('Invalid base price');
+            throw new errors_1.BadRequestError('Invalid base price');
         }
         if (input.sale_price && isNaN(parseFloat(input.sale_price))) {
-            throw new errors_ts_1.BadRequestError('Invalid sale price');
+            throw new errors_1.BadRequestError('Invalid sale price');
         }
         // Validate stock quantity
         if (input.stock_quantity !== undefined && input.stock_quantity < 0) {
-            throw new errors_ts_1.BadRequestError('Stock quantity cannot be negative');
+            throw new errors_1.BadRequestError('Stock quantity cannot be negative');
         }
     }
     /**
@@ -319,16 +319,16 @@ class ProductService {
      */
     validateVariantInput(input) {
         if (!input.variant_name || input.variant_name.trim().length === 0) {
-            throw new errors_ts_1.BadRequestError('Variant name is required');
+            throw new errors_1.BadRequestError('Variant name is required');
         }
         if (input.buy_price < 0) {
-            throw new errors_ts_1.BadRequestError('Buy price cannot be negative');
+            throw new errors_1.BadRequestError('Buy price cannot be negative');
         }
         if (input.sell_price < 0) {
-            throw new errors_ts_1.BadRequestError('Sell price cannot be negative');
+            throw new errors_1.BadRequestError('Sell price cannot be negative');
         }
         if (input.stock !== undefined && input.stock < 0) {
-            throw new errors_ts_1.BadRequestError('Stock cannot be negative');
+            throw new errors_1.BadRequestError('Stock cannot be negative');
         }
     }
 }

@@ -5,28 +5,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkoutService = exports.CheckoutService = void 0;
 const crypto_1 = __importDefault(require("crypto"));
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
-const customer_repository_ts_1 = require("../repositories/customer.repository.ts");
-const cart_repository_ts_1 = require("../repositories/cart.repository.ts");
-const order_repository_ts_1 = require("../repositories/order.repository.ts");
-const address_repository_ts_1 = require("../repositories/address.repository.ts");
-const shop_repository_ts_1 = require("../repositories/shop.repository.ts");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
+const customer_repository_1 = require("../repositories/customer.repository");
+const cart_repository_1 = require("../repositories/cart.repository");
+const order_repository_1 = require("../repositories/order.repository");
+const address_repository_1 = require("../repositories/address.repository");
+const shop_repository_1 = require("../repositories/shop.repository");
 class CheckoutService {
     /**
      * Process secure checkout
      */
     async processCheckout(customerId, request, clientInfo) {
-        logger_ts_1.logger.info('Starting secure checkout', { customerId, shippingMethod: request.shippingMethod });
+        logger_1.logger.info('Starting secure checkout', { customerId, shippingMethod: request.shippingMethod });
         // Step 1: Validate customer has phone number
-        const customer = await customer_repository_ts_1.customerRepository.findById(customerId);
+        const customer = await customer_repository_1.customerRepository.findById(customerId);
         if (!customer) {
-            throw new errors_ts_1.BadRequestError('Customer not found');
+            throw new errors_1.BadRequestError('Customer not found');
         }
         const phoneNumber = (customer.phone_number || '').trim();
         if (!phoneNumber) {
-            throw new errors_ts_1.PhoneNumberRequiredError();
+            throw new errors_1.PhoneNumberRequiredError();
         }
         // Step 2: Prepare cart items
         let cartItems;
@@ -42,14 +42,14 @@ class CheckoutService {
             cartItems = request.cartItems;
         }
         else {
-            throw new errors_ts_1.BadRequestError('Cart is empty');
+            throw new errors_1.BadRequestError('Cart is empty');
         }
         // Step 3: Generate idempotency key
         const idempotencyKey = request.idempotencyKey || await this.generateIdempotencyKey(customerId, cartItems);
         // Step 4: Check for duplicate orders
-        const existingOrder = await order_repository_ts_1.orderRepository.findByIdempotencyKey(idempotencyKey);
+        const existingOrder = await order_repository_1.orderRepository.findByIdempotencyKey(idempotencyKey);
         if (existingOrder) {
-            throw new errors_ts_1.DuplicateOrderError();
+            throw new errors_1.DuplicateOrderError();
         }
         // Step 5: Validate shipping method
         await this.validateShippingMethod(request.shippingMethod, request.addressId);
@@ -61,31 +61,31 @@ class CheckoutService {
                 error: validation.errorMessage,
                 cart_items: cartItems.length,
             }, clientInfo);
-            throw new errors_ts_1.SecurityViolationError(validation.errorMessage);
+            throw new errors_1.SecurityViolationError(validation.errorMessage);
         }
         // Step 7: Reserve inventory
         const reservationResult = await this.reserveInventory(cartItems, idempotencyKey);
         if (!reservationResult.success) {
-            throw new errors_ts_1.InventoryUnavailableError(reservationResult.message);
+            throw new errors_1.InventoryUnavailableError(reservationResult.message);
         }
         try {
             // Step 8: Process payment
             const paymentResult = await this.processPayment(request.paymentMethod, validation.totals.total, customerId, idempotencyKey);
             if (!paymentResult.success) {
                 await this.rollbackInventoryReservation(idempotencyKey);
-                throw new errors_ts_1.PaymentFailedError(paymentResult.message);
+                throw new errors_1.PaymentFailedError(paymentResult.message);
             }
             // Step 9: Create order
             const orderResult = await this.createOrder(customerId, cartItems, request.addressId, request.shippingMethod, request.paymentMethod, validation.totals, idempotencyKey);
             if (!orderResult.success) {
                 await this.rollbackInventoryReservation(idempotencyKey);
-                throw new errors_ts_1.OrderCreationFailedError(orderResult.message);
+                throw new errors_1.OrderCreationFailedError(orderResult.message);
             }
             // Step 10: Confirm inventory reservation (reduce actual stock)
             await this.confirmInventoryReservation(idempotencyKey);
             // Step 11: Clear cart (for regular checkout only)
             if (!request.directCheckout) {
-                await cart_repository_ts_1.cartRepository.clearCart(customerId);
+                await cart_repository_1.cartRepository.clearCart(customerId);
             }
             // Log successful checkout
             await this.logSecurityEvent('checkout_success', {
@@ -95,7 +95,7 @@ class CheckoutService {
                 shipping_method: request.shippingMethod,
                 payment_method: request.paymentMethod,
             }, clientInfo);
-            logger_ts_1.logger.info('Checkout completed successfully', { orderId: orderResult.orderId, customerId });
+            logger_1.logger.info('Checkout completed successfully', { orderId: orderResult.orderId, customerId });
             return {
                 success: true,
                 orderId: orderResult.orderId,
@@ -134,18 +134,14 @@ class CheckoutService {
             return;
         }
         if (shippingMethod === 'shipping') {
-            // Check if shipping is enabled
-            const isShippingEnabled = await shop_repository_ts_1.shopRepository.isShippingEnabled();
-            if (!isShippingEnabled) {
-                throw new errors_ts_1.ShippingMethodInvalidError('Shipping is not available. Please select pickup instead.');
-            }
-            // Validate address
+            // Shipping is always enabled for orders with GPS coordinates
+            // Validate address exists
             if (addressId <= 0) {
-                throw new errors_ts_1.ShippingMethodInvalidError('Valid shipping address required for delivery.');
+                throw new errors_1.ShippingMethodInvalidError('Valid shipping address required for delivery.');
             }
-            const address = await address_repository_ts_1.addressRepository.findById(addressId);
+            const address = await address_repository_1.addressRepository.findById(addressId);
             if (!address) {
-                throw new errors_ts_1.ShippingMethodInvalidError('Selected shipping address not found.');
+                throw new errors_1.ShippingMethodInvalidError('Selected shipping address not found.');
             }
         }
     }
@@ -153,11 +149,11 @@ class CheckoutService {
      * Validate cart security (prices, stock, visibility)
      */
     async validateCartSecurity(cartItems) {
-        const maxAllowedQuantity = await shop_repository_ts_1.shopRepository.getMaxAllowedQuantity();
+        const maxAllowedQuantity = await shop_repository_1.shopRepository.getMaxAllowedQuantity();
         const variantIds = cartItems.map((item) => item.variantId);
         // Fetch product data from database using Prisma
         try {
-            const dbProducts = await database_config_ts_1.db.productVariant.findMany({
+            const dbProducts = await database_config_1.db.productVariant.findMany({
                 where: { variant_id: { in: variantIds } },
                 include: {
                     product: {
@@ -185,7 +181,7 @@ class CheckoutService {
                 // Validate price integrity
                 const dbPrice = Number(dbProduct.sell_price);
                 if (Math.abs(dbPrice - cartItem.sellPrice) > 0.01) {
-                    logger_ts_1.logger.warn('Price manipulation detected', {
+                    logger_1.logger.warn('Price manipulation detected', {
                         variantId: cartItem.variantId,
                         cartPrice: cartItem.sellPrice,
                         dbPrice,
@@ -222,7 +218,7 @@ class CheckoutService {
             return { isValid: true, totals };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error fetching products for validation', { error });
+            logger_1.logger.error('Error fetching products for validation', { error });
             return { isValid: false, errorMessage: 'Product validation failed' };
         }
     }
@@ -230,7 +226,7 @@ class CheckoutService {
      * Calculate checkout totals
      */
     async calculateTotals(subtotal, cost) {
-        const taxRate = await shop_repository_ts_1.shopRepository.getTaxRate();
+        const taxRate = await shop_repository_1.shopRepository.getTaxRate();
         const tax = taxRate; // Fixed tax amount
         const shipping = 0; // No shipping fee for now
         const discount = 0; // No discount logic yet
@@ -249,7 +245,7 @@ class CheckoutService {
     async reserveInventory(cartItems, reservationId) {
         try {
             const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-            await database_config_ts_1.db.$transaction(async (tx) => {
+            await database_config_1.db.$transaction(async (tx) => {
                 for (const item of cartItems) {
                     // Check stock
                     const variant = await tx.productVariant.findUnique({
@@ -278,7 +274,7 @@ class CheckoutService {
             return { success: true, message: 'Inventory reserved successfully' };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error in inventory reservation', { error });
+            logger_1.logger.error('Error in inventory reservation', { error });
             const message = error instanceof Error ? error.message : 'Unable to reserve inventory';
             return { success: false, message };
         }
@@ -287,7 +283,7 @@ class CheckoutService {
      * Process payment
      */
     async processPayment(paymentMethod, amount, customerId, idempotencyKey) {
-        logger_ts_1.logger.info('Processing payment', { paymentMethod, amount, customerId });
+        logger_1.logger.info('Processing payment', { paymentMethod, amount, customerId });
         switch (paymentMethod) {
             case 'cod':
                 return {
@@ -335,21 +331,21 @@ class CheckoutService {
         try {
             // Copy address to order_addresses if shipping
             if (addressId > 0) {
-                const copied = await address_repository_ts_1.addressRepository.copyToOrderAddress(addressId);
+                const copied = await address_repository_1.addressRepository.copyToOrderAddress(addressId);
                 if (!copied) {
                     return { success: false, message: 'Address processing failed' };
                 }
             }
             // Fetch product_id for each variant
             const variantIds = cartItems.map((item) => item.variantId);
-            const variants = await database_config_ts_1.db.productVariant.findMany({
+            const variants = await database_config_1.db.productVariant.findMany({
                 where: { variant_id: { in: variantIds } },
                 select: { variant_id: true, product_id: true },
             });
             const variantToProductMap = new Map();
             variants.forEach((v) => variantToProductMap.set(v.variant_id, v.product_id));
             // Create order
-            const order = await order_repository_ts_1.orderRepository.create({
+            const order = await order_repository_1.orderRepository.create({
                 customer: { connect: { customer_id: customerId } },
                 status: 'pending',
                 sub_total: totals.subtotal,
@@ -373,11 +369,11 @@ class CheckoutService {
                 price: item.sellPrice,
                 total_buy_price: (item.buyPrice || 0) * item.quantity,
             }));
-            await order_repository_ts_1.orderRepository.createOrderItems(orderItems);
+            await order_repository_1.orderRepository.createOrderItems(orderItems);
             return { success: true, orderId: order.order_id, message: 'Order created successfully' };
         }
         catch (error) {
-            logger_ts_1.logger.error('Error creating order', { error, customerId });
+            logger_1.logger.error('Error creating order', { error, customerId });
             return { success: false, message: 'Order creation failed' };
         }
     }
@@ -386,12 +382,12 @@ class CheckoutService {
      */
     async confirmInventoryReservation(reservationId) {
         try {
-            await database_config_ts_1.db.inventoryReservation.deleteMany({
+            await database_config_1.db.inventoryReservation.deleteMany({
                 where: { reservation_id: reservationId },
             });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error confirming inventory reservation', { error, reservationId });
+            logger_1.logger.error('Error confirming inventory reservation', { error, reservationId });
         }
     }
     /**
@@ -400,23 +396,23 @@ class CheckoutService {
     async rollbackInventoryReservation(reservationId) {
         try {
             // Get reservations
-            const reservations = await database_config_ts_1.db.inventoryReservation.findMany({
+            const reservations = await database_config_1.db.inventoryReservation.findMany({
                 where: { reservation_id: reservationId },
             });
             // Restore stock
             for (const reservation of reservations) {
-                await database_config_ts_1.db.productVariant.update({
+                await database_config_1.db.productVariant.update({
                     where: { variant_id: reservation.variant_id },
                     data: { stock: { increment: reservation.quantity } },
                 });
             }
             // Delete reservations
-            await database_config_ts_1.db.inventoryReservation.deleteMany({
+            await database_config_1.db.inventoryReservation.deleteMany({
                 where: { reservation_id: reservationId },
             });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error rolling back inventory reservation', { error, reservationId });
+            logger_1.logger.error('Error rolling back inventory reservation', { error, reservationId });
         }
     }
     /**
@@ -425,7 +421,7 @@ class CheckoutService {
     async logSecurityEvent(eventType, data, clientInfo) {
         try {
             const severity = this.getSeverityLevel(eventType);
-            await database_config_ts_1.db.securityAuditLog.create({
+            await database_config_1.db.securityAuditLog.create({
                 data: {
                     event_type: eventType,
                     event_data: data,
@@ -438,7 +434,7 @@ class CheckoutService {
             });
         }
         catch (error) {
-            logger_ts_1.logger.error('Error logging security event', { error, eventType });
+            logger_1.logger.error('Error logging security event', { error, eventType });
         }
     }
     getSeverityLevel(eventType) {

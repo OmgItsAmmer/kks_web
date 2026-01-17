@@ -1,24 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.imageService = exports.ImageService = void 0;
-const cloudinary_config_ts_1 = require("../config/cloudinary.config.ts");
-const database_config_ts_1 = require("../config/database.config.ts");
-const logger_ts_1 = require("../utils/logger.ts");
-const errors_ts_1 = require("../utils/errors.ts");
-const cache_ts_1 = require("../utils/cache.ts");
+const cloudinary_config_1 = require("../config/cloudinary.config");
+const database_config_1 = require("../config/database.config");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
+const cache_1 = require("../utils/cache");
 class ImageService {
     /**
      * Upload image from buffer (for multipart uploads)
      */
     async uploadFromBuffer(buffer, entityCategory, entityId, isFeatured = true, filename) {
         try {
-            const folder = cloudinary_config_ts_1.CLOUDINARY_FOLDERS[entityCategory] || cloudinary_config_ts_1.CLOUDINARY_FOLDERS.misc;
+            const folder = cloudinary_config_1.CLOUDINARY_FOLDERS[entityCategory] || cloudinary_config_1.CLOUDINARY_FOLDERS.misc;
             const preset = this.getPresetForEntity(entityCategory);
             // Generate unique public ID
             const publicId = `${entityCategory}_${entityId}_${Date.now()}`;
             // Upload to Cloudinary
             const result = await new Promise((resolve, reject) => {
-                cloudinary_config_ts_1.cloudinary.uploader
+                cloudinary_config_1.cloudinary.uploader
                     .upload_stream({
                     folder,
                     public_id: publicId,
@@ -48,8 +48,8 @@ class ImageService {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Image upload failed', { error, entityCategory, entityId });
-            throw new errors_ts_1.InternalServerError('Failed to upload image');
+            logger_1.logger.error('Image upload failed', { error, entityCategory, entityId });
+            throw new errors_1.InternalServerError('Failed to upload image');
         }
     }
     /**
@@ -57,10 +57,10 @@ class ImageService {
      */
     async uploadFromUrl(imageUrl, entityCategory, entityId, isFeatured = true) {
         try {
-            const folder = cloudinary_config_ts_1.CLOUDINARY_FOLDERS[entityCategory] || cloudinary_config_ts_1.CLOUDINARY_FOLDERS.misc;
+            const folder = cloudinary_config_1.CLOUDINARY_FOLDERS[entityCategory] || cloudinary_config_1.CLOUDINARY_FOLDERS.misc;
             const preset = this.getPresetForEntity(entityCategory);
             const publicId = `${entityCategory}_${entityId}_${Date.now()}`;
-            const result = await cloudinary_config_ts_1.cloudinary.uploader.upload(imageUrl, {
+            const result = await cloudinary_config_1.cloudinary.uploader.upload(imageUrl, {
                 folder,
                 public_id: publicId,
                 transformation: preset.transformation,
@@ -78,20 +78,20 @@ class ImageService {
             };
         }
         catch (error) {
-            logger_ts_1.logger.error('Image upload from URL failed', { error, imageUrl, entityCategory, entityId });
-            throw new errors_ts_1.InternalServerError('Failed to upload image from URL');
+            logger_1.logger.error('Image upload from URL failed', { error, imageUrl, entityCategory, entityId });
+            throw new errors_1.InternalServerError('Failed to upload image from URL');
         }
     }
     /**
      * Get featured/main image URL for an entity
      */
     async getMainImageUrl(entityId, entityCategory) {
-        const cacheKey = (0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.PRODUCT_IMAGES, { entityId, entityCategory, featured: true });
-        const cached = (0, cache_ts_1.getFromCache)(cacheKey);
+        const cacheKey = (0, cache_1.generateCacheKey)(cache_1.CacheKeys.PRODUCT_IMAGES, { entityId, entityCategory, featured: true });
+        const cached = (0, cache_1.getFromCache)(cacheKey);
         if (cached !== undefined)
             return cached;
         try {
-            const imageEntity = await database_config_ts_1.db.imageEntity.findFirst({
+            const imageEntity = await database_config_1.db.imageEntity.findFirst({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -104,11 +104,11 @@ class ImageService {
                 },
             });
             const url = imageEntity?.image?.image_url || null;
-            (0, cache_ts_1.setInCache)(cacheKey, url);
+            (0, cache_1.setInCache)(cacheKey, url);
             return url;
         }
         catch (error) {
-            (0, cache_ts_1.setInCache)(cacheKey, null);
+            (0, cache_1.setInCache)(cacheKey, null);
             return null;
         }
     }
@@ -116,12 +116,12 @@ class ImageService {
      * Get all image URLs for an entity
      */
     async getAllImagesForEntity(entityId, entityCategory) {
-        const cacheKey = (0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.PRODUCT_IMAGES, { entityId, entityCategory, all: true });
-        const cached = (0, cache_ts_1.getFromCache)(cacheKey);
+        const cacheKey = (0, cache_1.generateCacheKey)(cache_1.CacheKeys.PRODUCT_IMAGES, { entityId, entityCategory, all: true });
+        const cached = (0, cache_1.getFromCache)(cacheKey);
         if (cached !== undefined)
             return cached;
         try {
-            const imageEntities = await database_config_ts_1.db.imageEntity.findMany({
+            const imageEntities = await database_config_1.db.imageEntity.findMany({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -136,11 +136,11 @@ class ImageService {
             const urls = imageEntities
                 .map((item) => item.image?.image_url)
                 .filter((url) => !!url);
-            (0, cache_ts_1.setInCache)(cacheKey, urls);
+            (0, cache_1.setInCache)(cacheKey, urls);
             return urls;
         }
         catch (error) {
-            (0, cache_ts_1.setInCache)(cacheKey, []);
+            (0, cache_1.setInCache)(cacheKey, []);
             return [];
         }
     }
@@ -152,8 +152,8 @@ class ImageService {
         const uncachedIds = [];
         // Check cache first
         for (const id of entityIds) {
-            const cacheKey = (0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.PRODUCT_IMAGES, { entityId: id, entityCategory, featured: true });
-            const cached = (0, cache_ts_1.getFromCache)(cacheKey);
+            const cacheKey = (0, cache_1.generateCacheKey)(cache_1.CacheKeys.PRODUCT_IMAGES, { entityId: id, entityCategory, featured: true });
+            const cached = (0, cache_1.getFromCache)(cacheKey);
             if (cached !== undefined && cached !== null) {
                 result.set(id, cached);
             }
@@ -164,7 +164,7 @@ class ImageService {
         // Fetch uncached from database
         if (uncachedIds.length > 0) {
             try {
-                const imageEntities = await database_config_ts_1.db.imageEntity.findMany({
+                const imageEntities = await database_config_1.db.imageEntity.findMany({
                     where: {
                         entity_id: { in: uncachedIds },
                         entity_category: entityCategory,
@@ -180,17 +180,17 @@ class ImageService {
                     const url = item.image?.image_url;
                     if (url && item.entity_id) {
                         result.set(item.entity_id, url);
-                        const cacheKey = (0, cache_ts_1.generateCacheKey)(cache_ts_1.CacheKeys.PRODUCT_IMAGES, {
+                        const cacheKey = (0, cache_1.generateCacheKey)(cache_1.CacheKeys.PRODUCT_IMAGES, {
                             entityId: item.entity_id,
                             entityCategory,
                             featured: true
                         });
-                        (0, cache_ts_1.setInCache)(cacheKey, url);
+                        (0, cache_1.setInCache)(cacheKey, url);
                     }
                 }
             }
             catch (error) {
-                logger_ts_1.logger.error('Error fetching main images for entities', { error });
+                logger_1.logger.error('Error fetching main images for entities', { error });
             }
         }
         return result;
@@ -210,7 +210,7 @@ class ImageService {
     async deleteMainImage(entityId, entityCategory) {
         try {
             // Get current featured image
-            const imageEntity = await database_config_ts_1.db.imageEntity.findFirst({
+            const imageEntity = await database_config_1.db.imageEntity.findFirst({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -227,17 +227,17 @@ class ImageService {
             }
             // Delete from Cloudinary
             if (imageEntity.image.filename) {
-                await cloudinary_config_ts_1.cloudinary.uploader.destroy(imageEntity.image.filename);
+                await cloudinary_config_1.cloudinary.uploader.destroy(imageEntity.image.filename);
             }
             // Delete from database
-            await database_config_ts_1.db.image.delete({
+            await database_config_1.db.image.delete({
                 where: { image_id: imageEntity.image.image_id },
             });
             this.invalidateImageCache(entityCategory, entityId);
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Failed to delete main image', { error, entityId, entityCategory });
+            logger_1.logger.error('Failed to delete main image', { error, entityId, entityCategory });
             return false;
         }
     }
@@ -247,7 +247,7 @@ class ImageService {
     async deleteAllImagesForEntity(entityId, entityCategory) {
         try {
             // Get all images
-            const imageEntities = await database_config_ts_1.db.imageEntity.findMany({
+            const imageEntities = await database_config_1.db.imageEntity.findMany({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -266,14 +266,14 @@ class ImageService {
                 .map((item) => item.image?.filename)
                 .filter((id) => !!id);
             if (publicIds.length > 0) {
-                await cloudinary_config_ts_1.cloudinary.api.delete_resources(publicIds);
+                await cloudinary_config_1.cloudinary.api.delete_resources(publicIds);
             }
             // Delete from database
             const imageIds = imageEntities
                 .map((item) => item.image?.image_id)
                 .filter((id) => id !== null && id !== undefined);
             if (imageIds.length > 0) {
-                await database_config_ts_1.db.image.deleteMany({
+                await database_config_1.db.image.deleteMany({
                     where: { image_id: { in: imageIds } },
                 });
             }
@@ -281,7 +281,7 @@ class ImageService {
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Failed to delete all images', { error, entityId, entityCategory });
+            logger_1.logger.error('Failed to delete all images', { error, entityId, entityCategory });
             return false;
         }
     }
@@ -291,7 +291,7 @@ class ImageService {
     async setFeaturedImage(imageEntityId, entityId, entityCategory) {
         try {
             // Unset current featured
-            await database_config_ts_1.db.imageEntity.updateMany({
+            await database_config_1.db.imageEntity.updateMany({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -300,7 +300,7 @@ class ImageService {
                 data: { isFeatured: false },
             });
             // Set new featured
-            await database_config_ts_1.db.imageEntity.update({
+            await database_config_1.db.imageEntity.update({
                 where: { image_entity_id: imageEntityId },
                 data: { isFeatured: true },
             });
@@ -308,7 +308,7 @@ class ImageService {
             return true;
         }
         catch (error) {
-            logger_ts_1.logger.error('Failed to set featured image', { error, imageEntityId, entityId });
+            logger_1.logger.error('Failed to set featured image', { error, imageEntityId, entityId });
             return false;
         }
     }
@@ -318,7 +318,7 @@ class ImageService {
     async deleteImage(imageEntityId) {
         try {
             // Get image details
-            const imageEntity = await database_config_ts_1.db.imageEntity.findUnique({
+            const imageEntity = await database_config_1.db.imageEntity.findUnique({
                 where: { image_entity_id: imageEntityId },
                 include: {
                     image: {
@@ -327,14 +327,14 @@ class ImageService {
                 },
             });
             if (!imageEntity || !imageEntity.image) {
-                throw new errors_ts_1.NotFoundError('Image not found');
+                throw new errors_1.NotFoundError('Image not found');
             }
             // Delete from Cloudinary
             if (imageEntity.image.filename) {
-                await cloudinary_config_ts_1.cloudinary.uploader.destroy(imageEntity.image.filename);
+                await cloudinary_config_1.cloudinary.uploader.destroy(imageEntity.image.filename);
             }
             // Delete from database
-            await database_config_ts_1.db.image.delete({
+            await database_config_1.db.image.delete({
                 where: { image_id: imageEntity.image.image_id },
             });
             if (imageEntity.entity_id && imageEntity.entity_category) {
@@ -343,9 +343,9 @@ class ImageService {
             return true;
         }
         catch (error) {
-            if (error instanceof errors_ts_1.NotFoundError)
+            if (error instanceof errors_1.NotFoundError)
                 throw error;
-            logger_ts_1.logger.error('Failed to delete image', { error, imageEntityId });
+            logger_1.logger.error('Failed to delete image', { error, imageEntityId });
             return false;
         }
     }
@@ -359,20 +359,20 @@ class ImageService {
     getPresetForEntity(entityCategory) {
         switch (entityCategory) {
             case 'products':
-                return cloudinary_config_ts_1.UPLOAD_PRESETS.product;
+                return cloudinary_config_1.UPLOAD_PRESETS.product;
             case 'brands':
-                return cloudinary_config_ts_1.UPLOAD_PRESETS.brand;
+                return cloudinary_config_1.UPLOAD_PRESETS.brand;
             case 'categories':
-                return cloudinary_config_ts_1.UPLOAD_PRESETS.category;
+                return cloudinary_config_1.UPLOAD_PRESETS.category;
             case 'customers':
-                return cloudinary_config_ts_1.UPLOAD_PRESETS.profile;
+                return cloudinary_config_1.UPLOAD_PRESETS.profile;
             default:
-                return cloudinary_config_ts_1.UPLOAD_PRESETS.product;
+                return cloudinary_config_1.UPLOAD_PRESETS.product;
         }
     }
     async saveImageToDatabase(imageUrl, publicId, entityCategory, entityId, isFeatured, filename) {
         // Insert into images table
-        const image = await database_config_ts_1.db.image.create({
+        const image = await database_config_1.db.image.create({
             data: {
                 filename: publicId,
                 image_url: imageUrl,
@@ -381,7 +381,7 @@ class ImageService {
         });
         // If setting as featured, unset existing featured
         if (isFeatured) {
-            await database_config_ts_1.db.imageEntity.updateMany({
+            await database_config_1.db.imageEntity.updateMany({
                 where: {
                     entity_id: entityId,
                     entity_category: entityCategory,
@@ -391,7 +391,7 @@ class ImageService {
             });
         }
         // Insert into image_entity table
-        await database_config_ts_1.db.imageEntity.create({
+        await database_config_1.db.imageEntity.create({
             data: {
                 image_id: image.image_id,
                 entity_id: entityId,
@@ -402,7 +402,7 @@ class ImageService {
         return image.image_id;
     }
     invalidateImageCache(entityCategory, entityId) {
-        (0, cache_ts_1.deleteByPattern)(`${cache_ts_1.CacheKeys.PRODUCT_IMAGES}_entityId:${entityId}`);
+        (0, cache_1.deleteByPattern)(`${cache_1.CacheKeys.PRODUCT_IMAGES}_entityId:${entityId}`);
     }
 }
 exports.ImageService = ImageService;

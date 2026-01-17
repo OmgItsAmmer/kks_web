@@ -1,6 +1,7 @@
-import { Prisma } from '../config/database.config.ts';
+import { Prisma } from '../config/database.config';
 import type { Review } from '@prisma/client';
-export interface ReviewWithCustomer extends Review {
+export interface ReviewWithCustomer extends Omit<Review, 'review_id'> {
+    review_id: number | bigint;
     customerName?: string;
 }
 export declare class ReviewRepository {

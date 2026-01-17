@@ -1,12 +1,12 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
-import { reviewRepository } from '../repositories/review.repository.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { requireCustomer } from '../middleware/customer.middleware.ts';
-import { sendSuccess, sendCreated, sendNoContent, sendError } from '../utils/response.ts';
-import { ForbiddenError } from '../utils/errors.ts';
-import type { CustomerRequest } from '../types/api.types.ts';
+import { reviewRepository } from '../repositories/review.repository';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { requireCustomer } from '../middleware/customer.middleware';
+import { sendSuccess, sendCreated, sendNoContent, sendError } from '../utils/response';
+import { ForbiddenError } from '../utils/errors';
+import type { CustomerRequest } from '../types/api.types';
 
 const router = Router();
 
@@ -27,8 +27,8 @@ router.post(
     const { productId, rating, review } = req.body;
 
     const newReview = await reviewRepository.create({
-      product_id: productId,
-      customer_id: req.customerId,
+      product: { connect: { product_id: productId } },
+      customer: { connect: { customer_id: req.customerId } },
       rating,
       review: review || '',
     });
@@ -57,7 +57,7 @@ router.put(
       return sendError(res, 'Unauthorized', 401);
     }
 
-    const reviewId = parseInt(req.params.id!, 10);
+    const reviewId = BigInt(req.params.id!);
 
     // Verify ownership
     const belongs = await reviewRepository.belongsToCustomer(reviewId, req.customerId);
@@ -91,7 +91,7 @@ router.delete(
       return sendError(res, 'Unauthorized', 401);
     }
 
-    const reviewId = parseInt(req.params.id!, 10);
+    const reviewId = BigInt(req.params.id!);
 
     // Verify ownership
     const belongs = await reviewRepository.belongsToCustomer(reviewId, req.customerId);

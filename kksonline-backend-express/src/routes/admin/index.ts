@@ -1,17 +1,17 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
-import { productService } from '../../services/product.service.ts';
-import { productRepository } from '../../repositories/product.repository.ts';
-import { categoryRepository } from '../../repositories/category.repository.ts';
-import { brandRepository } from '../../repositories/brand.repository.ts';
-import { orderRepository } from '../../repositories/order.repository.ts';
-import { customerRepository } from '../../repositories/customer.repository.ts';
-import { reviewRepository } from '../../repositories/review.repository.ts';
-import { shopRepository } from '../../repositories/shop.repository.ts';
-import { imageService } from '../../services/image.service.ts';
-import { validate, schemas } from '../../middleware/validation.middleware.ts';
-import { asyncHandler } from '../../middleware/error.middleware.ts';
-import { sendSuccess, sendCreated, sendNoContent, sendPaginated, sendError } from '../../utils/response.ts';
+import { productService } from '../../services/product.service';
+import { productRepository } from '../../repositories/product.repository';
+import { categoryRepository } from '../../repositories/category.repository';
+import { brandRepository } from '../../repositories/brand.repository';
+import { orderRepository } from '../../repositories/order.repository';
+import { customerRepository } from '../../repositories/customer.repository';
+import { reviewRepository } from '../../repositories/review.repository';
+import { shopRepository } from '../../repositories/shop.repository';
+import { imageService } from '../../services/image.service';
+import { validate, schemas } from '../../middleware/validation.middleware';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { sendSuccess, sendCreated, sendNoContent, sendPaginated, sendError } from '../../utils/response';
 import { z } from 'zod';
 
 const router = Router();
@@ -702,7 +702,7 @@ router.delete(
   '/reviews/:id',
   validate({ params: schemas.idParam }),
   asyncHandler(async (req: Request, res: Response) => {
-    const reviewId = parseInt(req.params.id!, 10);
+    const reviewId = BigInt(req.params.id!);
 
     await reviewRepository.delete(reviewId);
 

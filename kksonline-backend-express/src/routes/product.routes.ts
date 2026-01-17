@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { productRepository } from '../repositories/product.repository.ts';
-import { reviewRepository } from '../repositories/review.repository.ts';
-import { supabaseImageService } from '../services/supabase-image.service.ts';
-import { validate, schemas } from '../middleware/validation.middleware.ts';
-import { asyncHandler } from '../middleware/error.middleware.ts';
-import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response.ts';
-import { logger } from '../utils/logger.ts';
+import { productRepository } from '../repositories/product.repository';
+import { reviewRepository } from '../repositories/review.repository';
+import { supabaseImageService } from '../services/supabase-image.service';
+import { validate, schemas } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
+import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response';
+import { logger } from '../utils/logger';
 
 const router = Router();
 

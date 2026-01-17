@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireCustomer = exports.extractCustomerId = void 0;
-const jwt_utils_ts_1 = require("../utils/jwt.utils.ts");
-const response_ts_1 = require("../utils/response.ts");
+const jwt_utils_1 = require("../utils/jwt.utils");
+const response_1 = require("../utils/response");
 /**
  * Middleware to extract customer ID from request.
  * Supports both JWT token (Authorization header) and X-Customer-Id header.
@@ -15,7 +15,7 @@ const extractCustomerId = (req, res, next) => {
         try {
             const token = authHeader.split(' ')[1];
             if (token) {
-                const decoded = (0, jwt_utils_ts_1.verifyToken)(token);
+                const decoded = (0, jwt_utils_1.verifyToken)(token);
                 if (decoded.customerId) {
                     req.customerId = decoded.customerId;
                     req.user = decoded;
@@ -51,7 +51,7 @@ const requireCustomer = (req, res, next) => {
         try {
             const token = authHeader.split(' ')[1];
             if (token) {
-                const decoded = (0, jwt_utils_ts_1.verifyToken)(token);
+                const decoded = (0, jwt_utils_1.verifyToken)(token);
                 if (decoded.customerId) {
                     req.customerId = decoded.customerId;
                     req.user = decoded;
@@ -73,7 +73,7 @@ const requireCustomer = (req, res, next) => {
         }
     }
     // No valid authentication found
-    return (0, response_ts_1.sendError)(res, 'Authentication required. Please login.', 401, 'UNAUTHORIZED');
+    return (0, response_1.sendError)(res, 'Authentication required. Please login.', 401, 'UNAUTHORIZED');
 };
 exports.requireCustomer = requireCustomer;
 //# sourceMappingURL=customer.middleware.js.map

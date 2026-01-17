@@ -1,11 +1,11 @@
 import { Router, type Response } from 'express';
-import { addressRepository } from "../repositories/address.repository.ts";
-import { validate, schemas } from "../middleware/validation.middleware.ts";
-import { asyncHandler } from "../middleware/error.middleware.ts";
-import { requireCustomer } from "../middleware/customer.middleware.ts";
-import { sendSuccess, sendCreated, sendNoContent, sendNotFound, sendError } from "../utils/response.ts";
-import { ForbiddenError } from "../utils/errors.ts";
-import type { CustomerRequest } from "../types/api.types.ts";
+import { addressRepository } from "../repositories/address.repository";
+import { validate, schemas } from "../middleware/validation.middleware";
+import { asyncHandler } from "../middleware/error.middleware";
+import { requireCustomer } from "../middleware/customer.middleware";
+import { sendSuccess, sendCreated, sendNoContent, sendNotFound, sendError } from "../utils/response";
+import { ForbiddenError } from "../utils/errors";
+import type { CustomerRequest } from "../types/api.types";
 
 const router = Router();
 

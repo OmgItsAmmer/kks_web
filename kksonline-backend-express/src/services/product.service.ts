@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
-import { productRepository } from '../repositories/product.repository.ts';
-import { imageService } from './image.service.ts';
-import { logger } from '../utils/logger.ts';
-import { BadRequestError, NotFoundError } from '../utils/errors.ts';
+import { productRepository } from '../repositories/product.repository';
+import { imageService } from './image.service';
+import { logger } from '../utils/logger';
+import { BadRequestError, NotFoundError } from '../utils/errors';
 import type { Product, ProductVariant } from '@prisma/client';
 
 export interface CreateProductInput {

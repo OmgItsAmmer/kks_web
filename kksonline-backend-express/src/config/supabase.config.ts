@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { S3Client } from '@aws-sdk/client-s3';
-import { config } from './env.config.ts';
-import { logger } from '../utils/logger.ts';
+import { config } from './env.config';
+import { logger } from '../utils/logger';
 
 // Supabase configuration
 const supabaseUrl = config.supabase.url;

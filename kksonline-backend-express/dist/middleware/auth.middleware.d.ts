@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { type TokenPayload } from '../utils/jwt.utils.ts';
+import { type TokenPayload } from '../utils/jwt.utils';
 declare global {
     namespace Express {
         interface Request {
@@ -8,5 +8,5 @@ declare global {
         }
     }
 }
-export declare const authenticate: (req: Request, res: Response, next: NextFunction) => Response<any, Record<string, any>> | undefined;
+export declare const authenticate: (req: Request, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=auth.middleware.d.ts.map

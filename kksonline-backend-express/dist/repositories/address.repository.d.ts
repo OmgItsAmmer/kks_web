@@ -1,4 +1,4 @@
-import { Prisma } from '../config/database.config.ts';
+import { Prisma } from '../config/database.config';
 import type { Address, OrderAddress } from '@prisma/client';
 export declare class AddressRepository {
     /**

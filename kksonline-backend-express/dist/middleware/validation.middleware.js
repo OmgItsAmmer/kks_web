@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schemas = exports.validate = void 0;
 const zod_1 = require("zod");
-const errors_ts_1 = require("../utils/errors.ts");
+const errors_1 = require("../utils/errors");
 /**
  * Validation middleware factory using Zod schemas
  */
@@ -38,7 +38,7 @@ const validate = (schema) => {
                 }
             }
             if (Object.keys(errors).length > 0) {
-                throw new errors_ts_1.ValidationError('Validation failed', errors);
+                throw new errors_1.ValidationError('Validation failed', errors);
             }
             next();
         }

@@ -3,11 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UPLOAD_PRESETS = exports.CLOUDINARY_FOLDERS = exports.cloudinary = void 0;
 const cloudinary_1 = require("cloudinary");
 Object.defineProperty(exports, "cloudinary", { enumerable: true, get: function () { return cloudinary_1.v2; } });
-const env_config_ts_1 = require("./env.config.ts");
+const env_config_1 = require("./env.config");
 cloudinary_1.v2.config({
-    cloud_name: env_config_ts_1.config.cloudinary.cloudName,
-    api_key: env_config_ts_1.config.cloudinary.apiKey,
-    api_secret: env_config_ts_1.config.cloudinary.apiSecret,
+    cloud_name: env_config_1.config.cloudinary.cloudName,
+    api_key: env_config_1.config.cloudinary.apiKey,
+    api_secret: env_config_1.config.cloudinary.apiSecret,
     secure: true,
 });
 // Folder structure for different entity types

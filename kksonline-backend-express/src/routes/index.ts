@@ -1,18 +1,18 @@
 import { Router } from 'express';
-import customerRoutes from './customer.routes.ts';
-import productRoutes from './product.routes.ts';
-import cartRoutes from './cart.routes.ts';
-import orderRoutes from './order.routes.ts';
-import addressRoutes from './address.routes.ts';
-import wishlistRoutes from './wishlist.routes.ts';
-import reviewRoutes from './review.routes.ts';
-import categoryRoutes from './category.routes.ts';
-import brandRoutes from './brand.routes.ts';
-import shopRoutes from './shop.routes.ts';
-import collectionRoutes from './collection.routes.ts';
-import adminRoutes from './admin/index.ts';
-import authRoutes from './auth.routes.ts';
-import { checkDatabaseConnection } from '../config/database.config.ts';
+import customerRoutes from './customer.routes';
+import productRoutes from './product.routes';
+import cartRoutes from './cart.routes';
+import orderRoutes from './order.routes';
+import addressRoutes from './address.routes';
+import wishlistRoutes from './wishlist.routes';
+import reviewRoutes from './review.routes';
+import categoryRoutes from './category.routes';
+import brandRoutes from './brand.routes';
+import shopRoutes from './shop.routes';
+import collectionRoutes from './collection.routes';
+import adminRoutes from './admin/index';
+import authRoutes from './auth.routes';
+import { checkDatabaseConnection } from '../config/database.config';
 
 const router = Router();
 

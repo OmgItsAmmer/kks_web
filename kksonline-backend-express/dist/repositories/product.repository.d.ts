@@ -1,4 +1,4 @@
-import { Prisma } from '../config/database.config.ts';
+import { Prisma } from '../config/database.config';
 import type { Product, ProductVariant, Category, Brand } from '@prisma/client';
 export interface SearchParams {
     query?: string;

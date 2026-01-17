@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Phone, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { Mail, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 import styles from './TopBar.module.css';
 
 const TopBar: React.FC = () => {
