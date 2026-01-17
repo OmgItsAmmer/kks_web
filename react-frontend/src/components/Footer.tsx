@@ -14,7 +14,6 @@ import {
   Linkedin
 } from 'lucide-react';
 import logo from '../assets/images/logo.png';
-import { useCategories } from '../hooks/useCategories';
 import InfoPopup from './InfoPopup';
 import styles from './Footer.module.css';
 
@@ -200,46 +199,13 @@ const features = [
 ];
 
 const Footer: React.FC = () => {
-  const navigate = useNavigate();
   const [popupInfo, setPopupInfo] = useState<{ title: string; content: any } | null>(null);
   
-  // Fetch categories
-  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
-  const categories = useMemo(() => categoriesData || [], [categoriesData]);
-
-  // Get first 6 categories plus "All" (7 total)
-  const categoryLinks = useMemo(() => {
-    const links = [
-      { label: 'All Categories', href: '/?category=all' }
-    ];
-    
-    // Add up to 6 categories
-    const limitedCategories = categories.slice(0, 6);
-    limitedCategories.forEach((category) => {
-      links.push({
-        label: category.category_name,
-        href: `/?category=${category.category_id}`
-      });
-    });
-    
-    return links;
-  }, [categories]);
-
   // Handle WhatsApp chat
   const handleLiveChat = () => {
     const phoneNumber = '+923236508184';
     const whatsappUrl = `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}`;
     window.open(whatsappUrl, '_blank');
-  };
-
-  // Handle category link click - scroll to section if on home page
-  const handleCategoryClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    const isOnHomePage = window.location.pathname === '/';
-    if (isOnHomePage) {
-      e.preventDefault();
-      navigate(href);
-      // Scroll will be handled by Home component
-    }
   };
 
   // Handle KKS link click
@@ -317,28 +283,6 @@ const Footer: React.FC = () => {
                   <span>Pakistan</span>
                 </div>
               </div>
-            </div>
-
-            {/* Categories Column */}
-            <div className={styles.linksColumn}>
-              <h4 className={styles.columnTitle}>Categories</h4>
-              {categoriesLoading ? (
-                <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.875rem' }}>Loading...</p>
-              ) : (
-                <ul className={styles.linksList}>
-                  {categoryLinks.map((link) => (
-                    <li key={link.label}>
-                      <Link 
-                        to={link.href} 
-                        className={styles.link}
-                        onClick={(e) => handleCategoryClick(e, link.href)}
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
 
             {/* KKS Company Column */}

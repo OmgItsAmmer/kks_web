@@ -6,9 +6,11 @@ import styles from './Navigation.module.css';
 
 interface NavigationProps {
   isOpen?: boolean;
+  isMobileMenuOpen?: boolean;
+  onClose?: () => void;
 }
 
-const Navigation: React.FC<NavigationProps> = ({ isOpen = true }) => {
+const Navigation: React.FC<NavigationProps> = ({ isOpen = true, isMobileMenuOpen = false, onClose }) => {
   const navigate = useNavigate();
   
   // Fetch categories
@@ -71,9 +73,15 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen = true }) => {
   };
 
   return (
-    <nav className={`${styles.navigation} ${isOpen ? styles.open : ''}`}>
-      <div className="container">
-        <div className={styles.navContent}>
+    <>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div className={styles.mobileOverlay} onClick={onClose}></div>
+      )}
+      
+      <nav className={`${styles.navigation} ${isOpen ? styles.open : ''} ${isMobileMenuOpen ? styles.mobileOpen : ''}`}>
+        <div className="container">
+          <div className={styles.navContent}>
           {/* Main Nav Items - Categories */}
           <ul className={styles.navList}>
             {categoriesLoading ? (
@@ -91,7 +99,12 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen = true }) => {
                   <Link 
                     to={item.href} 
                     className={styles.navLink}
-                    onClick={(e) => handleCategoryClick(e, item.href)}
+                    onClick={(e) => {
+                      handleCategoryClick(e, item.href);
+                      if (isMobileMenuOpen && onClose) {
+                        onClose();
+                      }
+                    }}
                   >
                     <span>{item.label}</span>
                   </Link>
@@ -105,21 +118,27 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen = true }) => {
             {/* Sales & Clearance */}
             <a 
               href="#" 
-              onClick={handleSalesClick}
+              onClick={(e) => {
+                handleSalesClick(e);
+                if (isMobileMenuOpen && onClose) {
+                  onClose();
+                }
+              }}
               className={styles.promoItem}
             >
               <div className={styles.promoIcon}>
                 <Sparkles size={20} />
               </div>
               <div className={styles.promoText}>
-                <span className={styles.promoTitle}>SALES & CLEARANCE</span>
-                <span className={styles.promoSubtitle}>Hurry! Discounts Up to 60%</span>
+                <span className={styles.promoTitle}>COLLECTIONS</span>
+                <span className={styles.promoSubtitle}>Hurry! GET READY-MADE PACKAGES</span>
               </div>
             </a>
           </div>
         </div>
       </div>
     </nav>
+    </>
   );
 };
 

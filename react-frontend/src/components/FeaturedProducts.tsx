@@ -19,6 +19,7 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   initialCategory = 'all' as const,
 }) => {
   const [activeCategory, setActiveCategory] = useState<number | 'all'>(initialCategory);
+  const [isCategoryChanging, setIsCategoryChanging] = useState(false);
   
   // Update active category when initialCategory prop changes (from URL params)
   useEffect(() => {
@@ -46,8 +47,15 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
     return infiniteData.pages.flatMap(page => page.products);
   }, [infiniteData]);
   
+  // Reset category changing state when products are loaded
+  useEffect(() => {
+    if (!productsLoading && !categoriesLoading) {
+      setIsCategoryChanging(false);
+    }
+  }, [productsLoading, categoriesLoading]);
+  
   const hasMore = hasNextPage ?? false;
-  const loading = categoriesLoading && productsLoading;
+  const loading = (categoriesLoading && productsLoading) || isCategoryChanging;
 
   // Log product data for debugging
   React.useEffect(() => {
@@ -97,7 +105,10 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               {/* All tab */}
               <button
                 className={`${styles.tab} ${activeCategory === 'all' ? styles.tabActive : ''}`}
-                onClick={() => setActiveCategory('all')}
+                onClick={() => {
+                  setIsCategoryChanging(true);
+                  setActiveCategory('all');
+                }}
               >
                 All
               </button>
@@ -107,7 +118,10 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
                 <button
                   key={category.category_id}
                   className={`${styles.tab} ${activeCategory === category.category_id ? styles.tabActive : ''}`}
-                  onClick={() => setActiveCategory(category.category_id)}
+                  onClick={() => {
+                    setIsCategoryChanging(true);
+                    setActiveCategory(category.category_id);
+                  }}
                 >
                   {category.category_name}
                 </button>

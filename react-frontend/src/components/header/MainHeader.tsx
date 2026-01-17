@@ -16,12 +16,16 @@ interface SearchProduct {
   mainImage?: string | null;
 }
 
-const MainHeader: React.FC = () => {
+interface MainHeaderProps {
+  onMobileMenuToggle?: (isOpen: boolean) => void;
+  isMobileMenuOpen?: boolean;
+}
+
+const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMenuOpen = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const { user, isAuthenticated, showLoginModal, logout } = useAuth();
@@ -136,7 +140,7 @@ const MainHeader: React.FC = () => {
             {/* Mobile Menu Toggle */}
             <button 
               className={styles.mobileMenuToggle}
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              onClick={() => onMobileMenuToggle?.(!isMobileMenuOpen)}
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
