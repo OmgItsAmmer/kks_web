@@ -85,45 +85,55 @@ router.post(
       formatted_address
     } = req.body;
 
-    // Trim all string values to remove leading/trailing whitespace
-    // The validation schema ensures required fields are not empty, but we trim to be safe
+    // Helper function to get non-empty trimmed value or undefined
+    const getNonEmpty = (value: any): string | undefined => {
+      if (typeof value !== 'string') return undefined;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+
+    // Build address data - only required fields guaranteed
     const addressData: any = {
       customer_id: req.customerId,
       full_name: fullName.trim(),
       phone_number: phoneNumber.trim(),
-      country: (country || 'Pakistan').trim(),
+      country: getNonEmpty(country) || 'Pakistan',
     };
 
-    // Use Google Maps formatted_address if available, otherwise use shippingAddress
-    if (formatted_address) {
-      addressData.shipping_address = formatted_address.trim();
-    } else if (shippingAddress) {
-      addressData.shipping_address = shippingAddress.trim();
+    // Optional fields - only add if they have non-empty values
+    const formattedAddr = getNonEmpty(formatted_address);
+    const shippingAddr = getNonEmpty(shippingAddress);
+    
+    if (formattedAddr) {
+      addressData.shipping_address = formattedAddr;
+    } else if (shippingAddr) {
+      addressData.shipping_address = shippingAddr;
     }
 
-    // Use city from Google Maps or provided city
-    if (city) {
-      addressData.city = city.trim();
+    const cityValue = getNonEmpty(city);
+    if (cityValue) {
+      addressData.city = cityValue;
     }
 
-    // Only include postal_code if provided and not empty (to avoid validation issues)
-    // Use null instead of empty string for optional fields to satisfy check constraint
-    if (postalCode && typeof postalCode === 'string' && postalCode.trim().length >= 3) {
-      addressData.postal_code = postalCode.trim();
+    const postalValue = getNonEmpty(postalCode);
+    if (postalValue && postalValue.length >= 3) {
+      addressData.postal_code = postalValue;
     }
 
-    // Add Google Maps location data
+    // Google Maps location data
     if (latitude !== undefined && longitude !== undefined) {
       addressData.latitude = latitude;
       addressData.longitude = longitude;
     }
 
-    if (place_id) {
-      addressData.place_id = place_id.trim();
+    const placeIdValue = getNonEmpty(place_id);
+    if (placeIdValue) {
+      addressData.place_id = placeIdValue;
     }
 
-    if (formatted_address) {
-      addressData.formatted_address = formatted_address.trim();
+    const formattedAddressValue = getNonEmpty(formatted_address);
+    if (formattedAddressValue) {
+      addressData.formatted_address = formattedAddressValue;
     }
 
     console.log('Creating address with data:', addressData);

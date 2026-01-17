@@ -104,24 +104,36 @@ export declare const schemas: {
     }>;
     address: z.ZodObject<{
         fullName: z.ZodString;
-        shippingAddress: z.ZodString;
-        city: z.ZodString;
+        shippingAddress: z.ZodOptional<z.ZodString>;
+        city: z.ZodOptional<z.ZodString>;
         postalCode: z.ZodOptional<z.ZodString>;
         phoneNumber: z.ZodString;
         country: z.ZodDefault<z.ZodString>;
+        latitude: z.ZodOptional<z.ZodNumber>;
+        longitude: z.ZodOptional<z.ZodNumber>;
+        place_id: z.ZodOptional<z.ZodString>;
+        formatted_address: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        city: string;
         country: string;
         phoneNumber: string;
         fullName: string;
-        shippingAddress: string;
+        city?: string | undefined;
+        latitude?: number | undefined;
+        longitude?: number | undefined;
+        place_id?: string | undefined;
+        formatted_address?: string | undefined;
+        shippingAddress?: string | undefined;
         postalCode?: string | undefined;
     }, {
-        city: string;
         phoneNumber: string;
         fullName: string;
-        shippingAddress: string;
+        city?: string | undefined;
         country?: string | undefined;
+        latitude?: number | undefined;
+        longitude?: number | undefined;
+        place_id?: string | undefined;
+        formatted_address?: string | undefined;
+        shippingAddress?: string | undefined;
         postalCode?: string | undefined;
     }>;
     cartItem: z.ZodObject<{

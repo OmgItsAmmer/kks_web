@@ -111,7 +111,7 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
-    const server = app.listen(config.server.port, () => {
+    const server = app.listen(config.server.port, '0.0.0.0', () => {
       logger.info(`🚀 Server started in ${config.server.nodeEnv} mode`);
       logger.info(`📍 Listening on port ${config.server.port}`);
       logger.info(`🔗 API URL: http://localhost:${config.server.port}/api/${config.server.apiVersion}`);

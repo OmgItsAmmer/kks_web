@@ -55,11 +55,16 @@ class AddressRepository {
             if (error.code === 'P2003') {
                 throw new errors_ts_1.InternalServerError('Invalid reference: customer, vendor, salesman, or user not found');
             }
+            // Check for check constraint violations (PostgreSQL error code 23514)
+            const errorMessage = error.message || '';
+            if (errorMessage.includes('chk_valid_text_fields') || errorMessage.includes('violates check constraint')) {
+                throw new errors_ts_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
+            }
             // Include more details in development
-            const errorMessage = process.env.NODE_ENV === 'development'
-                ? `Failed to create address: ${error.message || 'Unknown error'}`
+            const finalMessage = process.env.NODE_ENV === 'development'
+                ? `Failed to create address: ${errorMessage || 'Unknown error'}`
                 : 'Failed to create address';
-            throw new errors_ts_1.InternalServerError(errorMessage);
+            throw new errors_ts_1.InternalServerError(finalMessage);
         }
     }
     /**
@@ -76,6 +81,11 @@ class AddressRepository {
         catch (error) {
             if (error.code === 'P2025') {
                 throw new errors_ts_1.NotFoundError('Address not found');
+            }
+            // Check for check constraint violations
+            const errorMessage = error.message || '';
+            if (errorMessage.includes('chk_valid_text_fields') || errorMessage.includes('violates check constraint')) {
+                throw new errors_ts_1.InternalServerError('Invalid address data: text fields must not be empty or contain only whitespace');
             }
             logger_ts_1.logger.error('Error updating address', { error, addressId });
             throw new errors_ts_1.InternalServerError('Failed to update address');
@@ -119,6 +129,11 @@ class AddressRepository {
                     salesman_id: address.salesman_id,
                     user_id: address.user_id,
                     address_id: address.address_id,
+                    // Copy Google Maps fields
+                    latitude: address.latitude,
+                    longitude: address.longitude,
+                    place_id: address.place_id,
+                    formatted_address: address.formatted_address,
                 },
             });
             return orderAddress.order_address_id;

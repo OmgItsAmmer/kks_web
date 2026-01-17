@@ -94,11 +94,16 @@ exports.schemas = {
     // Address
     address: zod_1.z.object({
         fullName: zod_1.z.string().min(1, 'Full name is required'),
-        shippingAddress: zod_1.z.string().min(1, 'Address is required'),
-        city: zod_1.z.string().min(1, 'City is required'),
+        shippingAddress: zod_1.z.string().optional(), // Optional when using Google Maps formatted_address
+        city: zod_1.z.string().optional(), // Optional when using Google Maps address components
         postalCode: zod_1.z.string().min(3).max(12).optional(),
         phoneNumber: zod_1.z.string().regex(/^03[0-9]{9}$/, 'Invalid phone number format'),
         country: zod_1.z.string().default('Pakistan'),
+        // Google Maps fields
+        latitude: zod_1.z.number().min(-90).max(90).optional(),
+        longitude: zod_1.z.number().min(-180).max(180).optional(),
+        place_id: zod_1.z.string().optional(),
+        formatted_address: zod_1.z.string().optional(),
     }),
     // Cart item
     cartItem: zod_1.z.object({

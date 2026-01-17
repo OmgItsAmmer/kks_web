@@ -6,7 +6,7 @@ import { useWishlist } from '../../contexts/WishlistContext';
 import LoginModal from '../auth/LoginModal';
 import { productService } from '../../services/product.service';
 import { cartService } from '../../services/cart.service';
-import logo from '../../assets/images/kks_new_logo_dark.png';
+import logo from '../../assets/images/logo.png';
 import styles from './MainHeader.module.css';
 
 interface SearchProduct {

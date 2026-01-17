@@ -9,6 +9,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import ProductDetail from './pages/product_details/ProductDetail';
+import CollectionDetail from './pages/CollectionDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Wishlist from './pages/Wishlist';
@@ -54,6 +55,7 @@ function App() {
                 <Route index element={<Home />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/products/:category/:productId" element={<ProductDetail />} />
+                <Route path="/collection/:id" element={<CollectionDetail />} />
                 <Route path="/search" element={<SearchResults />} />
                 <Route 
                   path="/cart" 

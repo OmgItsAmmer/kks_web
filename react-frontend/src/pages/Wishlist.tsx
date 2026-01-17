@@ -2,11 +2,175 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ArrowLeft, RotateCcw, Truck, ShieldCheck, Clock, X, ShoppingCart } from 'lucide-react';
 import { useWishlist } from '../contexts/WishlistContext';
-import { cartService } from '../services/cart.service';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { AuthenticationError } from '../services/api.config';
+import type { WishlistItem } from '../services/wishlist.service';
+import logo from '../assets/images/kks_new_logo_dark.png';
 import styles from './Wishlist.module.css';
+
+interface WishlistItemCardProps {
+    item: WishlistItem;
+    onRemove: (productId: number) => void;
+    onAddToCart: (item: WishlistItem) => void;
+    removingId: number | null;
+    addingToCartId: number | null;
+    formatPriceRange: (item: WishlistItem) => string;
+    formatPrice: (price: string | null) => string;
+    hasDiscount: boolean;
+    currentPrice: number | null;
+}
+
+const WishlistItemCard: React.FC<WishlistItemCardProps> = ({
+    item,
+    onRemove,
+    onAddToCart,
+    removingId,
+    addingToCartId,
+    formatPriceRange,
+    formatPrice,
+    hasDiscount,
+    currentPrice,
+}) => {
+    const [imageError, setImageError] = useState(false);
+    const [imageSrc, setImageSrc] = useState<string>(() => {
+        // Initial state - same logic as useEffect below
+        const img = item.imageUrl;
+        if (!img || img === '/logo.png' || img === '') {
+            return logo;
+        }
+        if (img.startsWith('http://') || img.startsWith('https://')) {
+            return img;
+        }
+        return logo;
+    });
+
+    // Update image source when item changes
+    useEffect(() => {
+        setImageError(false);
+        const img = item.imageUrl;
+        
+        // Log for debugging
+        console.log(`[Wishlist] Setting image for product ${item.productId}:`, {
+            imageUrl: img,
+            hasImageUrl: !!img,
+            isSupabaseUrl: img?.includes('supabase.co/storage/v1/object/public/'),
+        });
+        
+        if (!img || img === '/logo.png' || img === '') {
+            setImageSrc(logo);
+        } else if (img.startsWith('http://') || img.startsWith('https://')) {
+            // Validate Supabase URL format - but still set it as source
+            if (img.includes('supabase.co/storage/v1/object/public/')) {
+                setImageSrc(img);
+                // Pre-validate the URL (this won't block rendering)
+                const testImg = new Image();
+                testImg.onerror = () => {
+                    console.warn(`[Wishlist] Pre-validation: Image URL may be invalid or inaccessible:`, img);
+                };
+                testImg.onload = () => {
+                    console.log(`[Wishlist] Pre-validation: Image URL is valid:`, img);
+                };
+                testImg.src = img;
+            } else {
+                setImageSrc(img);
+            }
+        } else {
+            setImageSrc(logo);
+        }
+    }, [item.imageUrl, item.productId]);
+
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+        if (!imageError) {
+            const img = e.currentTarget;
+            console.warn(`[Wishlist] Image failed to load for product ${item.productId}:`, {
+                attemptedUrl: item.imageUrl,
+                currentSrc: img.currentSrc,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+                complete: img.complete,
+            });
+            
+            // Try to diagnose the issue
+            if (item.imageUrl && (item.imageUrl.startsWith('http://') || item.imageUrl.startsWith('https://'))) {
+                // Test if the URL is accessible (but don't block)
+                fetch(item.imageUrl, { method: 'HEAD', mode: 'no-cors' })
+                    .then(() => {
+                        console.log(`[Wishlist] URL is accessible (no-cors check):`, item.imageUrl);
+                    })
+                    .catch((err) => {
+                        console.error(`[Wishlist] URL accessibility check failed:`, err);
+                    });
+            }
+            
+            setImageError(true);
+            setImageSrc(logo);
+        }
+    };
+
+    return (
+        <div className={styles.wishlistItem}>
+            <button
+                onClick={() => onRemove(item.productId)}
+                className={styles.removeBtn}
+                aria-label="Remove from wishlist"
+                disabled={removingId === item.productId}
+            >
+                {removingId === item.productId ? (
+                    <span className={styles.spinner}>...</span>
+                ) : (
+                    <X size={20} />
+                )}
+            </button>
+
+            <Link 
+                to={`/product/${item.productId}`}
+                className={styles.itemImageWrapper}
+            >
+                <img 
+                    src={imageSrc}
+                    alt={item.productName} 
+                    className={styles.itemImage}
+                    onError={handleImageError}
+                    onLoad={() => {
+                        console.log(`[Wishlist] ✅ Image loaded successfully for product ${item.productId}:`, imageSrc);
+                        if (imageError) {
+                            setImageError(false);
+                        }
+                    }}
+                    loading="lazy"
+                />
+            </Link>
+
+            <div className={styles.itemDetails}>
+                <Link to={`/product/${item.productId}`}>
+                    <h3 className={styles.itemName}>{item.productName}</h3>
+                </Link>
+                <div className={styles.itemPrice}>
+                    <span className={styles.currentPrice}>{formatPriceRange(item)}</span>
+                    {hasDiscount && currentPrice && (
+                        <span className={styles.originalPrice}>{formatPrice(item.basePrice)}</span>
+                    )}
+                </div>
+            </div>
+
+            <button
+                onClick={() => onAddToCart(item)}
+                className={styles.addToCartBtn}
+                disabled={addingToCartId === item.productId}
+            >
+                {addingToCartId === item.productId ? (
+                    'Loading...'
+                ) : (
+                    <>
+                        <ShoppingCart size={16} />
+                        View Product
+                    </>
+                )}
+            </button>
+        </div>
+    );
+};
 
 const Wishlist: React.FC = () => {
     const { wishlistItems, removeFromWishlist, isLoading, refreshWishlist } = useWishlist();
@@ -67,6 +231,23 @@ const Wishlist: React.FC = () => {
         if (!price) return 'Price not available';
         const numPrice = parseFloat(price);
         return `Rs ${numPrice.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+    };
+
+    const formatPriceRange = (item: WishlistItem): string => {
+        // Use priceRange if available and valid
+        if (item.priceRange && item.priceRange.trim().length > 0 && item.priceRange !== '--') {
+            return `Rs ${item.priceRange}`;
+        }
+        // Fallback to salePrice or basePrice
+        if (item.salePrice) {
+            const numPrice = parseFloat(item.salePrice);
+            return `Rs ${numPrice.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+        }
+        if (item.basePrice) {
+            const numPrice = parseFloat(item.basePrice);
+            return `Rs ${numPrice.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+        }
+        return 'Price not available';
     };
 
     return (
@@ -167,70 +348,21 @@ const Wishlist: React.FC = () => {
                             {wishlistItems.map(item => {
                                 const currentPrice = item.salePrice ? parseFloat(item.salePrice) : null;
                                 const originalPrice = item.basePrice ? parseFloat(item.basePrice) : null;
-                                const hasDiscount = originalPrice && currentPrice && originalPrice > currentPrice;
+                                const hasDiscount = !!(originalPrice && currentPrice && originalPrice > currentPrice);
 
                                 return (
-                                    <div key={item.wishlistId} className={styles.wishlistItem}>
-                                        <button
-                                            onClick={() => handleRemoveFromWishlist(item.productId)}
-                                            className={styles.removeBtn}
-                                            aria-label="Remove from wishlist"
-                                            disabled={removingId === item.productId}
-                                        >
-                                            {removingId === item.productId ? (
-                                                <span className={styles.spinner}>...</span>
-                                            ) : (
-                                                <X size={20} />
-                                            )}
-                                        </button>
-
-                                        <Link 
-                                            to={`/product/${item.productId}`}
-                                            className={styles.itemImageWrapper}
-                                        >
-                                            <img 
-                                                src={item.imageUrl || '/placeholder-product.png'} 
-                                                alt={item.productName} 
-                                                className={styles.itemImage}
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = '/placeholder-product.png';
-                                                }}
-                                            />
-                                        </Link>
-
-                                        <div className={styles.itemDetails}>
-                                            <Link to={`/product/${item.productId}`}>
-                                                <h3 className={styles.itemName}>{item.productName}</h3>
-                                            </Link>
-                                            <div className={styles.itemPrice}>
-                                                {currentPrice ? (
-                                                    <>
-                                                        <span className={styles.currentPrice}>{formatPrice(item.salePrice)}</span>
-                                                        {hasDiscount && (
-                                                            <span className={styles.originalPrice}>{formatPrice(item.basePrice)}</span>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <span className={styles.currentPrice}>Price not available</span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => handleAddToCart(item)}
-                                            className={styles.addToCartBtn}
-                                            disabled={addingToCartId === item.productId}
-                                        >
-                                            {addingToCartId === item.productId ? (
-                                                'Loading...'
-                                            ) : (
-                                                <>
-                                                    <ShoppingCart size={16} />
-                                                    View Product
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
+                                    <WishlistItemCard
+                                        key={item.wishlistId}
+                                        item={item}
+                                        formatPriceRange={formatPriceRange}
+                                        formatPrice={formatPrice}
+                                        hasDiscount={hasDiscount}
+                                        currentPrice={currentPrice}
+                                        removingId={removingId}
+                                        addingToCartId={addingToCartId}
+                                        onRemove={handleRemoveFromWishlist}
+                                        onAddToCart={handleAddToCart}
+                                    />
                                 );
                             })}
                         </div>

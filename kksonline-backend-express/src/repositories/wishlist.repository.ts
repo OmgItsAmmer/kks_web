@@ -29,6 +29,7 @@ export class WishlistRepository {
     productName: string;
     salePrice: string | null;
     basePrice: string | null;
+    priceRange: string | null;
     createdAt: Date;
   }[]> {
     try {
@@ -40,6 +41,7 @@ export class WishlistRepository {
               name: true,
               sale_price: true,
               base_price: true,
+              price_range: true,
               isVisible: true,
             },
           },
@@ -55,6 +57,7 @@ export class WishlistRepository {
           productName: item.product?.name || 'Unknown',
           salePrice: item.product?.sale_price || null,
           basePrice: item.product?.base_price || null,
+          priceRange: item.product?.price_range || null,
           createdAt: item.created_at,
         }));
     } catch (error) {

@@ -41,10 +41,9 @@
 }
 
 .logoImage {
-  height: 48px;
+  height: 64px;
   width: auto;
   object-fit: contain;
-  filter: brightness(0) invert(1);
 }
 
 .logoText {

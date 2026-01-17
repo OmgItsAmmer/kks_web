@@ -42,11 +42,10 @@ class CartService {
 
       console.log('[CartService] Adding to cart:', payload);
 
-      const response = await apiRequest<ApiResponse<any>>(this.baseUrl, {
+      await apiRequest<ApiResponse<any>>(this.baseUrl, {
         method: 'POST',
-        body: payload,
+        body: JSON.stringify(payload),
       });
-      return response;
     } catch (error) {
       console.error('[CartService] Error adding to cart:', error);
       throw error;
@@ -73,11 +72,10 @@ class CartService {
    */
   async removeCartItem(cartId: number): Promise<void> {
     try {
-      const result = await apiRequest<any>(`${this.baseUrl}/${cartId}`, {
+      await apiRequest<any>(`${this.baseUrl}/${cartId}`, {
         method: 'DELETE',
       });
       // 204 No Content returns null, which is fine
-      return;
     } catch (error) {
       console.error('[CartService] Error removing cart item:', error);
       throw error;
@@ -89,11 +87,10 @@ class CartService {
    */
   async clearCart(): Promise<void> {
     try {
-      const result = await apiRequest<any>(this.baseUrl, {
+      await apiRequest<any>(this.baseUrl, {
         method: 'DELETE',
       });
       // 204 No Content returns null, which is fine
-      return;
     } catch (error) {
       console.error('[CartService] Error clearing cart:', error);
       throw error;

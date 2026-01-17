@@ -9,6 +9,7 @@ import reviewRoutes from './review.routes.ts';
 import categoryRoutes from './category.routes.ts';
 import brandRoutes from './brand.routes.ts';
 import shopRoutes from './shop.routes.ts';
+import collectionRoutes from './collection.routes.ts';
 import adminRoutes from './admin/index.ts';
 import authRoutes from './auth.routes.ts';
 import { checkDatabaseConnection } from '../config/database.config.ts';
@@ -21,6 +22,7 @@ router.use('/products', productRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/brands', brandRoutes);
 router.use('/shop', shopRoutes);
+router.use('/collections', collectionRoutes);
 
 // Customer routes (pass customer_id via query or body)
 router.use('/customers', customerRoutes);

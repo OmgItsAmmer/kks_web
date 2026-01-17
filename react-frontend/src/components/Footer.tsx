@@ -13,7 +13,7 @@ import {
   Globe,
   Linkedin
 } from 'lucide-react';
-import logo from '../assets/images/kks_new_logo_dark.png';
+import logo from '../assets/images/logo.png';
 import { useCategories } from '../hooks/useCategories';
 import InfoPopup from './InfoPopup';
 import styles from './Footer.module.css';
@@ -286,8 +286,10 @@ const Footer: React.FC = () => {
                 <span className={styles.logoText}>KKS Online</span>
               </Link>
               <p className={styles.brandDescription}>
-                Your trusted partner for quality mattresses, sofas, and home furnishings. 
-                We're committed to providing exceptional comfort and style for your home.
+                KKS is your trusted local karyana (grocery) store, serving your daily needs since 1995. 
+                Founded by M Saeed Sarwar, we've been providing quality grocery items and household essentials 
+                to our community for over 31 years. We're committed to bringing fresh produce, daily necessities, 
+                and premium quality products right to your doorstep.
               </p>
               
               <div className={styles.contactInfo}>

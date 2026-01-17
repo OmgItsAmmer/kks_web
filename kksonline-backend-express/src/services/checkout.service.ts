@@ -218,13 +218,8 @@ export class CheckoutService {
     }
 
     if (shippingMethod === 'shipping') {
-      // Check if shipping is enabled
-      const isShippingEnabled = await shopRepository.isShippingEnabled();
-      if (!isShippingEnabled) {
-        throw new ShippingMethodInvalidError('Shipping is not available. Please select pickup instead.');
-      }
-
-      // Validate address
+      // Shipping is always enabled for orders with GPS coordinates
+      // Validate address exists
       if (addressId <= 0) {
         throw new ShippingMethodInvalidError('Valid shipping address required for delivery.');
       }

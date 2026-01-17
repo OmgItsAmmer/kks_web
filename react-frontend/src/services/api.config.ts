@@ -77,8 +77,8 @@ export async function apiRequest<T = any>(
         
         const token = localStorage.getItem('auth_token');
         
-        const headers: HeadersInit = {
-            ...options.headers,
+        const headers: Record<string, string> = {
+            ...(options.headers as Record<string, string> || {}),
         };
 
         // Only set Content-Type for requests with body

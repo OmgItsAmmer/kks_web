@@ -51,7 +51,7 @@ class AddressService {
     try {
       const response = await apiRequest<ApiResponse<Address>>(this.baseUrl, {
         method: 'POST',
-        body: address,
+        body: JSON.stringify(address),
       });
       return response;
     } catch (error) {

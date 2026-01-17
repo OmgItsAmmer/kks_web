@@ -7,6 +7,7 @@ import Loader from '../components/Loader';
 import { cartService } from '../services/cart.service';
 import { AuthenticationError } from '../services/api.config';
 import type { CartItem, CartSummary, CartStockValidation } from '../types/cart';
+import logo from '../assets/images/kks_new_logo_dark.png';
 import styles from './Cart.module.css';
 
 type CartState = 'loading' | 'ready' | 'validating' | 'error' | 'empty';
@@ -23,6 +24,30 @@ const Cart: React.FC = () => {
   const [validationIssues, setValidationIssues] = useState<Map<number, CartStockValidation>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
+  const [imageSources, setImageSources] = useState<Map<number, string>>(new Map());
+
+  // Helper function to get valid image source (similar to ProductCard logic)
+  const getValidImageSource = (imageUrl?: string): string => {
+    if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
+      return logo;
+    }
+    // Check if it's a valid URL (starts with http:// or https://)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    // If it's a relative path that might not exist, use logo
+    return logo;
+  };
+
+  // Initialize image sources when cart items change
+  useEffect(() => {
+    const newImageSources = new Map<number, string>();
+    cartItems.forEach((item) => {
+      const validSrc = getValidImageSource(item.imageUrl);
+      newImageSources.set(item.cartId, validSrc);
+    });
+    setImageSources(newImageSources);
+  }, [cartItems]);
 
   // Load cart on mount and when authentication changes
   useEffect(() => {
@@ -418,6 +443,23 @@ const Cart: React.FC = () => {
                     const isOutOfStock = validation?.shouldRemove || item.stock === 0;
                     const hasStockIssue = validation && !validation.isValid;
                     const isUpdating = updatingItems.has(item.cartId);
+                    const imageSrc = imageSources.get(item.cartId) || getValidImageSource(item.imageUrl);
+
+                    // Handle image load error
+                    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                      const img = e.currentTarget;
+                      console.warn(`[Cart] Image failed to load for cart item ${item.cartId}:`, {
+                        attemptedUrl: item.imageUrl,
+                        currentSrc: img.currentSrc,
+                      });
+                      
+                      // Update image source to logo fallback
+                      setImageSources((prev) => {
+                        const newMap = new Map(prev);
+                        newMap.set(item.cartId, logo);
+                        return newMap;
+                      });
+                    };
 
                     return (
                       <div
@@ -425,9 +467,11 @@ const Cart: React.FC = () => {
                         className={`${styles.cartItem} ${isOutOfStock ? styles.outOfStock : ''} ${isUpdating ? styles.updating : ''}`}
                       >
                         <img
-                          src={item.imageUrl || 'https://via.placeholder.com/150'}
+                          src={imageSrc}
                           alt={item.productName}
                           className={styles.itemImage}
+                          onError={handleImageError}
+                          loading="lazy"
                         />
 
                         <div className={styles.itemDetails}>

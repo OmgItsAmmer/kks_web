@@ -1,66 +1,152 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { usePopularProducts } from '../hooks/useProducts';
-import type { Product } from '../types';
-import HeroProductCards from './HeroProductCards';
+import { usePremiumCollection, useStandardCollections } from '../hooks/useCollections';
+import logo from '../assets/images/kks_new_logo_dark.png';
 import styles from './HeroSection.module.css';
 
 const HeroSection: React.FC = () => {
-  // Use React Query hook with caching - data will be cached and reused when navigating back
-  const { data, isLoading } = usePopularProducts(1, 7);
+  // Fetch premium collection (ONE for main banner)
+  const { data: premiumCollection, isLoading: premiumLoading } = usePremiumCollection();
   
-  const products = useMemo(() => data?.products || [], [data?.products]);
-  const loading = isLoading;
+  // Fetch standard collections (6 for side banners and bottom cards)
+  const { data: standardCollections, isLoading: standardLoading } = useStandardCollections(6);
+  
+  const loading = premiumLoading || standardLoading;
+  
+  // Image error state
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+  const [premiumImageError, setPremiumImageError] = useState(false);
 
-  // Log product data for debugging
+  // Log collection data for debugging
   React.useEffect(() => {
-    if (data?.products) {
-      const productsWithImages = data.products.filter(p => p.image && p.image !== '/logo.png');
-      const productsWithoutImages = data.products.filter(p => !p.image || p.image === '/logo.png');
-      console.log('[HeroSection] ✅ Products loaded (cached):', {
-        total: data.products.length,
-        withImages: productsWithImages.length,
-        withoutImages: productsWithoutImages.length,
-        withoutImageIds: productsWithoutImages.map(p => p.id),
-        fromCache: !isLoading && data,
+    if (premiumCollection) {
+      console.log('[HeroSection] ✅ Premium collection loaded:', premiumCollection.name);
+    }
+    if (standardCollections) {
+      console.log('[HeroSection] ✅ Standard collections loaded:', {
+        total: standardCollections.length,
+        fromCache: !standardLoading && standardCollections,
       });
     }
-  }, [data, isLoading]);
+  }, [premiumCollection, standardCollections, standardLoading]);
 
-  // Get first 2 products for side banners
-  const sideProducts = products.slice(0, 2);
+  // Get first 2 standard collections for side banners, remaining 4 for bottom cards
+  const sideCollections = useMemo(() => standardCollections?.slice(0, 2) || [], [standardCollections]);
+  const bottomCollections = useMemo(() => standardCollections?.slice(2, 6) || [], [standardCollections]);
 
-  const formatPriceRange = (product: Product) => {
-    if (product.priceRange && product.priceRange.trim().length > 0) {
-      return `Rs ${product.priceRange}`;
+  const formatPrice = (price: number) => {
+    return `Rs ${price.toLocaleString()}`;
+  };
+
+  // Get collection image with Supabase bucket support (like ProductCard)
+  const getCollectionImage = (collectionId: number, imageUrl: string | null) => {
+    // If image loading failed, return logo
+    if (imageErrors[collectionId]) {
+      return logo;
     }
-    return `Rs ${product.price.toLocaleString()}`;
+    
+    // If no image URL, return logo
+    if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
+      return logo;
+    }
+    
+    // If it's already a full URL, use it (Supabase storage URL)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      // Validate Supabase URL format for collections bucket
+      if (imageUrl.includes('supabase.co/storage/v1/object/public/collections/')) {
+        return imageUrl;
+      }
+      // Other valid URLs
+      return imageUrl;
+    }
+    
+    // Otherwise return logo
+    return logo;
+  };
+
+  const getPremiumImage = (imageUrl: string | null) => {
+    // If image loading failed, return logo
+    if (premiumImageError) {
+      return logo;
+    }
+    
+    // If no image URL, return logo
+    if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
+      return logo;
+    }
+    
+    // If it's already a full URL, use it (Supabase storage URL)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      // Validate Supabase URL format for collections bucket
+      if (imageUrl.includes('supabase.co/storage/v1/object/public/collections/')) {
+        return imageUrl;
+      }
+      // Other valid URLs
+      return imageUrl;
+    }
+    
+    // Otherwise return logo
+    return logo;
+  };
+
+  const handleImageError = (collectionId: number) => {
+    console.warn(`[HeroSection] Image failed to load for collection ${collectionId}`);
+    setImageErrors(prev => ({ ...prev, [collectionId]: true }));
+  };
+
+  const handlePremiumImageError = () => {
+    console.warn('[HeroSection] Premium collection image failed to load');
+    setPremiumImageError(true);
   };
 
   return (
-    <section className={styles.heroSection}>
+    <section id="collections-section" className={styles.heroSection}>
       <div className="container">
         <div className={styles.heroGrid}>
-          {/* Main Banner - Keep as is */}
+          {/* Main Banner - Premium Collection */}
           <div className={styles.mainBanner}>
-            <div className={styles.bannerImage}>
-              <img src="/logo.png" alt="Premium Collection" className={styles.heroImage} />
-              <div className={styles.bannerOverlay}>
-                <span className={styles.newArrival}>NEW ARRIVAL</span>
-                <h2 className={styles.bannerTitle}>PREMIUM</h2>
-                <h3 className={styles.bannerSubtitle}>COLLECTION</h3>
-                <div className={styles.priceSection}>
-                  <span className={styles.price}>Rs 49,999</span>
-                  <span className={styles.saleTag}>SALE UP TO 40% OFF</span>
+            {loading || !premiumCollection ? (
+              <div className={styles.bannerImage}>
+                <img src={logo} alt="Premium Collection" className={styles.heroImage} />
+                <div className={styles.bannerOverlay}>
+                  <span className={styles.newArrival}>NEW ARRIVAL</span>
+                  <h2 className={styles.bannerTitle}>PREMIUM</h2>
+                  <h3 className={styles.bannerSubtitle}>COLLECTION</h3>
+                  <div className={styles.priceSection}>
+                    <span className={styles.price}>Rs 49,999</span>
+                    <span className={styles.saleTag}>SALE UP TO 40% OFF</span>
+                  </div>
+                  <button className={styles.shopButton}>
+                    Shop Now
+                  </button>
                 </div>
-                <button className={styles.shopButton}>
-                  Shop Now
-                </button>
               </div>
-            </div>
+            ) : (
+              <Link to={`/collection/${premiumCollection.collection_id}`} className={styles.bannerImage}>
+                <img 
+                  src={getPremiumImage(premiumCollection.image_url)} 
+                  alt={premiumCollection.name} 
+                  className={styles.heroImage}
+                  onError={handlePremiumImageError}
+                  loading="lazy"
+                />
+                <div className={styles.bannerOverlay}>
+                  <span className={styles.newArrival}>NEW ARRIVAL</span>
+                  <h2 className={styles.bannerTitle}>{premiumCollection.name.split(' ')[0]}</h2>
+                  <h3 className={styles.bannerSubtitle}>{premiumCollection.name.split(' ').slice(1).join(' ')}</h3>
+                  <div className={styles.priceSection}>
+                    <span className={styles.price}>{formatPrice(Number(premiumCollection.total_price))}</span>
+                    <span className={styles.saleTag}>{premiumCollection.item_count} ITEMS INCLUDED</span>
+                  </div>
+                  <button className={styles.shopButton}>
+                    Shop Now
+                  </button>
+                </div>
+              </Link>
+            )}
           </div>
 
-          {/* Side Banners - Product Cards (Upper 2) - Keep inline */}
+          {/* Side Banners - Standard Collection Cards (Upper 2) */}
           <div className={styles.sideBanners}>
             {loading ? (
               <>
@@ -72,27 +158,32 @@ const HeroSection: React.FC = () => {
                 </div>
               </>
             ) : (
-              sideProducts.map((product) => (
+              sideCollections.map((collection) => (
                 <Link 
-                  key={product.id} 
-                  to={`/product/${product.id}`} 
+                  key={collection.collection_id} 
+                  to={`/collection/${collection.collection_id}`} 
                   className={styles.sideBanner}
                 >
                   <img 
-                    src={product.image || '/logo.png'} 
-                    alt={product.name} 
-                    className={styles.sideImage} 
+                    src={getCollectionImage(collection.collection_id, collection.image_url)} 
+                    alt={collection.name} 
+                    className={styles.sideImage}
+                    onError={() => handleImageError(collection.collection_id)}
+                    loading="lazy"
                   />
-                  <span className={styles.sideLabel}>{product.name}</span>
+                  <span className={styles.sideLabel}>{collection.name}</span>
                   <div className={styles.sidePrice}>
-                    {formatPriceRange(product)}
+                    {formatPrice(Number(collection.total_price))}
+                  </div>
+                  <div className={styles.itemCount}>
+                    {collection.item_count} {collection.item_count === 1 ? 'Item' : 'Items'}
                   </div>
                 </Link>
               ))
             )}
-            {/* Show empty state if not enough products */}
-            {!loading && sideProducts.length < 2 && (
-              Array.from({ length: 2 - sideProducts.length }).map((_, index) => (
+            {/* Show empty state if not enough collections */}
+            {!loading && sideCollections.length < 2 && (
+              Array.from({ length: 2 - sideCollections.length }).map((_, index) => (
                 <div key={`empty-${index}`} className={styles.sideBanner}>
                   <div className={styles.sideImageSkeleton}></div>
                 </div>
@@ -101,7 +192,7 @@ const HeroSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Product Cards - Lower 4 (Modular) */}
+        {/* Standard Collection Cards - Lower 4 */}
         <div className={styles.categoryCards}>
           {loading ? (
             Array.from({ length: 4 }).map((_, index) => (
@@ -115,13 +206,36 @@ const HeroSection: React.FC = () => {
                 </div>
               </div>
             ))
-          ) : products.length >= 4 ? (
-            <HeroProductCards products={products} />
-          ) : products.length > 2 ? (
+          ) : bottomCollections.length > 0 ? (
             <>
-              <HeroProductCards products={products} />
-              {/* Show empty placeholders if not enough products */}
-              {Array.from({ length: 4 - (products.length - 2) }).map((_, index) => (
+              {bottomCollections.map((collection) => (
+                <Link
+                  key={collection.collection_id}
+                  to={`/collection/${collection.collection_id}`}
+                  className={styles.categoryCard}
+                >
+                  <div className={styles.cardImageWrapper}>
+                    <img 
+                      src={getCollectionImage(collection.collection_id, collection.image_url)} 
+                      alt={collection.name} 
+                      className={styles.cardImage}
+                      onError={() => handleImageError(collection.collection_id)}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className={styles.cardContent}>
+                    <h3 className={styles.cardTitle}>{collection.name}</h3>
+                    <p className={styles.cardDescription}>
+                      {collection.item_count} {collection.item_count === 1 ? 'Item' : 'Items'}
+                    </p>
+                    <div className={styles.cardPrice}>
+                      {formatPrice(Number(collection.total_price))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              {/* Show empty placeholders if not enough collections */}
+              {bottomCollections.length < 4 && Array.from({ length: 4 - bottomCollections.length }).map((_, index) => (
                 <div key={`empty-${index}`} className={styles.categoryCard}>
                   <div className={styles.cardImageWrapper}>
                     <div className={styles.cardImageSkeleton}></div>

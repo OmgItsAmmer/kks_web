@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { MapPin, Navigation, Loader2, Search } from 'lucide-react';
+import React, { useCallback, useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapPin, Navigation, Loader2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import styles from './GoogleMapLocationPicker.module.css';
@@ -44,6 +44,18 @@ const MapClickHandler: React.FC<{
   return null;
 };
 
+// Component to update map center when location changes
+const MapCenterUpdater: React.FC<{
+  center: [number, number];
+  zoom: number;
+}> = ({ center, zoom }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [map, center, zoom]);
+  return null;
+};
+
 const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   onLocationSelect,
   initialLocation,
@@ -57,38 +69,9 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const mapCenter = propDefaultCenter || defaultCenter;
 
-  // Get current location
-  const getCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setSelectedLocation(location);
-        reverseGeocode(location.lat, location.lng);
-        setIsLoading(false);
-      },
-      (err) => {
-        console.error('Error getting location:', err);
-        setError('Unable to get your location. Please select on map.');
-        setIsLoading(false);
-      }
-    );
-  }, []);
-
-  // Reverse geocode coordinates to get address using LocationIQ
+  // Reverse geocode coordinates to get address using LocationIQ (high precision)
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     const apiKey = import.meta.env.VITE_LOCATIONIQ_API_KEY;
     if (!apiKey) {
@@ -97,8 +80,10 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     }
 
     try {
+      // Use zoom=18 for maximum precision (building level)
+      // normalizedcoordinates=1 for better address matching
       const response = await fetch(
-        `https://us1.locationiq.com/v1/reverse?key=${apiKey}&lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+        `https://us1.locationiq.com/v1/reverse?key=${apiKey}&lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=18&normalizecoordinates=1`,
         {
           headers: {
             'Accept-Language': 'en',
@@ -108,16 +93,44 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       
       if (response.ok) {
         const data = await response.json();
-        const formattedAddress = data.display_name || '';
+        
+        // Build precise address from components
+        const addr = data.address || {};
+        let formattedAddress = '';
+        
+        // Try to get the most specific address possible
+        if (addr.house_number || addr.house_name) {
+          formattedAddress = `${addr.house_number || addr.house_name || ''} ${addr.road || addr.street || ''}`.trim();
+        }
+        if (addr.road || addr.street) {
+          formattedAddress = formattedAddress || (addr.road || addr.street || '');
+        }
+        if (addr.neighbourhood || addr.suburb) {
+          formattedAddress += formattedAddress ? `, ${addr.neighbourhood || addr.suburb}` : (addr.neighbourhood || addr.suburb);
+        }
+        if (addr.locality || addr.city || addr.town || addr.village) {
+          formattedAddress += formattedAddress ? `, ${addr.locality || addr.city || addr.town || addr.village}` : (addr.locality || addr.city || addr.town || addr.village);
+        }
+        if (addr.postcode) {
+          formattedAddress += formattedAddress ? ` ${addr.postcode}` : addr.postcode;
+        }
+        
+        // Fallback to display_name if our building is empty
+        formattedAddress = formattedAddress || data.display_name || '';
+        
         setAddress(formattedAddress);
         
-        // Extract address components
+        // Extract address components with more detail
         const addressComponents: any = {
-          city: data.address?.city || data.address?.town || data.address?.village || '',
-          state: data.address?.state || '',
-          country: data.address?.country || 'Pakistan',
-          postal_code: data.address?.postcode || '',
-          locality: data.address?.suburb || data.address?.neighbourhood || '',
+          house_number: addr.house_number || '',
+          house_name: addr.house_name || '',
+          road: addr.road || addr.street || '',
+          neighbourhood: addr.neighbourhood || addr.suburb || '',
+          city: addr.city || addr.town || addr.village || addr.locality || '',
+          state: addr.state || '',
+          country: addr.country || 'Pakistan',
+          postal_code: addr.postcode || '',
+          locality: addr.locality || addr.suburb || addr.neighbourhood || '',
         };
 
         onLocationSelect({
@@ -133,95 +146,82 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     }
   }, [onLocationSelect]);
 
+  // Get current location
+  const getCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    // Clear any previous errors immediately and start loading
+    setError(null);
+    setIsLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setSelectedLocation(location);
+          
+          // Wait for reverse geocoding to complete before hiding loader
+          await reverseGeocode(location.lat, location.lng);
+          
+          // Only set loading to false after everything is done
+          setIsLoading(false);
+          setError(null); // Ensure error is cleared on success
+        } catch (error) {
+          console.error('Error in location processing:', error);
+          setError('Error getting address for this location.');
+          setIsLoading(false);
+        }
+      },
+      (err) => {
+        console.error('Geolocation error:', err);
+        let errorMessage = 'Unable to get your location. Please select on map.';
+        
+        // Provide more specific error messages
+        if (err.code === 1) {
+          errorMessage = 'Location access denied. Please allow location access and try again.';
+        } else if (err.code === 2) {
+          errorMessage = 'Location unavailable. Please check your device settings.';
+        } else if (err.code === 3) {
+          errorMessage = 'Location request timed out. Please try again.';
+        }
+        
+        setError(errorMessage);
+        setIsLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000, // Increased timeout to 15 seconds
+        maximumAge: 0,
+      }
+    );
+  }, [reverseGeocode]);
+
   // Handle location change from map click
   const handleLocationChange = useCallback((lat: number, lng: number) => {
+    // Clear error when user manually selects location
+    setError(null);
     const location = { lat, lng };
     setSelectedLocation(location);
     reverseGeocode(lat, lng);
   }, [reverseGeocode]);
 
-  // Search location using LocationIQ
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
-
-    const apiKey = import.meta.env.VITE_LOCATIONIQ_API_KEY;
-    if (!apiKey) {
-      setError('LocationIQ API key not configured');
-      return;
+  // Update map center when location changes
+  useEffect(() => {
+    if (selectedLocation) {
+      // MapCenterUpdater component will handle the view change
     }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(
-        `https://us1.locationiq.com/v1/search?key=${apiKey}&q=${encodeURIComponent(searchQuery)}&format=json&countrycodes=pk&limit=1&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'en',
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) {
-          const result = data[0];
-          const location = {
-            lat: parseFloat(result.lat),
-            lng: parseFloat(result.lon),
-          };
-          setSelectedLocation(location);
-          setAddress(result.display_name);
-          
-          const addressComponents: any = {
-            city: result.address?.city || result.address?.town || result.address?.village || '',
-            state: result.address?.state || '',
-            country: result.address?.country || 'Pakistan',
-            postal_code: result.address?.postcode || '',
-            locality: result.address?.suburb || result.address?.neighbourhood || '',
-          };
-
-          onLocationSelect({
-            latitude: location.lat,
-            longitude: location.lng,
-            place_id: result.place_id?.toString(),
-            formatted_address: result.display_name,
-            address_components: addressComponents,
-          });
-        } else {
-          setError('Location not found. Try a different search term.');
-        }
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-      setError('Error searching location. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchQuery, onLocationSelect]);
+  }, [selectedLocation]);
 
   return (
     <div className={styles.mapContainer}>
-      {/* Search Bar */}
-      <div className={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search for an address in Pakistan"
-          className={styles.searchInput}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-        />
-        <button
-          type="button"
-          onClick={handleSearch}
-          className={styles.searchBtn}
-          disabled={isLoading || !searchQuery.trim()}
-          title="Search"
-        >
-          <Search size={20} />
-        </button>
+      {/* Current Location Button */}
+      <div className={styles.buttonContainer}>
         <button
           type="button"
           onClick={getCurrentLocation}
@@ -234,11 +234,12 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
           ) : (
             <Navigation size={20} />
           )}
+          <span>Use Current Location</span>
         </button>
       </div>
 
-      {/* Error Message */}
-      {error && (
+       {/* Error Message - only show when not loading */}
+      {error && !isLoading && (
         <div className={styles.errorMessage}>
           <p>{error}</p>
         </div>
@@ -251,23 +252,29 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
             selectedLocation?.lat || mapCenter.lat,
             selectedLocation?.lng || mapCenter.lng
           ]}
-          zoom={selectedLocation ? 16 : 12}
+          zoom={selectedLocation ? 18 : 12}
           style={{ width: '100%', height: '100%' }}
           scrollWheelZoom={true}
+          key={`${selectedLocation?.lat}-${selectedLocation?.lng}`}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           <MapClickHandler onLocationChange={handleLocationChange} />
-          {selectedLocation && <Marker position={[selectedLocation.lat, selectedLocation.lng]} />}
+          {selectedLocation && (
+            <>
+              <MapCenterUpdater center={[selectedLocation.lat, selectedLocation.lng]} zoom={18} />
+              <Marker position={[selectedLocation.lat, selectedLocation.lng]} />
+            </>
+          )}
         </MapContainer>
       </div>
 
       {/* Instructions */}
       <div className={styles.instructions}>
         <MapPin size={16} />
-        <p>Click on the map or search to select your delivery location</p>
+        <p>Click on the map or use current location to select your delivery location</p>
       </div>
 
       {/* Display selected address */}

@@ -29,14 +29,12 @@ const Checkout: React.FC = () => {
   const state = location.state as LocationState;
 
   const [checkoutState, setCheckoutState] = useState<CheckoutState>('loading');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'jazzcash'>('cod');
   const [shippingMethod, setShippingMethod] = useState<'shipping' | 'pickup'>('shipping');
   const [error, setError] = useState<string | null>(null);
 
   // Cart data
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
-  const [itemCount, setItemCount] = useState(0);
 
   // Google Maps location data
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -73,12 +71,10 @@ const Checkout: React.FC = () => {
       if (state?.cartItems && state?.subtotal) {
         setCartItems(state.cartItems);
         setSubtotal(state.subtotal);
-        setItemCount(state.itemCount || 0);
       } else {
         const cartData = await cartService.getCart();
         setCartItems(cartData.items);
         setSubtotal(cartData.subtotal);
-        setItemCount(cartData.itemCount);
       }
 
       setCheckoutState('ready');
@@ -132,10 +128,7 @@ const Checkout: React.FC = () => {
 
     // Extract address components from Google Maps data
     const addressComponents = selectedLocation.address_components || {};
-    const city = addressComponents.locality || addressComponents.administrative_area_level_2 || '';
-    const postalCode = addressComponents.postal_code || '';
-    const country = addressComponents.country || 'Pakistan';
-
+    
     try {
       setCheckoutState('processing');
       setError(null);
@@ -166,19 +159,47 @@ const Checkout: React.FC = () => {
         throw new Error('Cart is empty. Please add items to cart before checkout.');
       }
 
-      // Create address with Google Maps data
+      // Helper function to get non-empty value or undefined
+      const getNonEmpty = (value: string | undefined) => {
+        const trimmed = value?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : undefined;
+      };
+
+      // Create address with Google Maps data - only include non-empty fields
       const addressData: CreateAddressRequest = {
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
-        shippingAddress: selectedLocation.formatted_address || '',
-        city: city,
-        postalCode: postalCode,
-        country: country,
+        country: 'Pakistan',
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
-        place_id: selectedLocation.place_id,
-        formatted_address: selectedLocation.formatted_address,
       };
+
+      // Only add optional fields if they have non-empty values
+      const formattedAddress = getNonEmpty(selectedLocation.formatted_address);
+      if (formattedAddress) {
+        addressData.shippingAddress = formattedAddress;
+        addressData.formatted_address = formattedAddress;
+      }
+
+      const city = getNonEmpty(
+        addressComponents.city || 
+        addressComponents.locality || 
+        addressComponents.town || 
+        addressComponents.village
+      );
+      if (city) {
+        addressData.city = city;
+      }
+
+      const postalCode = getNonEmpty(addressComponents.postal_code);
+      if (postalCode) {
+        addressData.postalCode = postalCode;
+      }
+
+      const placeId = getNonEmpty(selectedLocation.place_id);
+      if (placeId) {
+        addressData.place_id = placeId;
+      }
 
       // Create address (save if checkbox is checked, otherwise temporary)
       let addressIdToUse: number;
@@ -195,11 +216,11 @@ const Checkout: React.FC = () => {
         return;
       }
 
-      // Create checkout request
+      // Create checkout request (COD only)
       const checkoutRequest = {
         addressId: addressIdToUse,
         shippingMethod: shippingMethod as 'shipping' | 'pickup',
-        paymentMethod: paymentMethod as 'cod' | 'jazzcash',
+        paymentMethod: 'cod' as const,
         cartItems: checkoutItems,
       };
 
@@ -453,41 +474,6 @@ const Checkout: React.FC = () => {
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className={styles.formGroup}>
-                <div className={styles.sectionHeader}>
-                  <div className={styles.sectionIcon}>
-                    <Lock size={20} />
-                  </div>
-                  <h2>Payment Method</h2>
-                </div>
-
-                <div className={styles.paymentOptions}>
-                  <label className={`${styles.paymentOption} ${paymentMethod === 'cod' ? styles.selected : ''}`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="cod"
-                      checked={paymentMethod === 'cod'}
-                      onChange={() => setPaymentMethod('cod')}
-                      className={styles.radio}
-                    />
-                    <span>Cash on Delivery</span>
-                  </label>
-
-                  <label className={`${styles.paymentOption} ${paymentMethod === 'jazzcash' ? styles.selected : ''}`}>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="jazzcash"
-                      checked={paymentMethod === 'jazzcash'}
-                      onChange={() => setPaymentMethod('jazzcash')}
-                      className={styles.radio}
-                    />
-                    <span>JazzCash</span>
-                  </label>
-                </div>
-              </div>
             </form>
           </div>
 
@@ -498,8 +484,8 @@ const Checkout: React.FC = () => {
 
               {/* Cart Items */}
               <div className={styles.summaryItems}>
-                {cartItems.slice(0, 3).map((item) => (
-                  <div key={item.cartId} className={styles.summaryItem}>
+                {cartItems.slice(0, 3).map((item, index) => (
+                  <div key={`${item.cartId || 'item'}-${item.variantId}-${index}`} className={styles.summaryItem}>
                     <span className={styles.itemName}>
                       {item.productName} ({item.variantName}) x {item.quantity}
                     </span>
@@ -548,12 +534,11 @@ const Checkout: React.FC = () => {
                 </div>
               </div>
 
-              {/* Payment Methods */}
+              {/* Payment Method */}
               <div className={styles.paymentMethods}>
-                <p className={styles.paymentTitle}>We accept:</p>
+                <p className={styles.paymentTitle}>Payment Method:</p>
                 <div className={styles.paymentIcons}>
                   <span className={styles.paymentIcon}>Cash On Delivery</span>
-                  <span className={styles.paymentIcon}>JazzCash</span>
                 </div>
               </div>
 

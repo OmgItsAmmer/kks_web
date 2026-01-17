@@ -6,6 +6,7 @@ export interface WishlistItem {
     productName: string;
     salePrice: string | null;
     basePrice: string | null;
+    priceRange: string | null;
     createdAt: string;
     imageUrl?: string;
 }

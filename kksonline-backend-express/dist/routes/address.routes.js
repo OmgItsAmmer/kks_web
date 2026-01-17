@@ -51,19 +51,50 @@ router.post('/', (0, validation_middleware_ts_1.validate)({ body: validation_mid
     if (!req.customerId) {
         return (0, response_ts_1.sendError)(res, 'Unauthorized', 401);
     }
-    const { fullName, shippingAddress, city, postalCode, phoneNumber, country } = req.body;
-    // Build address data object
+    const { fullName, shippingAddress, city, postalCode, phoneNumber, country, latitude, longitude, place_id, formatted_address } = req.body;
+    // Helper function to get non-empty trimmed value or undefined
+    const getNonEmpty = (value) => {
+        if (typeof value !== 'string')
+            return undefined;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+    };
+    // Build address data - only required fields guaranteed
     const addressData = {
         customer_id: req.customerId,
-        full_name: fullName,
-        shipping_address: shippingAddress || '',
-        city: city || '',
-        phone_number: phoneNumber || '',
-        country: country || 'Pakistan',
+        full_name: fullName.trim(),
+        phone_number: phoneNumber.trim(),
+        country: getNonEmpty(country) || 'Pakistan',
     };
-    // Only include postal_code if provided and not empty (to avoid validation issues)
-    if (postalCode && typeof postalCode === 'string' && postalCode.trim().length >= 3) {
-        addressData.postal_code = postalCode.trim();
+    // Optional fields - only add if they have non-empty values
+    const formattedAddr = getNonEmpty(formatted_address);
+    const shippingAddr = getNonEmpty(shippingAddress);
+    if (formattedAddr) {
+        addressData.shipping_address = formattedAddr;
+    }
+    else if (shippingAddr) {
+        addressData.shipping_address = shippingAddr;
+    }
+    const cityValue = getNonEmpty(city);
+    if (cityValue) {
+        addressData.city = cityValue;
+    }
+    const postalValue = getNonEmpty(postalCode);
+    if (postalValue && postalValue.length >= 3) {
+        addressData.postal_code = postalValue;
+    }
+    // Google Maps location data
+    if (latitude !== undefined && longitude !== undefined) {
+        addressData.latitude = latitude;
+        addressData.longitude = longitude;
+    }
+    const placeIdValue = getNonEmpty(place_id);
+    if (placeIdValue) {
+        addressData.place_id = placeIdValue;
+    }
+    const formattedAddressValue = getNonEmpty(formatted_address);
+    if (formattedAddressValue) {
+        addressData.formatted_address = formattedAddressValue;
     }
     console.log('Creating address with data:', addressData);
     const address = await address_repository_ts_1.addressRepository.create(addressData);
@@ -87,20 +118,37 @@ router.put('/:id', (0, validation_middleware_ts_1.validate)({
     if (!belongs) {
         throw new errors_ts_1.ForbiddenError('Access denied to this address');
     }
-    const { fullName, shippingAddress, city, postalCode, phoneNumber, country } = req.body;
+    const { fullName, shippingAddress, city, postalCode, phoneNumber, country, latitude, longitude, place_id, formatted_address } = req.body;
     const updates = {};
+    // Trim all string values to ensure they satisfy the check constraint
     if (fullName !== undefined)
-        updates.full_name = fullName;
+        updates.full_name = typeof fullName === 'string' ? fullName.trim() : fullName;
     if (shippingAddress !== undefined)
-        updates.shipping_address = shippingAddress;
+        updates.shipping_address = typeof shippingAddress === 'string' ? shippingAddress.trim() : shippingAddress;
+    if (formatted_address !== undefined) {
+        // Prefer formatted_address over shippingAddress if both provided
+        updates.shipping_address = typeof formatted_address === 'string' ? formatted_address.trim() : formatted_address;
+    }
     if (city !== undefined)
-        updates.city = city;
-    if (postalCode !== undefined)
-        updates.postal_code = postalCode;
+        updates.city = typeof city === 'string' ? city.trim() : city;
+    if (postalCode !== undefined) {
+        // For postal code, use null if empty/whitespace, otherwise trim
+        const trimmed = typeof postalCode === 'string' ? postalCode.trim() : postalCode;
+        updates.postal_code = trimmed && trimmed.length >= 3 ? trimmed : null;
+    }
     if (phoneNumber !== undefined)
-        updates.phone_number = phoneNumber;
+        updates.phone_number = typeof phoneNumber === 'string' ? phoneNumber.trim() : phoneNumber;
     if (country !== undefined)
-        updates.country = country;
+        updates.country = typeof country === 'string' ? country.trim() : country;
+    // Google Maps fields
+    if (latitude !== undefined)
+        updates.latitude = latitude;
+    if (longitude !== undefined)
+        updates.longitude = longitude;
+    if (place_id !== undefined)
+        updates.place_id = typeof place_id === 'string' ? place_id.trim() : place_id;
+    if (formatted_address !== undefined)
+        updates.formatted_address = typeof formatted_address === 'string' ? formatted_address.trim() : formatted_address;
     const address = await address_repository_ts_1.addressRepository.update(addressId, updates);
     return (0, response_ts_1.sendSuccess)(res, address, 'Address updated successfully');
 }));

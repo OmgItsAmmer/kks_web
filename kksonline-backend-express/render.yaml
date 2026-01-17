@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: kksonline-backend
+    env: node
+    plan: starter
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: kksonline-backend
+          property: port
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    # Note: Add all other environment variables in Render Dashboard > Environment

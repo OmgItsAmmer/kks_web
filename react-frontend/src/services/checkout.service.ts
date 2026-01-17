@@ -39,7 +39,7 @@ class CheckoutService {
       console.log('[CheckoutService] Creating order with:', request);
       const response = await apiRequest<ApiResponse<CheckoutResponse>>(`${this.baseUrl}/checkout`, {
         method: 'POST',
-        body: request, // apiRequest will stringify it
+        body: JSON.stringify(request),
       });
       return response.data;
     } catch (error: any) {
