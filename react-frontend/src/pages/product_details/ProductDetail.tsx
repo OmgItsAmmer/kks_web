@@ -1,131 +1,212 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
-  Star, Heart, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Truck, Sparkles, BadgeCheck,
-  ThumbsUp, Check, Leaf, Package, MessageCircle, Info,
+  Star, Heart, ChevronLeft, ChevronRight, ChevronDown,
+  Truck, BadgeCheck,
+  Check, Leaf, Package, MessageCircle,
   Minus, Plus, ShoppingCart, X
 } from 'lucide-react';
 import styles from './ProductDetail.module.css';
 import logo from '../../assets/images/kks_new_logo_dark.png';
-
-// Mock product data - in real app, this would come from API
-const mockProduct = {
-  id: 'bc78393a-aa01-4215-986d-0cc75522ad28',
-  name: 'Premium Comfort Memory Foam Mattress – Luxury Sleep Experience',
-  brand: 'KKS Online',
-  price: 110.50,
-  originalPrice: 199.00,
-  rating: 4.5,
-  reviewCount: 50,
-  images: [
-    logo,
-    logo,
-    logo,
-    logo,
-    logo,
-    logo,
-  ],
-  dimensions: '190cm × 90cm × 15cm',
-  features: [
-    { label: 'Blue Foam', icon: 'foam' },
-    { label: 'Hypoallergenic', icon: 'hypo' },
-  ],
-  firmness: 3, // 1-10 scale
-  support: 'Medium',
-  pressureRelief: 'Medium',
-  airCirculation: 'Better',
-  durability: 'Better',
-  description: 'High density blue foam mattress. A Fantastic all foam, budget mattress in soft comfort. A silent mattress, with no springs, for a peaceful, undisturbed night sleep. Manufactured using blue reflex foam. A thick layer of high density foam is used to act as the support mechanism in this mattress. Unlike memory foam, reflex foam bounces back quickly to ensure your weight is distributed evenly.',
-  category: 'mattresses',
-};
-
-const mockReviews = [
-  { id: 1, name: 'Sarah M.', initials: 'SM', rating: 5, title: "Best mattress I've ever slept on!", text: "After struggling with back pain for years, this mattress has been a game-changer. The support is incredible and I wake up feeling refreshed every morning.", date: '2 weeks ago', helpful: 24 },
-  { id: 2, name: 'James R.', initials: 'JR', rating: 5, title: 'Excellent quality and comfort', text: "Outstanding mattress! The memory foam provides perfect pressure relief while the pocket springs give excellent support. My partner and I both sleep much better now.", date: '1 month ago', helpful: 18 },
-  { id: 3, name: 'Emma L.', initials: 'EL', rating: 4, title: 'Great value for money', text: "Really impressed with the quality for the price. The mattress is comfortable and supportive. The cooling technology works well - no more waking up hot!", date: '3 weeks ago', helpful: 15 },
-  { id: 4, name: 'Michael T.', initials: 'MT', rating: 5, title: 'Perfect for side sleepers', text: "As a side sleeper, I've always struggled with shoulder pain. This mattress provides the perfect balance of softness and support.", date: '1 week ago', helpful: 22 },
-  { id: 5, name: 'Lisa K.', initials: 'LK', rating: 5, title: 'Amazing customer service', text: "Not only is the mattress fantastic, but the customer service was outstanding. They helped me choose the right firmness level.", date: '2 months ago', helpful: 19 },
-  { id: 6, name: 'David P.', initials: 'DP', rating: 4, title: 'Good mattress, great price', text: "Solid mattress that provides good support. The edge support is particularly impressive. Takes a few nights to get used to.", date: '1 month ago', helpful: 12 },
-];
-
-const relatedProducts = [
-  { id: '7e5b63c6-db31-43ff-a94b-400c5b061f57', name: 'Dream Sleep Memory Foam Mattress', price: 97.50, originalPrice: 189.99, rating: 4.7, reviewCount: '1k+', features: ['Memory Foam', 'Reflex Foam', 'Orthopedic Support'], variants: 4, category: 'mattresses' },
-  { id: '34d56abc-0d5c-4af2-9e84-d169edd4e783', name: 'ComfortEase 16cm Coil Spring Mattress', price: 91.00, originalPrice: 255.88, rating: 4.5, reviewCount: '1k+', features: ['Coil Spring', 'Medium Firm', 'Back Support'], variants: 28, category: 'mattresses' },
-  { id: 'fa3d32cf-c9b8-480f-89ff-389bb8d1d6be', name: 'EcoDream 4000 Memory & 7-Zone Foam Mattress', price: 261.26, originalPrice: 844.85, rating: 4.5, reviewCount: '1k+', features: ['Firm', 'Memory Foam', 'Hypoallergenic'], variants: 10, category: 'mattresses' },
-  { id: '6d8fbe20-d5b2-41d0-98e2-259deb4d7f3f', name: 'VitalSleep 3000 Pocket Memory Mattress', price: 208.00, originalPrice: 697.06, rating: 4.7, reviewCount: '1k+', features: ['Pocket Springs', 'Memory Foam', 'Spine Alignment'], variants: 6, category: 'mattresses' },
-  { id: 'a1c757b9-79d0-42a2-b40d-578d3ab889d4', name: 'Restoria 18cm Foam & Open Coil Mattress', price: 78.00, originalPrice: 267.65, rating: 4.7, reviewCount: '1k+', features: ['Recon Foam', 'Medium Firm', 'Coil Spring'], variants: 4, category: 'mattresses' },
-  { id: '47a58044-7b2e-4eff-88f6-e834a7e24329', name: 'Happy Kids Foam Mattress', price: 104.00, originalPrice: 196.15, rating: 4.5, reviewCount: '1k+', features: ['Pocket Springs', 'Anti-Dust Mite'], variants: 3, category: 'mattresses' },
-];
-
-const variants = [
-  { id: 1, name: 'Standard - Single', size: '3FT', priceModifier: 0 },
-  { id: 2, name: 'Standard - Double', size: '4FT', priceModifier: 15000 },
-  { id: 3, name: 'Standard - King', size: '5FT', priceModifier: 25000 },
-  { id: 4, name: 'Premium Cover - Single', size: '3FT', priceModifier: 8000 },
-  { id: 5, name: 'Premium Cover - Double', size: '4FT', priceModifier: 23000 },
-  { id: 6, name: 'Premium Cover - King', size: '5FT', priceModifier: 33000 },
-  { id: 7, name: 'Deluxe Package - Single', size: '3FT', priceModifier: 12000 },
-  { id: 8, name: 'Deluxe Package - Double', size: '4FT', priceModifier: 27000 },
-  { id: 9, name: 'Deluxe Package - King', size: '5FT', priceModifier: 37000 },
-];
+import { type BackendProductVariant } from '../../services/product.service';
+import { reviewService } from '../../services/review.service';
+import { cartService } from '../../services/cart.service';
+import { AuthenticationError } from '../../services/api.config';
+import { useAuth } from '../../contexts/AuthContext';
+import { useWishlist } from '../../contexts/WishlistContext';
+import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useProductDetails, useProductImages, useProductVariants, useProductReviews, useRelatedProducts } from '../../hooks/useProducts';
+import Loader from '../../components/Loader';
 
 const ProductDetail: React.FC = () => {
+  const { id, productId: routeProductId } = useParams<{ id?: string; productId?: string }>();
+  const productId = id ? parseInt(id, 10) : routeProductId ? parseInt(routeProductId, 10) : 0;
+  const { isAuthenticated, showLoginModal } = useAuth();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { showSuccess, showError, showWarning } = useSnackbar();
+  const queryClient = useQueryClient();
+
+  // Use React Query hooks with caching
+  const { 
+    data: product, 
+    isLoading: productLoading, 
+    isError: productError,
+    error: productErrorDetails 
+  } = useProductDetails(productId > 0 ? productId : null);
+  
+  const { 
+    data: imagesData, 
+    isLoading: imagesLoading 
+  } = useProductImages(productId > 0 ? productId : null);
+  
+  const { 
+    data: variantsData, 
+    isLoading: variantsLoading 
+  } = useProductVariants(productId > 0 ? productId : null);
+  
+  const { 
+    data: reviewsData, 
+    isLoading: reviewsLoading 
+  } = useProductReviews(productId > 0 ? productId : null);
+  
+  const { 
+    data: relatedProductsData, 
+    isLoading: relatedLoading 
+  } = useRelatedProducts(productId > 0 ? productId : null);
+
+  // Memoize derived data
+  const images = useMemo(() => {
+    if (!imagesData || imagesData.length === 0) return [logo];
+    return imagesData;
+  }, [imagesData]);
+
+  const variants = useMemo(() => variantsData || [], [variantsData]);
+  const reviews = useMemo(() => reviewsData?.reviews || [], [reviewsData]);
+  const relatedProducts = useMemo(() => relatedProductsData || [], [relatedProductsData]);
+  
+  // Get rating and review count from reviews data or product data
+  const productRating = useMemo(() => {
+    return reviewsData?.averageRating || product?.rating || 0;
+  }, [reviewsData, product]);
+  
+  const productReviewCount = useMemo(() => {
+    return reviewsData?.totalReviews || product?.reviewCount || 0;
+  }, [reviewsData, product]);
+
+  const loading = productLoading || imagesLoading || variantsLoading || reviewsLoading || relatedLoading;
+  const error = productError ? (productErrorDetails as Error)?.message || 'Failed to load product' : null;
+
+  // UI State
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState('3FT');
-  const [selectedVariant, setSelectedVariant] = useState(variants[0]);
+  const [selectedVariant, setSelectedVariant] = useState<BackendProductVariant | null>(null);
   const [variantsDropdownOpen, setVariantsDropdownOpen] = useState(false);
-  const [expandedAccordion, setExpandedAccordion] = useState<string | null>('description');
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [togglingWishlist, setTogglingWishlist] = useState(false);
 
-  const product = mockProduct; // In real app, fetch based on productId
-  
-  // Calculate price with variant modifier
-  const basePrice = product.price * 300; // Convert £ to Rs (approximate rate)
-  const baseOriginalPrice = product.originalPrice * 300;
-  const currentPrice = basePrice + selectedVariant.priceModifier;
-  const currentOriginalPrice = baseOriginalPrice + selectedVariant.priceModifier;
-  const savings = currentOriginalPrice - currentPrice;
+  // Scroll to top when product changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [productId]);
+
+  // Set default variant when variants are loaded
+  useEffect(() => {
+    if (variants.length > 0 && !selectedVariant) {
+      setSelectedVariant(variants[0]);
+    }
+  }, [variants, selectedVariant]);
 
   // Auto-play carousel
   useEffect(() => {
+    if (images.length <= 1) return;
+
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
-    }, 4000); // Change image every 4 seconds
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [product.images.length]);
+  }, [images.length]);
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  const toggleAccordion = (section: string) => {
-    setExpandedAccordion(expandedAccordion === section ? null : section);
+  const handleAddToCart = async () => {
+    if (!selectedVariant) {
+      showWarning('Please select a variant');
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      await cartService.addToCart({
+        variantId: selectedVariant.variant_id,
+        quantity: quantity,
+      });
+      showSuccess(`Added ${quantity} item(s) to cart successfully!`);
+    } catch (err: any) {
+      console.error('[ProductDetail] Error adding to cart:', err);
+      // If user is not authenticated, show login modal
+      if (err instanceof AuthenticationError || err.name === 'AuthenticationError' || err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Authentication required')) {
+        showLoginModal();
+      } else {
+        showError(err.message || 'Failed to add to cart. Please try again.');
+      }
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
-  const handleReviewSubmit = () => {
+  const handleWishlistToggle = async () => {
+    if (!isAuthenticated) {
+      showLoginModal();
+      return;
+    }
+
+    try {
+      setTogglingWishlist(true);
+      
+      if (isInWishlist(productId)) {
+        await removeFromWishlist(productId);
+        showSuccess('Removed from wishlist');
+      } else {
+        await addToWishlist(productId);
+        showSuccess('Added to wishlist');
+      }
+    } catch (err: any) {
+      console.error('[ProductDetail] Error toggling wishlist:', err);
+      if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
+        showLoginModal();
+      } else {
+        showError('Failed to update wishlist. Please try again.');
+      }
+    } finally {
+      setTogglingWishlist(false);
+    }
+  };
+
+  const handleReviewSubmit = async () => {
     if (reviewRating === 0) {
-      alert('Please select a rating');
+      showWarning('Please select a rating');
       return;
     }
     if (!reviewComment.trim()) {
-      alert('Please write a comment');
+      showWarning('Please write a comment');
       return;
     }
-    // In real app, submit to API
-    console.log('Review submitted:', { rating: reviewRating, comment: reviewComment });
-    alert('Thank you for your review!');
-    setReviewDialogOpen(false);
-    setReviewRating(0);
-    setReviewComment('');
+
+    try {
+      setSubmittingReview(true);
+      // For now, we'll just show a message since auth is not implemented
+      // In production, you would pass the auth token here
+      await reviewService.submitReview(productId, reviewRating, reviewComment);
+      showSuccess('Thank you for your review!');
+      setReviewDialogOpen(false);
+      setReviewRating(0);
+      setReviewComment('');
+      
+      // Invalidate and refetch reviews to show the new review
+      queryClient.invalidateQueries({ queryKey: ['productReviews', productId] });
+    } catch (err: any) {
+      console.error('[ProductDetail] Error submitting review:', err);
+      // If user is not authenticated, show a friendly message
+      if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+        showWarning('Please log in to submit a review');
+      } else {
+        showError('Failed to submit review. Please try again.');
+      }
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   const renderStars = (rating: number, size: number = 16) => {
@@ -139,6 +220,37 @@ const ProductDetail: React.FC = () => {
     ));
   };
 
+  const formatPrice = (price: number | string): string => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return `Rs ${numPrice.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+  };
+
+  if (loading) {
+    return <Loader message="Loading product..." variant="fullpage" />;
+  }
+
+  if (error || !product) {
+    return (
+      <div className={styles.productPage}>
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <p>Error: {error || 'Product not found'}</p>
+          <Link to="/" style={{ color: '#1e40af', textDecoration: 'underline' }}>
+            Go back to home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate current price based on selected variant or product price
+  const currentPrice = selectedVariant 
+    ? parseFloat(selectedVariant.sell_price.toString())
+    : parseFloat(product.sale_price);
+  const originalPrice = selectedVariant 
+    ? parseFloat(selectedVariant.buy_price.toString())
+    : parseFloat(product.base_price);
+  const hasDiscount = originalPrice > currentPrice;
+
   return (
     <div className={styles.productPage}>
       {/* Main Product Section */}
@@ -149,135 +261,157 @@ const ProductDetail: React.FC = () => {
           <div className={styles.imageGallery}>
             <div className={styles.mainImageContainer}>
               <button type="button" className={styles.galleryButton} aria-label="View gallery">
-                <img src={product.images[currentImageIndex]} alt={product.name} className={styles.mainImage} />
-                <button type="button" className={styles.navButton} onClick={prevImage} aria-label="Previous image">
-                  <ChevronLeft size={20} />
-                </button>
-                <button type="button" className={`${styles.navButton} ${styles.navRight}`} onClick={nextImage} aria-label="Next image">
-                  <ChevronRight size={20} />
-                </button>
-                <span className={styles.imageCounter}>{currentImageIndex + 1} / {product.images.length}</span>
+                <img src={images[currentImageIndex]} alt={product.name} className={styles.mainImage} />
+                {images.length > 1 && (
+                  <>
+                    <button type="button" className={styles.navButton} onClick={prevImage} aria-label="Previous image">
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button type="button" className={`${styles.navButton} ${styles.navRight}`} onClick={nextImage} aria-label="Next image">
+                      <ChevronRight size={20} />
+                    </button>
+                    <span className={styles.imageCounter}>{currentImageIndex + 1} / {images.length}</span>
+                  </>
+                )}
               </button>
             </div>
             
             {/* Thumbnail Strip */}
-            <div className={styles.thumbnailStrip}>
-              <button type="button" className={styles.thumbnailNav} onClick={prevImage}>
-                <ChevronLeft size={16} />
-              </button>
-              <div className={styles.thumbnails}>
-                {product.images.map((img, index) => (
-                  <button 
-                    key={index}
-                    type="button"
-                    className={`${styles.thumbnail} ${index === currentImageIndex ? styles.thumbnailActive : ''}`}
-                    onClick={() => setCurrentImageIndex(index)}
-                  >
-                    <img src={img} alt={`${product.name} ${index + 1}`} />
-                  </button>
-                ))}
+            {images.length > 1 && (
+              <div className={styles.thumbnailStrip}>
+                <button type="button" className={styles.thumbnailNav} onClick={prevImage}>
+                  <ChevronLeft size={16} />
+                </button>
+                <div className={styles.thumbnails}>
+                  {images.map((img, index) => (
+                    <button 
+                      key={index}
+                      type="button"
+                      className={`${styles.thumbnail} ${index === currentImageIndex ? styles.thumbnailActive : ''}`}
+                      onClick={() => setCurrentImageIndex(index)}
+                    >
+                      <img src={img} alt={`${product.name} ${index + 1}`} />
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className={styles.thumbnailNav} onClick={nextImage}>
+                  <ChevronRight size={16} />
+                </button>
               </div>
-              <button type="button" className={styles.thumbnailNav} onClick={nextImage}>
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            )}
           </div>
 
-          
-
-          
-
-        
-
-   
-
-        
           {/* Accordion Sections */}
           <div className={styles.accordionSection}>
-   
-
-
-    
           </div>
         </div>
 
         {/* Right Column - Product Info & Purchase */}
         <div className={styles.rightColumn}>
           <div className={styles.productInfoCard}>
-            <h1 className={styles.productTitle}>{product.name}</h1>
+            <div className={styles.productTitleRow}>
+              <h1 className={styles.productTitle}>{product.name}</h1>
+              <button
+                type="button"
+                onClick={handleWishlistToggle}
+                disabled={togglingWishlist}
+                className={styles.wishlistToggle}
+                aria-label={isInWishlist(productId) ? 'Remove from wishlist' : 'Add to wishlist'}
+                title={isInWishlist(productId) ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                <Heart 
+                  size={24} 
+                  fill={isInWishlist(productId) ? '#ef4444' : 'none'}
+                  color={isInWishlist(productId) ? '#ef4444' : '#374151'}
+                  style={{ 
+                    transition: 'all 0.2s ease',
+                    opacity: togglingWishlist ? 0.5 : 1 
+                  }}
+                />
+              </button>
+            </div>
             
-           
-
             {/* Price Section */}
             <div className={styles.priceSection}>
               <div className={styles.priceRow}>
                 <span className={styles.priceLabel}>Price</span>
                 <div className={styles.prices}>
-                  <span className={styles.originalPrice}>Was Rs {currentOriginalPrice.toFixed(0)}</span>
-                  <span className={styles.currentPrice}>Rs {currentPrice.toFixed(0)}</span>
+                  {hasDiscount && (
+                    <span className={styles.originalPrice}>Was {formatPrice(originalPrice)}</span>
+                  )}
+                  <span className={styles.currentPrice}>{formatPrice(currentPrice)}</span>
                 </div>
               </div>
               <div className={styles.viewDetails}>
                 <span>Description</span>
-                <span className={styles.colorOptions}>This is actual description</span>
-              
+                <span className={styles.colorOptions}>{product.description || 'High quality product from our store'}</span>
               </div>
             </div>
 
-            {/* Product Features */}
-            <div className={styles.productFeatures}>
-              <h3>Tags</h3>
-              <div className={styles.featureTags}>
-                {product.features.map((feature, index) => (
-                  <span key={index} className={styles.featureTag}>
+            {/* Product Features/Tags */}
+            {product.tag && (
+              <div className={styles.productFeatures}>
+                <h3>Tags</h3>
+                <div className={styles.featureTags}>
+                  <span className={styles.featureTag}>
                     <Leaf size={12} />
-                    {feature.label}
+                    {product.tag}
                   </span>
-                ))}
+                  {product.ispopular && (
+                    <span className={styles.featureTag}>
+                      <Star size={12} />
+                      Popular
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-
-         
+            )}
 
             {/* Variants Dropdown */}
-            <div className={styles.dropdown}>
-              <button 
-                type="button"
-                className={styles.dropdownButton}
-                onClick={() => setVariantsDropdownOpen(!variantsDropdownOpen)}
-              >
-                <div className={styles.dropdownLabel}>
-                  <Package size={18} />
-                  <span>{selectedVariant.name}</span>
-                </div>
-                <ChevronDown size={18} className={variantsDropdownOpen ? styles.rotated : ''} />
-              </button>
-              {variantsDropdownOpen && (
-                <div className={styles.dropdownContent}>
-                  {variants.map((variant) => (
-                    <button 
-                      key={variant.id}
-                      type="button"
-                      className={`${styles.dropdownOption} ${selectedVariant.id === variant.id ? styles.selected : ''}`}
-                      onClick={() => {
-                        setSelectedVariant(variant);
-                        setSelectedSize(variant.size);
-                        setVariantsDropdownOpen(false);
-                      }}
-                    >
-                      {variant.name} - Rs {(basePrice + variant.priceModifier).toFixed(0)}
-                      {selectedVariant.id === variant.id && <Check size={16} />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {variants.length > 0 && (
+              <div className={styles.dropdown}>
+                <button 
+                  type="button"
+                  className={styles.dropdownButton}
+                  onClick={() => setVariantsDropdownOpen(!variantsDropdownOpen)}
+                >
+                  <div className={styles.dropdownLabel}>
+                    <Package size={18} />
+                    <span>{selectedVariant?.variant_name || 'Select Variant'}</span>
+                  </div>
+                  <ChevronDown size={18} className={variantsDropdownOpen ? styles.rotated : ''} />
+                </button>
+                {variantsDropdownOpen && (
+                  <div className={styles.dropdownContent}>
+                    {variants.map((variant) => (
+                      <button 
+                        key={variant.variant_id}
+                        type="button"
+                        className={`${styles.dropdownOption} ${selectedVariant?.variant_id === variant.variant_id ? styles.selected : ''}`}
+                        onClick={() => {
+                          setSelectedVariant(variant);
+                          setVariantsDropdownOpen(false);
+                        }}
+                      >
+                        {variant.variant_name} - {formatPrice(variant.sell_price)}
+                        {selectedVariant?.variant_id === variant.variant_id && <Check size={16} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Add to Cart Section */}
             <div className={styles.addToCart}>
-              <button type="button" className={styles.addToCartButton}>
+              <button 
+                type="button" 
+                className={styles.addToCartButton}
+                onClick={handleAddToCart}
+                disabled={addingToCart || !selectedVariant}
+              >
                 <ShoppingCart size={20} />
-                <span>Add to Basket</span>
+                <span>{addingToCart ? 'Adding...' : 'Add to Basket'}</span>
               </button>
               <div className={styles.quantitySelector}>
                 <button 
@@ -298,8 +432,6 @@ const ProductDetail: React.FC = () => {
                 </button>
               </div>
             </div>
-
-         
           </div>
         </div>
       </div>
@@ -310,42 +442,47 @@ const ProductDetail: React.FC = () => {
           <h2>Customer Reviews</h2>
           <div className={styles.reviewsSummary}>
             <div className={styles.reviewsRating}>
-              <div className={styles.stars}>{renderStars(product.rating, 18)}</div>
-              <span className={styles.ratingValue}>"{product.rating}"</span>
+              <div className={styles.stars}>{renderStars(productRating, 18)}</div>
+              <span className={styles.ratingValue}>"{productRating.toFixed(1)}"</span>
             </div>
             <span className={styles.separator}>•</span>
-            <span>Based on {product.reviewCount} reviews</span>
+            <span>Based on {productReviewCount} reviews</span>
           </div>
           <p className={styles.reviewsSubtitle}>
-            Real customers share their experience with the {product.name}
+            Real customers share their experience with {product.name}
           </p>
         </div>
         
         <div className={styles.reviewsGrid}>
-          {mockReviews.map((review) => (
-            <div key={review.id} className={styles.reviewCard}>
-              <div className={styles.reviewHeader}>
-                <div className={styles.reviewerInitials}>{review.initials}</div>
-                <div className={styles.reviewerInfo}>
-                  <h4>{review.name}</h4>
-                  <div className={styles.stars}>{renderStars(review.rating, 12)}</div>
+          {reviews.length === 0 ? (
+            <p style={{ textAlign: 'center', padding: '2rem', gridColumn: '1 / -1' }}>
+              No reviews yet. Be the first to review this product!
+            </p>
+          ) : (
+            reviews.map((review) => (
+              <div key={review.review_id} className={styles.reviewCard}>
+                <div className={styles.reviewHeader}>
+                  <div className={styles.reviewerInitials}>
+                    {review.customerName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'A'}
+                  </div>
+                  <div className={styles.reviewerInfo}>
+                    <h4>{review.customerName || 'Anonymous'}</h4>
+                    <div className={styles.stars}>{renderStars(Number(review.rating), 12)}</div>
+                  </div>
+                  <div className={styles.verifiedBadge}>
+                    <BadgeCheck size={14} />
+                    <span>Verified</span>
+                  </div>
                 </div>
-                <div className={styles.verifiedBadge}>
-                  <BadgeCheck size={14} />
-                  <span>Verified</span>
+                <p className={styles.reviewText}>{review.review}</p>
+                <div className={styles.reviewFooter}>
+                  <span className={styles.reviewDate}>
+                    {new Date(review.sent_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
-              <h5 className={styles.reviewTitle}>{review.title}</h5>
-              <p className={styles.reviewText}>{review.text}</p>
-              <div className={styles.reviewFooter}>
-                <span className={styles.reviewDate}>{review.date}</span>
-                <button type="button" className={styles.helpfulButton}>
-                  <ThumbsUp size={14} />
-                  {review.helpful}
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <button 
@@ -418,8 +555,9 @@ const ProductDetail: React.FC = () => {
                 type="button"
                 className={styles.submitButton}
                 onClick={handleReviewSubmit}
+                disabled={submittingReview}
               >
-                Submit Review
+                {submittingReview ? 'Submitting...' : 'Submit Review'}
               </button>
             </div>
           </div>
@@ -427,61 +565,77 @@ const ProductDetail: React.FC = () => {
       )}
 
       {/* Related Products */}
-      <section className={styles.relatedSection}>
-        <h2>Customers also viewed</h2>
-        <div className={styles.relatedGrid}>
-          {relatedProducts.map((item) => (
-            <Link 
-              key={item.id} 
-              to={`/products/${item.category}/${item.id}`}
-              className={styles.relatedCard}
-            >
-              <div className={styles.relatedImageWrapper}>
-                <span className={styles.brandLabel}>{product.brand}</span>
-                <img src={logo} alt={item.name} className={styles.relatedImage} />
-                <button type="button" className={styles.wishlistBtn}>
-                  <Heart size={16} />
-                </button>
-                <div className={styles.badges}>
-                  <span className={styles.saleBadge}>Sale</span>
-                  <span className={styles.newBadge}>New In</span>
-                </div>
-              </div>
-              <div className={styles.relatedContent}>
-                <h3>{item.name}</h3>
-                <div className={styles.relatedRating}>
-                  <div className={styles.stars}>{renderStars(item.rating, 12)}</div>
-                  <span>"{item.rating}"</span>
-                  <span className={styles.reviewCount}>Based on {item.reviewCount} reviews</span>
-                </div>
-                <div className={styles.relatedFeatures}>
-                  {item.features.slice(0, 3).map((f, i) => (
-                    <span key={i} className={styles.relatedFeature}>
-                      <Check size={10} />
-                      {f}
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.relatedPricing}>
-                  <span className={styles.fromLabel}>from</span>
-                  <div className={styles.relatedPrices}>
-                    <span className={styles.relatedPrice}>Rs {(item.price * 300).toFixed(0)}</span>
-                    <span className={styles.relatedOriginal}>Rs {(item.originalPrice * 300).toFixed(0)}</span>
+      {relatedProducts.length > 0 && (
+        <section className={styles.relatedSection}>
+          <h2>Related Products</h2>
+          <div className={styles.relatedGrid}>
+            {relatedProducts.map((item) => {
+              const itemPrice = parseFloat(item.sale_price);
+              const itemOriginalPrice = parseFloat(item.base_price);
+              const hasItemDiscount = itemOriginalPrice > itemPrice;
+
+              return (
+                <Link 
+                  key={item.product_id} 
+                  to={`/product/${item.product_id}`}
+                  className={styles.relatedCard}
+                >
+                  <div className={styles.relatedImageWrapper}>
+                    {product.brand?.brand_name && (
+                      <span className={styles.brandLabel}>{product.brand.brand_name}</span>
+                    )}
+                    <img 
+                      src={item.mainImage || logo} 
+                      alt={item.name} 
+                      className={styles.relatedImage} 
+                    />
+                    <button 
+                      type="button" 
+                      className={styles.wishlistBtn}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleWishlistToggle();
+                      }}
+                      disabled={togglingWishlist}
+                      aria-label={isInWishlist(item.product_id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                    >
+                      <Heart 
+                        size={16} 
+                        fill={isInWishlist(item.product_id) ? '#ef4444' : 'none'}
+                        color={isInWishlist(item.product_id) ? '#ef4444' : '#374151'}
+                      />
+                    </button>
+                    {item.ispopular && (
+                      <div className={styles.badges}>
+                        <span className={styles.newBadge}>Popular</span>
+                      </div>
+                    )}
                   </div>
-                  <span className={styles.variantsLabel}>{item.variants} variants available</span>
-                </div>
-                <div className={styles.freeDelivery}>
-                  <Truck size={14} />
-                  Free delivery
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+                  <div className={styles.relatedContent}>
+                    <h3>{item.name}</h3>
+                    <div className={styles.relatedPricing}>
+                      <span className={styles.fromLabel}>from</span>
+                      <div className={styles.relatedPrices}>
+                        <span className={styles.relatedPrice}>{formatPrice(itemPrice)}</span>
+                        {hasItemDiscount && (
+                          <span className={styles.relatedOriginal}>{formatPrice(itemOriginalPrice)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.freeDelivery}>
+                      <Truck size={14} />
+                      Free delivery
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 };
 
 export default ProductDetail;
-

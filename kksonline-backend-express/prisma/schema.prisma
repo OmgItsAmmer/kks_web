@@ -1,0 +1,644 @@
+// Prisma schema for KKS Online Backend
+// Using direct connection to Supabase Postgres
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Gender {
+  male
+  female
+  other
+}
+
+enum ProductTag {
+  CHOICE
+  RECOMMENDED
+  TRENDING
+  hotSeller
+  flashSale
+  newArrival
+  AUTHENTIC
+
+  @@map("product_tags")
+}
+
+enum OrderStatus {
+  pending
+  ready
+  confirmed
+  cancelled
+  delivered
+  processing
+  completed
+}
+
+enum PaymentMethod {
+  cod
+  credit_card
+  bank_transfer
+  pickup
+  jazzcash
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+enum EntityType {
+  customer
+  vendor
+  salesman
+}
+
+enum TransactionType {
+  buy
+  sell
+}
+
+enum PurchaseStatus {
+  pending
+  processing
+  received
+  cancelled
+}
+
+enum SeverityLevel {
+  info
+  warning
+  error
+  critical
+}
+
+// Models
+model User {
+  user_id      Int       @id @default(autoincrement())
+  first_name   String    @default("")
+  last_name    String?   @default("")
+  phone_number String?   @default("")
+  email        String    @unique @default("")
+  dob          DateTime? @db.Timestamptz()
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+  gender       Gender?
+  auth_uid     String?   @unique
+
+  orders          Order[]
+  order_addresses OrderAddress[]
+  addresses       Address[]
+  purchases       Purchase[]
+
+  @@map("users")
+}
+
+model Customer {
+  customer_id  Int       @id @default(autoincrement())
+  phone_number String?   @default("")
+  first_name   String    @default("")
+  last_name    String?   @default("")
+  cnic         String?   @default("")
+  email        String    @default("")
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+  dob          DateTime? @db.Timestamptz()
+  gender       Gender?
+  auth_uid     String?   @unique
+  fcm_token    String?
+
+  addresses       Address[]
+  order_addresses OrderAddress[]
+  cart            Cart[]
+  orders          Order[]
+  reviews         Review[]
+  wishlist        Wishlist[]
+
+  @@map("customers")
+}
+
+model Vendor {
+  vendor_id    Int       @id @default(autoincrement())
+  phone_number String?   @default("")
+  first_name   String    @default("")
+  last_name    String?   @default("")
+  cnic         String    @default("")
+  email        String    @default("")
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+
+  addresses       Address[]
+  order_addresses OrderAddress[]
+  purchases       Purchase[]
+
+  @@map("vendors")
+}
+
+model Salesman {
+  salesman_id  Int       @id @default(autoincrement())
+  phone_number String?   @default("")
+  email        String    @default("")
+  last_name    String?   @default("")
+  cnic         String    @default("")
+  city         String    @default("")
+  first_name   String    @default("")
+  area         String    @default("")
+  pfp          String?
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+  comission    Int?
+
+  addresses       Address[]
+  order_addresses OrderAddress[]
+  orders          Order[]
+
+  @@map("salesman")
+}
+
+model Guarantor {
+  guarantor_id Int     @id @default(autoincrement())
+  first_name   String  @default("")
+  address      String?
+  pfp          String?
+  cnic         String  @default("")
+  email        String  @default("")
+  phone_number String? @default("")
+  last_name    String? @default("")
+
+  installment_plans_g1 InstallmentPlan[] @relation("Guarantor1")
+  installment_plans_g2 InstallmentPlan[] @relation("Guarantor2")
+
+  @@map("guarantors")
+}
+
+model Category {
+  category_id   Int       @id @default(autoincrement())
+  category_name String
+  isFeatured    Boolean?  @default(false)
+  created_at    DateTime? @default(now()) @db.Timestamptz()
+  product_count Int?
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  brandID       Int      @id @default(autoincrement())
+  brandname     String?
+  isVerified    Boolean? @default(false)
+  isFeatured    Boolean?
+  product_count BigInt   @default(0)
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  product_id     Int         @id @default(autoincrement())
+  name           String      @default("")
+  description    String?     @default("")
+  base_price     String?     @default("")
+  sale_price     String?     @default("")
+  category_id    Int?        @default(11)
+  ispopular      Boolean?    @default(false)
+  stock_quantity Int?        @default(0)
+  created_at     DateTime?   @default(now()) @db.Timestamptz()
+  brandID        Int?        @default(20)
+  alert_stock    Int?
+  isVisible      Boolean?    @default(false)
+  tag            ProductTag?
+  price_range    String?     @default("--")
+
+  category          Category?          @relation(fields: [category_id], references: [category_id])
+  brand             Brand?             @relation(fields: [brandID], references: [brandID])
+  variants          ProductVariant[]
+  wishlist          Wishlist[]
+  reviews           Review[]
+  order_items       OrderItem[]
+  purchase_items    PurchaseItem[]
+  product_discounts ProductDiscount[]
+  notifications     Notification[]
+
+  @@map("products")
+}
+
+model ProductVariant {
+  variant_id   Int       @id @default(autoincrement())
+  product_id   Int
+  buy_price    Decimal   @db.Decimal
+  sell_price   Decimal   @db.Decimal
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+  updated_at   DateTime? @default(now()) @db.Timestamptz()
+  sku          String?   @unique @db.VarChar
+  variant_name String
+  is_visible   Boolean?  @default(true)
+  stock        Int?      @default(0)
+  alert_stock  BigInt    @default(0)
+
+  product                 Product                @relation(fields: [product_id], references: [product_id])
+  cart                    Cart[]
+  kiosk_cart              KioskCart[]
+  inventory_reservations  InventoryReservation[]
+
+  @@map("product_variants")
+}
+
+model Cart {
+  cart_id     Int  @id @default(autoincrement())
+  variant_id  Int?
+  quantity    String @default("")
+  customer_id Int?
+
+  variant  ProductVariant? @relation(fields: [variant_id], references: [variant_id])
+  customer Customer?       @relation(fields: [customer_id], references: [customer_id])
+
+  @@map("cart")
+}
+
+model KioskCart {
+  kiosk_id         Int       @id @default(autoincrement())
+  kiosk_session_id String    @db.Uuid
+  variant_id       Int
+  quantity         Int
+  created_at       DateTime? @default(now())
+
+  variant ProductVariant @relation(fields: [variant_id], references: [variant_id])
+
+  @@map("kiosk_cart")
+}
+
+model Wishlist {
+  wishlist_id BigInt    @id @default(autoincrement())
+  created_at  DateTime  @default(now()) @db.Timestamptz()
+  product_id  Int?
+  customer_id Int?
+
+  product  Product?  @relation(fields: [product_id], references: [product_id])
+  customer Customer? @relation(fields: [customer_id], references: [customer_id])
+
+  @@map("wishlist")
+}
+
+model Review {
+  review_id   BigInt    @id @default(autoincrement())
+  product_id  Int?
+  sent_at     DateTime  @default(now()) @db.Timestamptz()
+  review      String?   @default("")
+  rating      Decimal?  @db.Decimal
+  customer_id Int?
+
+  product  Product?  @relation(fields: [product_id], references: [product_id])
+  customer Customer? @relation(fields: [customer_id], references: [customer_id])
+
+  @@map("reviews")
+}
+
+model Address {
+  address_id       Int      @id @default(autoincrement())
+  shipping_address String?  @default("")
+  phone_number     String?  @default("")
+  postal_code      String?  @default("")
+  city             String?  @default("")
+  country          String?  @default("")
+  full_name        String
+  customer_id      Int?
+  vendor_id        Int?
+  salesman_id      Int?
+  user_id          Int?
+  latitude         Decimal? @db.Decimal(10, 8)
+  longitude        Decimal? @db.Decimal(11, 8)
+  place_id         String?
+  formatted_address String?
+
+  customer        Customer?        @relation(fields: [customer_id], references: [customer_id])
+  vendor          Vendor?          @relation(fields: [vendor_id], references: [vendor_id])
+  salesman        Salesman?        @relation(fields: [salesman_id], references: [salesman_id])
+  user            User?            @relation(fields: [user_id], references: [user_id])
+  orders          Order[]
+  purchases       Purchase[]
+  order_addresses OrderAddress[]
+
+  @@map("addresses")
+}
+
+model OrderAddress {
+  order_address_id   Int      @id @default(autoincrement())
+  shipping_address   String?  @default("")
+  phone_number       String?  @default("")
+  postal_code        String?  @default("")
+  city               String?  @default("")
+  country            String?  @default("")
+  full_name          String
+  customer_id        Int?
+  vendor_id          Int?
+  salesman_id        Int?
+  user_id            Int?
+  address_id         Int?
+  latitude           Decimal? @db.Decimal(10, 8)
+  longitude          Decimal? @db.Decimal(11, 8)
+  place_id           String?
+  formatted_address  String?
+
+  customer Customer? @relation(fields: [customer_id], references: [customer_id])
+  vendor   Vendor?   @relation(fields: [vendor_id], references: [vendor_id])
+  salesman Salesman? @relation(fields: [salesman_id], references: [salesman_id])
+  user     User?     @relation(fields: [user_id], references: [user_id])
+  address  Address?  @relation(fields: [address_id], references: [address_id])
+
+  @@map("order_addresses")
+}
+
+model Order {
+  order_id           Int            @id @default(autoincrement())
+  order_date         DateTime       @db.Date
+  sub_total          Decimal        @db.Decimal
+  status             OrderStatus
+  saletype           String?
+  address_id         Int?
+  paid_amount        Decimal?       @db.Decimal
+  buying_price       Decimal?       @db.Decimal
+  discount           Decimal?       @default(0.0) @db.Decimal
+  tax                Decimal?       @default(0.0) @db.Decimal
+  shipping_fee       Decimal?       @default(0.0) @db.Decimal
+  user_id            Int?
+  customer_id        Int?
+  idempotency_key    String?        @unique @db.VarChar
+  payment_method     PaymentMethod? @default(cod)
+  salesman_id        Int?
+  salesman_comission Int?
+  shipping_method    String?
+
+  address           Address?          @relation(fields: [address_id], references: [address_id])
+  user              User?             @relation(fields: [user_id], references: [user_id])
+  customer          Customer?         @relation(fields: [customer_id], references: [customer_id])
+  salesman          Salesman?         @relation(fields: [salesman_id], references: [salesman_id])
+  order_items       OrderItem[]
+  installment_plans InstallmentPlan[]
+  notifications     Notification[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  product_id      Int
+  price           Decimal   @db.Decimal
+  quantity        Int
+  order_id        Int
+  unit            String?   @db.VarChar
+  total_buy_price Decimal?  @default(0.0) @db.Decimal
+  created_at      DateTime? @default(now()) @db.Timestamptz()
+  variant_id      Int
+
+  order   Order   @relation(fields: [order_id], references: [order_id])
+  product Product @relation(fields: [product_id], references: [product_id])
+
+  @@id([product_id, order_id, variant_id])
+  @@map("order_items")
+}
+
+model Purchase {
+  purchase_id   BigInt         @id @default(autoincrement())
+  purchase_date DateTime       @default(now()) @db.Date
+  sub_total     Decimal        @default(0.00) @db.Decimal
+  status        PurchaseStatus @default(pending)
+  address_id    Int?
+  paid_amount   Decimal?       @default(0.00) @db.Decimal
+  vendor_id     Int?
+  discount      Decimal?       @default(0.00) @db.Decimal
+  tax           Decimal?       @default(0.00) @db.Decimal
+  shipping_fee  Decimal?       @default(0.00) @db.Decimal
+  created_at    DateTime?      @default(now()) @db.Timestamptz()
+  updated_at    DateTime?      @default(now()) @db.Timestamptz()
+  user_id       Int?
+
+  address        Address?       @relation(fields: [address_id], references: [address_id])
+  vendor         Vendor?        @relation(fields: [vendor_id], references: [vendor_id])
+  user           User?          @relation(fields: [user_id], references: [user_id])
+  purchase_items PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  purchase_item_id BigInt    @id @default(autoincrement())
+  purchase_id      BigInt
+  product_id       Int
+  variant_id       Int?
+  price            Decimal   @db.Decimal
+  quantity         Int       @default(1)
+  unit             String?   @db.VarChar
+  created_at       DateTime? @default(now()) @db.Timestamptz()
+
+  purchase Purchase @relation(fields: [purchase_id], references: [purchase_id])
+  product  Product  @relation(fields: [product_id], references: [product_id])
+
+  @@map("purchase_items")
+}
+
+model InstallmentPlan {
+  installment_plans_id   Int       @id @default(autoincrement())
+  guarantor1_id          Int?
+  order_id               Int
+  created_at             DateTime? @default(now()) @db.Timestamptz()
+  first_installment_date DateTime? @db.Timestamptz()
+  guarantor2_id          Int?
+  total_amount           String
+  down_payment           String
+  number_of_installments String
+  document_charges       String?
+  margin                 String?
+  frequency_in_month     String?
+  other_charges          String?
+  duration               String?
+  note                   String?
+  status                 String?   @default("active")
+
+  guarantor1            Guarantor?             @relation("Guarantor1", fields: [guarantor1_id], references: [guarantor_id])
+  guarantor2            Guarantor?             @relation("Guarantor2", fields: [guarantor2_id], references: [guarantor_id])
+  order                 Order                  @relation(fields: [order_id], references: [order_id])
+  installment_payments  InstallmentPayment[]
+  notifications         Notification[]
+
+  @@map("installment_plans")
+}
+
+model InstallmentPayment {
+  sequence_no         Int
+  installment_plan_id Int
+  paid_date           DateTime? @db.Timestamptz()
+  paid_amount         String?
+  status              String?
+  due_date            DateTime  @db.Timestamptz()
+  is_paid             Boolean?  @default(false)
+  created_at          DateTime? @default(now())
+  amount_due          String
+
+  installment_plan InstallmentPlan @relation(fields: [installment_plan_id], references: [installment_plans_id])
+
+  @@id([sequence_no, installment_plan_id])
+  @@map("installment_payments")
+}
+
+model Shop {
+  shop_id                 Int      @id @default(autoincrement())
+  shopname                String
+  taxrate                 Decimal  @db.Decimal
+  shipping_price          Decimal  @db.Decimal
+  threshold_free_shipping Decimal? @db.Decimal
+  software_company_name   String?
+  software_website_link   String?
+  software_contact_no     String?
+  is_shipping_enable      Boolean  @default(false)
+  max_allowed_item_quantity BigInt @default(50)
+
+  @@map("shop")
+}
+
+model Image {
+  image_id   Int       @id @default(autoincrement())
+  filename   String?
+  created_at DateTime? @default(now()) @db.Timestamptz()
+  image_url  String?
+  folderType String?
+
+  image_entities ImageEntity[]
+
+  @@map("images")
+}
+
+model ImageEntity {
+  image_entity_id Int       @id @default(autoincrement())
+  image_id        Int?
+  entity_id       Int?
+  entity_category String?
+  created_at      DateTime  @default(now()) @db.Timestamptz()
+  isFeatured      Boolean?  @default(false)
+  updated_at      DateTime? @default(now()) @db.Timestamptz()
+
+  image Image? @relation(fields: [image_id], references: [image_id])
+
+  @@map("image_entity")
+}
+
+model ProductDiscount {
+  discount_id   Int       @id @default(autoincrement())
+  product_id    Int
+  discount_type DiscountType
+  amount        Decimal   @db.Decimal
+  start_date    DateTime  @db.Timestamptz()
+  end_date      DateTime  @db.Timestamptz()
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz()
+
+  product Product @relation(fields: [product_id], references: [product_id])
+
+  @@map("product_discounts")
+}
+
+model InvoiceCoupon {
+  coupon_id     Int          @id @default(autoincrement())
+  title         String
+  coupon_code   String       @unique
+  discount_type DiscountType
+  amount        Decimal      @db.Decimal
+  usage_limit   Int?
+  used_count    Int          @default(0)
+  start_date    DateTime     @db.Timestamptz()
+  end_date      DateTime     @db.Timestamptz()
+  is_active     Boolean      @default(true)
+  created_at    DateTime     @default(now()) @db.Timestamptz()
+
+  @@map("invoice_coupons")
+}
+
+model Notification {
+  notification_id     Int       @id @default(autoincrement())
+  created_at          DateTime  @default(now()) @db.Timestamptz()
+  description         String?
+  sub_description     String?
+  isRead              Boolean?  @default(false)
+  NotificationType    String?
+  expires_at          DateTime? @db.Timestamptz()
+  order_id            Int?
+  installment_plan_id Int?
+  product_id          Int?
+
+  order            Order?           @relation(fields: [order_id], references: [order_id])
+  installment_plan InstallmentPlan? @relation(fields: [installment_plan_id], references: [installment_plans_id])
+  product          Product?         @relation(fields: [product_id], references: [product_id])
+
+  @@map("notifications")
+}
+
+model Expense {
+  expense_id  Int       @id @default(autoincrement())
+  description String
+  amount      Decimal?  @default(0.0) @db.Decimal
+  created_at  DateTime  @default(now()) @db.Timestamptz()
+
+  @@map("expenses")
+}
+
+model AccountBook {
+  account_book_id  BigInt          @id @default(autoincrement())
+  entity_type      EntityType
+  entity_id        BigInt
+  entity_name      String          @db.VarChar
+  transaction_type TransactionType
+  amount           Decimal         @db.Decimal
+  description      String
+  reference        String?         @db.VarChar
+  transaction_date DateTime        @db.Date
+  created_at       DateTime?       @default(now()) @db.Timestamptz()
+  updated_at       DateTime?       @default(now()) @db.Timestamptz()
+
+  @@map("account_book")
+}
+
+model InventoryReservation {
+  reservation_id String    @db.VarChar
+  variant_id     Int
+  quantity       Int
+  expires_at     DateTime  @db.Timestamptz()
+  created_at     DateTime? @default(now()) @db.Timestamptz()
+
+  variant ProductVariant @relation(fields: [variant_id], references: [variant_id])
+
+  @@id([reservation_id, variant_id])
+  @@map("inventory_reservations")
+}
+
+model SecurityAuditLog {
+  log_id      Int            @id @default(autoincrement())
+  event_type  String         @db.VarChar
+  event_data  Json?
+  timestamp   DateTime?      @default(now()) @db.Timestamptz()
+  ip_address  String?        @db.Inet
+  user_agent  String?
+  customer_id Int?
+  severity    SeverityLevel? @default(info)
+
+  @@map("security_audit_log")
+}
+
+model AppVersion {
+  id           BigInt    @id @default(autoincrement())
+  version      String
+  force_update Boolean   @default(false)
+  redirect_url String
+  description  String?
+  created_at   DateTime? @default(now()) @db.Timestamptz()
+  app_locked   Boolean   @default(false)
+
+  @@map("app_versions")
+}
+
+model Extra {
+  extraId  BigInt  @id @default(autoincrement())
+  AdminKey String?
+
+  @@map("extras")
+}

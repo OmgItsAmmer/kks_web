@@ -1,17 +1,48 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import FeaturesBar from '../components/FeaturesBar';
 import HeroSection from '../components/HeroSection';
 import FeaturedProducts from '../components/FeaturedProducts';
-import ComfortCategories from '../components/ComfortCategories';
-import MattressQuizCTA from '../components/MattressQuizCTA';
-import ProductTypesCarousel from '../components/ProductTypesCarousel';
-import DealOfTheDay from '../components/DealOfTheDay';
-import InspirationGallery from '../components/InspirationGallery';
-import TrendingProducts from '../components/TrendingProducts';
-import GuidesSection from '../components/GuidesSection';
 import TestimonialsSection from '../components/TestimonialsSection';
+// Commented out components - uncomment when needed:
+// import ComfortCategories from '../components/ComfortCategories';
+// import MattressQuizCTA from '../components/MattressQuizCTA';
+// import ProductTypesCarousel from '../components/ProductTypesCarousel';
+// import DealOfTheDay from '../components/DealOfTheDay';
+// import InspirationGallery from '../components/InspirationGallery';
+// import TrendingProducts from '../components/TrendingProducts';
+// import GuidesSection from '../components/GuidesSection';
 
 const Home: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  
+  // Get category from URL params
+  const categoryParam = searchParams.get('category');
+  const initialCategory = useMemo(() => {
+    if (!categoryParam || categoryParam === 'all') {
+      return 'all';
+    }
+    const categoryId = parseInt(categoryParam, 10);
+    return isNaN(categoryId) ? 'all' : categoryId;
+  }, [categoryParam]);
+
+  // Scroll to featured products section when category param is present
+  useEffect(() => {
+    if (categoryParam) {
+      // Small delay to ensure DOM is ready and category is updated
+      const scrollTimer = setTimeout(() => {
+        const element = document.getElementById('featured-products');
+        if (element) {
+          const yOffset = -80; // Offset for header if needed
+          const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 300); // Increased delay to ensure category tab is active
+      
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [categoryParam]);
+
   return (
     <main>
       {/* Features Bar - Trust indicators */}
@@ -25,6 +56,7 @@ const Home: React.FC = () => {
         title="All Categories"
         subtitle="Discover our most-loved collections"
         showTabs={true}
+        initialCategory={initialCategory}
       />
 
       {/* Sleep Luxury Products */}

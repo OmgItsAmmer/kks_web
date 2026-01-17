@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Star, ChevronLeft, ChevronRight, Quote, Users, Award, ThumbsUp, Clock, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, ChevronLeft, ChevronRight, Quote, Users, Award, ThumbsUp, Clock } from 'lucide-react';
+import { reviewService, type BackendReview } from '../services/review.service';
 import styles from './TestimonialsSection.module.css';
 
 interface Testimonial {
@@ -17,42 +18,73 @@ interface Stat {
   label: string;
 }
 
-const testimonials: Testimonial[] = [
-  {
-    id: '1',
-    name: 'Sarah Mitchell',
-    location: 'Manchester',
-    rating: 5,
-    review: 'Absolutely incredible experience! The team helped me find the perfect mattress for my back pain. I\'ve never slept better in my life. The quality is outstanding and the customer service was exceptional.',
-    verified: true,
-  },
-  {
-    id: '2',
-    name: 'James Wilson',
-    location: 'London',
-    rating: 5,
-    review: 'Best purchase I\'ve made this year. The delivery was quick, the setup was easy, and the mattress is incredibly comfortable. Worth every penny!',
-    verified: true,
-  },
-  {
-    id: '3',
-    name: 'Emma Thompson',
-    location: 'Birmingham',
-    rating: 5,
-    review: 'I was skeptical at first, but after trying the mattress for a month, I can confidently say it\'s transformed my sleep. No more waking up with aches and pains.',
-    verified: true,
-  },
-];
-
-const stats: Stat[] = [
-  { icon: <Users size={24} />, value: '15,000+', label: 'Happy Customers' },
-  { icon: <Star size={24} />, value: '4.9/5', label: 'Average Rating' },
-  { icon: <ThumbsUp size={24} />, value: '98%', label: 'Satisfaction Rate' },
-  { icon: <Clock size={24} />, value: '25+', label: 'Years Experience' },
-];
-
 const TestimonialsSection: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [stats, setStats] = useState<Stat[]>([
+    { icon: <Users size={24} />, value: '0', label: 'Happy Customers' },
+    { icon: <Star size={24} />, value: '0/5', label: 'Average Rating' },
+    { icon: <ThumbsUp size={24} />, value: '98%', label: 'Satisfaction Rate' },
+    { icon: <Clock size={24} />, value: '25+', label: 'Years Experience' },
+  ]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        console.log('[TestimonialsSection] Fetching reviews...');
+        
+        // Fetch reviews with rating > 3 for testimonials
+        const reviewsResponse = await reviewService.getReviewsByRating(3, 10);
+        
+        // Fetch happy customers stats (rating > 4)
+        const statsResponse = await reviewService.getHappyCustomersStats();
+
+        if (reviewsResponse.success && reviewsResponse.data) {
+          const transformedTestimonials = reviewsResponse.data.map((review: BackendReview) => ({
+            id: review.review_id.toString(),
+            name: review.customerName || 'Anonymous',
+            location: 'Pakistan', // Default location
+            rating: review.rating,
+            review: review.review,
+            verified: true,
+          }));
+          
+          setTestimonials(transformedTestimonials);
+          console.log('[TestimonialsSection] ✅ Testimonials loaded:', transformedTestimonials.length);
+        }
+
+        if (statsResponse.success && statsResponse.data) {
+          const { count, averageRating } = statsResponse.data;
+          
+          setStats([
+            { icon: <Users size={24} />, value: `${count.toLocaleString()}+`, label: 'Happy Customers' },
+            { icon: <Star size={24} />, value: `${averageRating.toFixed(1)}/5`, label: 'Average Rating' },
+            { icon: <ThumbsUp size={24} />, value: '98%', label: 'Satisfaction Rate' },
+            { icon: <Clock size={24} />, value: '25+', label: 'Years Experience' },
+          ]);
+          console.log('[TestimonialsSection] ✅ Stats updated:', count, 'happy customers');
+        }
+      } catch (error: any) {
+        console.error('[TestimonialsSection] ❌ Error loading testimonials:', error);
+        // Use fallback data
+        setTestimonials([
+          {
+            id: '1',
+            name: 'Customer',
+            location: 'Pakistan',
+            rating: 5,
+            review: 'Great products and excellent service!',
+            verified: true,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestimonials();
+  }, []);
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1));
@@ -62,7 +94,31 @@ const TestimonialsSection: React.FC = () => {
     setCurrentIndex((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1));
   };
 
-  const currentTestimonial = testimonials[currentIndex];
+  const currentTestimonial = testimonials.length > 0 ? testimonials[currentIndex] : null;
+
+  if (loading) {
+    return (
+      <section className={styles.section}>
+        <div className="container">
+          <div className={styles.header}>
+            <h2 className={styles.title}>Loading testimonials...</h2>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!currentTestimonial) {
+    return (
+      <section className={styles.section}>
+        <div className="container">
+          <div className={styles.header}>
+            <h2 className={styles.title}>No testimonials available</h2>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.section}>
@@ -71,11 +127,11 @@ const TestimonialsSection: React.FC = () => {
         <div className={styles.header}>
           <div className={styles.badge}>
             <Award size={16} />
-            <span>Trusted by 15,000+ Customers</span>
+            <span>Trusted by {stats[0].value} Customers</span>
           </div>
           <h2 className={styles.title}>What Our Customers Say</h2>
           <p className={styles.subtitle}>
-            Don't just take our word for it. Hear from thousands of satisfied customers who've transformed their homes with us.
+            Don't just take our word for it. Hear from thousands of satisfied customers who love our products.
           </p>
         </div>
 
@@ -154,14 +210,6 @@ const TestimonialsSection: React.FC = () => {
               aria-label={`Go to testimonial ${index + 1}`}
             />
           ))}
-        </div>
-
-        {/* CTA */}
-        <div className={styles.ctaWrapper}>
-          <button className={styles.ctaButton}>
-            Read More Reviews
-            <ArrowRight size={18} />
-          </button>
         </div>
       </div>
     </section>

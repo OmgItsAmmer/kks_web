@@ -176,6 +176,7 @@
   align-items: center;
   justify-content: center;
   transition: transform var(--transition-base);
+  min-height: 200px;
 }
 
 .sideBanner:hover {
@@ -183,15 +184,15 @@
 }
 
 .sideImage {
-  width: 60%;
-  height: auto;
-  object-fit: contain;
-  padding: 1rem;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  padding: 0;
 }
 
 .sideLabel {
   position: absolute;
-  bottom: 1rem;
+  bottom: 3rem;
   left: 1rem;
   background: white;
   padding: 0.5rem 1rem;
@@ -199,6 +200,71 @@
   font-weight: 600;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
+  max-width: calc(100% - 2rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidePrice {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  background: var(--primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.sideImageSkeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: var(--radius-lg);
+}
+
+.cardImageSkeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.cardTitleSkeleton {
+  height: 20px;
+  width: 80%;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 4px;
+}
+
+.cardPriceSkeleton {
+  height: 24px;
+  width: 60%;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
 }
 
 /* Category Cards */

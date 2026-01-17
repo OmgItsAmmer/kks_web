@@ -11,6 +11,7 @@ export interface Product {
   brand?: string;
   price: number;
   originalPrice?: number;
+  priceRange?: string;
   rating: number;
   reviewCount: string;
   image: string;
@@ -28,12 +29,22 @@ export function transformBackendProduct(backendProduct: BackendProduct): Product
   const salePrice = parseFloat(backendProduct.sale_price);
   const basePrice = parseFloat(backendProduct.base_price);
 
-  return {
+  // Logging for debugging image issues
+  console.log(`[transformBackendProduct] Transforming product ${backendProduct.product_id} (${backendProduct.name}):`, {
+    mainImage: backendProduct.mainImage,
+    hasMainImage: !!backendProduct.mainImage,
+    mainImageType: typeof backendProduct.mainImage,
+    mainImageLength: backendProduct.mainImage?.length,
+    willUseFallback: !backendProduct.mainImage,
+  });
+
+  const transformed = {
     id: backendProduct.product_id.toString(),
     name: backendProduct.name,
     brand: undefined, // Will be populated if we have brand data
     price: salePrice,
     originalPrice: basePrice > salePrice ? basePrice : undefined,
+    priceRange: backendProduct.price_range || '',
     rating: 0, // Will be populated from reviews
     reviewCount: '0 reviews',
     image: backendProduct.mainImage || '/logo.png',
@@ -43,6 +54,12 @@ export function transformBackendProduct(backendProduct: BackendProduct): Product
     deliveryInfo: 'Free delivery',
     category: backendProduct.category_id?.toString() || 'uncategorized',
   };
+
+  if (!backendProduct.mainImage) {
+    console.warn(`[transformBackendProduct] ⚠️ Product ${backendProduct.product_id} has no mainImage, using fallback`);
+  }
+
+  return transformed;
 }
 
 /**

@@ -1,0 +1,113 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.s3Client = exports.SUPABASE_BUCKETS = exports.supabase = void 0;
+exports.getSupabasePublicUrl = getSupabasePublicUrl;
+exports.generateImageUrl = generateImageUrl;
+const supabase_js_1 = require("@supabase/supabase-js");
+const client_s3_1 = require("@aws-sdk/client-s3");
+const env_config_ts_1 = require("./env.config.ts");
+const logger_ts_1 = require("../utils/logger.ts");
+// Supabase configuration
+const supabaseUrl = env_config_ts_1.config.supabase.url;
+const supabaseServiceKey = env_config_ts_1.config.supabase.serviceKey;
+if (!supabaseUrl || !supabaseServiceKey) {
+    logger_ts_1.logger.error('Supabase configuration missing. Storage features will not work properly.');
+    logger_ts_1.logger.error('Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file');
+}
+// Create Supabase client
+exports.supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+    },
+});
+// Extract project reference from Supabase URL
+// Format: https://[project-ref].supabase.co
+const getProjectRef = (url) => {
+    try {
+        const match = url.match(/https?:\/\/([^.]+)\.supabase\.co/);
+        return match ? match[1] : null;
+    }
+    catch {
+        return null;
+    }
+};
+const projectRef = getProjectRef(supabaseUrl);
+// Create S3 client for Supabase Storage (if credentials provided)
+let s3Client = null;
+exports.s3Client = s3Client;
+if (env_config_ts_1.config.supabase.s3.endpoint && env_config_ts_1.config.supabase.s3.accessKeyId && env_config_ts_1.config.supabase.s3.secretAccessKey) {
+    exports.s3Client = s3Client = new client_s3_1.S3Client({
+        endpoint: env_config_ts_1.config.supabase.s3.endpoint,
+        region: env_config_ts_1.config.supabase.s3.region,
+        credentials: {
+            accessKeyId: env_config_ts_1.config.supabase.s3.accessKeyId,
+            secretAccessKey: env_config_ts_1.config.supabase.s3.secretAccessKey,
+        },
+        forcePathStyle: true, // Required for Supabase S3
+    });
+    logger_ts_1.logger.info('S3 client initialized for Supabase Storage');
+}
+else {
+    logger_ts_1.logger.warn('S3 credentials not provided. Using public URL method only.');
+}
+// Bucket names from schema
+exports.SUPABASE_BUCKETS = {
+    products: 'products',
+    vendors: 'vendors',
+    guarantors: 'guarantors',
+    salesman: 'salesman',
+    users: 'users',
+    customers: 'customers',
+    brands: 'brands',
+    categories: 'categories',
+    shop: 'shop',
+};
+/**
+ * Get public URL for a file in Supabase Storage using S3 protocol endpoint
+ * This constructs the URL directly using the S3 endpoint format
+ */
+function getSupabasePublicUrl(bucket, filePath) {
+    // IMPORTANT: S3 endpoint uses .storage.supabase.co but PUBLIC URLs use .supabase.co
+    // S3 API: https://[project].storage.supabase.co/storage/v1/s3
+    // Public URL: https://[project].supabase.co/storage/v1/object/public/[bucket]/[file]
+    // Always use the main Supabase URL (not the S3 endpoint) for public URLs
+    if (projectRef) {
+        // Ensure filePath doesn't have leading slash
+        const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+        // URL encode the path but preserve forward slashes
+        const encodedPath = cleanPath.split('/').map(encodeURIComponent).join('/');
+        // Use the main domain (without .storage.)
+        const publicUrl = `https://${projectRef}.supabase.co/storage/v1/object/public/${bucket}/${encodedPath}`;
+        logger_ts_1.logger.debug(`[Supabase] Generated public URL: ${publicUrl}`);
+        return publicUrl;
+    }
+    // Fallback to Supabase JS client method
+    try {
+        const { data } = exports.supabase.storage.from(bucket).getPublicUrl(filePath);
+        logger_ts_1.logger.debug(`[Supabase] Generated public URL using Supabase client: ${data.publicUrl}`);
+        return data.publicUrl;
+    }
+    catch (error) {
+        logger_ts_1.logger.error('Error generating public URL with Supabase client', { error, bucket, filePath });
+        throw new Error('Unable to generate Supabase public URL');
+    }
+}
+/**
+ * Generate Supabase storage URL from image record
+ * Assumes images are stored with pattern: {bucket}/{filename}
+ */
+function generateImageUrl(folderType, filename) {
+    if (!folderType || !filename) {
+        return null;
+    }
+    try {
+        return getSupabasePublicUrl(folderType, filename);
+    }
+    catch (error) {
+        logger_ts_1.logger.error('Error generating Supabase URL', { error, folderType, filename });
+        return null;
+    }
+}
+exports.default = exports.supabase;
+//# sourceMappingURL=supabase.config.js.map

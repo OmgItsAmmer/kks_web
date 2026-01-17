@@ -21,18 +21,18 @@ const features: Feature[] = [
   },
   {
     icon: <ShieldCheck size={24} />,
-    title: 'Shop Easy',
-    subtitle: 'Sleep Easy',
+    title: 'Quality Assured',
+    subtitle: 'Fresh Products',
   },
   {
     icon: <CreditCard size={24} />,
-    title: 'Shop Now, Pay Later',
-    subtitle: 'with Klarna',
+    title: 'Secure Checkout',
+    subtitle: 'Multiple Payment Options',
   },
   {
     icon: <Clock size={24} />,
-    title: 'Buy It, Try It',
-    subtitle: 'Pay Later',
+    title: 'Open Daily',
+    subtitle: 'Extended Hours',
   },
 ];
 

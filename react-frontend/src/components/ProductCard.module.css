@@ -40,9 +40,13 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 70%;
+  max-width: 100%;
   height: auto;
+  min-height: 100px;
+  max-height: 100%;
   object-fit: contain;
   transition: transform var(--transition-base);
+  display: block;
 }
 
 .card:hover .productImage {
@@ -60,22 +64,41 @@
   align-items: center;
   justify-content: center;
   background: white;
+  border: none;
   border-radius: var(--radius-full);
   color: var(--text-muted);
   box-shadow: var(--shadow-sm);
   opacity: 0;
   transform: translateY(-8px);
   transition: all var(--transition-base);
+  cursor: pointer;
 }
 
-.card:hover .wishlistButton {
+.card:hover .wishlistButton,
+.wishlistButton:focus {
   opacity: 1;
   transform: translateY(0);
 }
 
-.wishlistButton:hover {
+.wishlistButton:hover:not(:disabled) {
   color: var(--accent-rose);
   background: var(--gray-50);
+  transform: scale(1.1);
+}
+
+.wishlistButton:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.wishlistButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Show wishlist button even when not hovering if item is in wishlist */
+.wishlistButton[aria-label*="Remove"] {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .featuredBadge {

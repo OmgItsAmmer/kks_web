@@ -1,0 +1,196 @@
+/* Loading Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 20%,
+    #f0f0f0 40%,
+    #f0f0f0 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 4px;
+}
+
+/* Category Skeleton */
+.categorySection {
+  padding: 3rem 0;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0 2rem;
+}
+
+.categoryImageSkeleton {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+}
+
+.categoryInfo {
+  flex: 1;
+}
+
+.categoryTitle {
+  height: 32px;
+  width: 200px;
+  margin-bottom: 0.5rem;
+}
+
+.categoryDescription {
+  height: 20px;
+  width: 300px;
+}
+
+/* Product Grid Skeleton */
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  padding: 0 2rem;
+}
+
+.productCardSkeleton {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.productImageSkeleton {
+  width: 100%;
+  height: 280px;
+}
+
+.productContent {
+  padding: 1.5rem;
+}
+
+.productName {
+  height: 24px;
+  margin-bottom: 0.75rem;
+}
+
+.productPrice {
+  height: 28px;
+  width: 120px;
+  margin-bottom: 0.5rem;
+}
+
+.productRating {
+  height: 20px;
+  width: 150px;
+}
+
+/* Category Card Skeleton */
+.categoryCard {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.categoryCardImage {
+  width: 100%;
+  height: 200px;
+}
+
+.categoryCardContent {
+  padding: 1.5rem;
+}
+
+.categoryCardTitle {
+  height: 24px;
+  margin-bottom: 0.75rem;
+}
+
+.categoryCardDescription {
+  height: 20px;
+  width: 80%;
+}
+
+/* Loading Container */
+.loadingContainer {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.categoriesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+/* Error State */
+.errorContainer {
+  padding: 3rem;
+  text-align: center;
+  background: #fff3f3;
+  border: 1px solid #ffcccc;
+  border-radius: 12px;
+  margin: 2rem;
+}
+
+.errorTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #d32f2f;
+  margin-bottom: 1rem;
+}
+
+.errorMessage {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.retryButton {
+  padding: 0.75rem 2rem;
+  background: #2d5a3d;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+  background: #234a30;
+}
+
+/* Empty State */
+.emptyContainer {
+  padding: 3rem;
+  text-align: center;
+  background: #f8f8f8;
+  border-radius: 12px;
+  margin: 2rem;
+}
+
+.emptyTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.emptyMessage {
+  color: #666;
+}

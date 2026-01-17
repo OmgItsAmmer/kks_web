@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix kksonline-backend\" \"npm run dev --prefix react-frontend\""
+    "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev --prefix kksonline-backend-express\" \"npm run dev --prefix react-frontend\"",
+    "backend": "npm run dev --prefix kksonline-backend-express",
+    "frontend": "npm run dev --prefix react-frontend"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

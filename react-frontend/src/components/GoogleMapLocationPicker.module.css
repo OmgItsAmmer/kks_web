@@ -1,0 +1,125 @@
+.mapContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.searchContainer {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.searchInput {
+  flex: 1;
+  padding: var(--space-3);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.searchBtn,
+.currentLocationBtn {
+  padding: var(--space-3);
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  min-width: 44px;
+}
+
+.searchBtn:hover:not(:disabled),
+.currentLocationBtn:hover:not(:disabled) {
+  background-color: var(--primary-dark);
+}
+
+.searchBtn:disabled,
+.currentLocationBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mapWrapper {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.loadingContainer,
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  background-color: var(--bg-light);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-300);
+  min-height: 300px;
+}
+
+.errorContainer {
+  color: var(--error);
+}
+
+.errorMessage {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--error-light);
+  color: var(--error);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.instructions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background-color: var(--bg-light);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.requiredText {
+  font-size: 0.875rem;
+  color: var(--error);
+  margin-top: var(--space-1);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.selectedAddressBox {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-light);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

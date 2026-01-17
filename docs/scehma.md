@@ -312,3 +312,25 @@
     | wishlist                | created_at                | timestamp with time zone    |
     | wishlist                | product_id                | integer                     |
     | wishlist                | customer_id               | integer                     |
+
+
+
+
+    Supabase Bucket Names:
+vendors
+
+guarantors
+
+salesman
+
+users
+
+customers
+
+brands
+
+categories
+
+shop
+
+products

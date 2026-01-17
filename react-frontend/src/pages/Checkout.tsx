@@ -1,326 +1,573 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Truck, Award, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useSnackbar } from '../contexts/SnackbarContext';
+import Loader from '../components/Loader';
+import MapLocationPicker from '../components/GoogleMapLocationPicker';
+import { addressService } from '../services/address.service';
+import { checkoutService } from '../services/checkout.service';
+import { cartService } from '../services/cart.service';
+import type { CreateAddressRequest } from '../types/address';
+import type { CartItem } from '../types/cart';
 import styles from './Checkout.module.css';
 
-// Mock cart data - replace with actual cart state
-const mockCartTotal = {
-    subtotal: 97.50,
-    delivery: 0,
-    total: 97.50
-};
+type CheckoutState = 'loading' | 'ready' | 'processing' | 'success' | 'error';
+
+interface LocationState {
+  cartItems?: CartItem[];
+  subtotal?: number;
+  itemCount?: number;
+  isReorder?: boolean;
+}
 
 const Checkout: React.FC = () => {
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        postcode: '',
-        country: 'United Kingdom'
-    });
+  const { isAuthenticated, showLoginModal } = useAuth();
+  const { showError, showWarning } = useSnackbar();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
 
-    const [deliveryOption, setDeliveryOption] = useState<'standard' | 'express'>('standard');
+  const [checkoutState, setCheckoutState] = useState<CheckoutState>('loading');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'jazzcash'>('cod');
+  const [shippingMethod, setShippingMethod] = useState<'shipping' | 'pickup'>('shipping');
+  const [error, setError] = useState<string | null>(null);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+  // Cart data
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [itemCount, setItemCount] = useState(0);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Handle checkout submission
-        console.log('Checkout submitted:', { ...formData, deliveryOption });
-        alert('Order placed successfully! (This is a demo)');
-    };
+  // Google Maps location data
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    place_id?: string;
+    formatted_address?: string;
+    address_components?: any;
+  } | null>(null);
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [saveAddress, setSaveAddress] = useState(false);
 
-    const deliveryFee = deliveryOption === 'express' ? 15.00 : 0;
-    const finalTotal = mockCartTotal.subtotal + deliveryFee;
+  // Load initial data
+  useEffect(() => {
+    if (!isAuthenticated) {
+      showLoginModal();
+      navigate('/cart');
+      return;
+    }
 
+    loadData();
+  }, [isAuthenticated]);
+
+  /**
+   * Load cart data
+   */
+  const loadData = async () => {
+    try {
+      setCheckoutState('loading');
+      setError(null);
+
+      // Load cart data (from state or fetch)
+      if (state?.cartItems && state?.subtotal) {
+        setCartItems(state.cartItems);
+        setSubtotal(state.subtotal);
+        setItemCount(state.itemCount || 0);
+      } else {
+        const cartData = await cartService.getCart();
+        setCartItems(cartData.items);
+        setSubtotal(cartData.subtotal);
+        setItemCount(cartData.itemCount);
+      }
+
+      setCheckoutState('ready');
+    } catch (err: any) {
+      console.error('Error loading checkout data:', err);
+      setError(err.message || 'Failed to load checkout data');
+      setCheckoutState('error');
+    }
+  };
+
+  /**
+   * Handle location selection from Google Maps
+   */
+  const handleLocationSelect = (location: {
+    latitude: number;
+    longitude: number;
+    place_id?: string;
+    formatted_address?: string;
+    address_components?: any;
+  }) => {
+    setSelectedLocation(location);
+  };
+
+  /**
+   * Process checkout
+   */
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate cart is not empty
+    if (!cartItems || cartItems.length === 0) {
+      if (state?.isReorder) {
+        showWarning('No items available to reorder. All items may be out of stock.');
+      } else {
+        showWarning('Your cart is empty. Please add items before checkout.');
+      }
+      navigate('/cart');
+      return;
+    }
+
+    // Validation
+    if (!selectedLocation) {
+      showWarning('Please select a delivery location on the map');
+      return;
+    }
+
+    if (!fullName || !phoneNumber) {
+      showWarning('Please provide your full name and phone number');
+      return;
+    }
+
+    // Extract address components from Google Maps data
+    const addressComponents = selectedLocation.address_components || {};
+    const city = addressComponents.locality || addressComponents.administrative_area_level_2 || '';
+    const postalCode = addressComponents.postal_code || '';
+    const country = addressComponents.country || 'Pakistan';
+
+    try {
+      setCheckoutState('processing');
+      setError(null);
+
+      // Prepare cart items for checkout
+      const checkoutItems = cartItems.map((item) => {
+        const cartItem: {
+          variantId: number;
+          quantity: number;
+          sellPrice: number;
+          buyPrice?: number;
+        } = {
+          variantId: Number(item.variantId),
+          quantity: Number(item.quantity),
+          sellPrice: Number(item.sellPrice),
+        };
+        
+        // Only include buyPrice if it exists
+        if (item.buyPrice !== undefined && item.buyPrice !== null) {
+          cartItem.buyPrice = Number(item.buyPrice);
+        }
+        
+        return cartItem;
+      });
+
+      // Validate cart items
+      if (!checkoutItems || checkoutItems.length === 0) {
+        throw new Error('Cart is empty. Please add items to cart before checkout.');
+      }
+
+      // Create address with Google Maps data
+      const addressData: CreateAddressRequest = {
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        shippingAddress: selectedLocation.formatted_address || '',
+        city: city,
+        postalCode: postalCode,
+        country: country,
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+        place_id: selectedLocation.place_id,
+        formatted_address: selectedLocation.formatted_address,
+      };
+
+      // Create address (save if checkbox is checked, otherwise temporary)
+      let addressIdToUse: number;
+      
+      try {
+        const addressResponse = await addressService.createAddress(addressData);
+        addressIdToUse = addressResponse.data.address_id;
+        
+        // If user doesn't want to save, we'll still create it but it will be associated with the order
+        // The backend can handle cleanup of unsaved addresses if needed
+      } catch (err: any) {
+        console.error('Error creating address:', err);
+        showError(err.message || 'Failed to create address');
+        return;
+      }
+
+      // Create checkout request
+      const checkoutRequest = {
+        addressId: addressIdToUse,
+        shippingMethod: shippingMethod as 'shipping' | 'pickup',
+        paymentMethod: paymentMethod as 'cod' | 'jazzcash',
+        cartItems: checkoutItems,
+      };
+
+      console.log('[Checkout] Sending checkout request:', checkoutRequest);
+
+      const result = await checkoutService.createOrder(checkoutRequest);
+
+      setCheckoutState('success');
+
+      // Redirect to order confirmation
+      setTimeout(() => {
+        navigate(`/orders/${result.orderId}`, { 
+          state: { 
+            message: 'Order placed successfully!',
+            orderId: result.orderId,
+            total: result.total 
+          } 
+        });
+      }, 1000);
+    } catch (err: any) {
+      console.error('Error processing checkout:', err);
+      
+      // Handle validation errors with details
+      if (err.status === 422 || err.statusCode === 422) {
+        let errorMessage = 'Validation failed. Please check your input.';
+        
+        // Add validation error details if available
+        if (err.errors) {
+          const errorDetails = Object.entries(err.errors)
+            .flatMap(([field, messages]) => {
+              const msgArray = Array.isArray(messages) ? messages : [messages];
+              return msgArray.map(msg => `${field}: ${msg}`);
+            })
+            .join('\n');
+          
+          if (errorDetails) {
+            errorMessage = `${errorMessage}\n\n${errorDetails}`;
+          }
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        console.error('[Checkout] Validation errors:', err.errors || err.response);
+        setError(errorMessage);
+      } else {
+        setError(err.message || 'Failed to process checkout');
+      }
+      
+      setCheckoutState('error');
+      
+      // Reset to ready state after showing error
+      setTimeout(() => {
+        setCheckoutState('ready');
+      }, 5000);
+    }
+  };
+
+  // Calculate totals
+  const deliveryFee = shippingMethod === 'shipping' ? 0 : 0; // Free delivery
+  const finalTotal = subtotal + deliveryFee;
+
+  // Loading state
+  if (checkoutState === 'loading') {
+    return <Loader message="Loading checkout..." variant="fullpage" />;
+  }
+
+  // Success state
+  if (checkoutState === 'success') {
     return (
-        <div className={styles.checkoutPage}>
-            {/* Features Bar */}
-            <div className={styles.featuresBar}>
-                <div className="container">
-                    <div className={styles.features}>
-                        <div className={styles.feature}>
-                            <div className={styles.featureIcon}>
-                                <Lock size={20} />
-                            </div>
-                            <div className={styles.featureText}>
-                                <span className={styles.featureTitle}>Secure Checkout</span>
-                            </div>
-                        </div>
-                        <div className={styles.feature}>
-                            <div className={styles.featureIcon}>
-                                <Truck size={20} />
-                            </div>
-                            <div className={styles.featureText}>
-                                <span className={styles.featureTitle}>Free Delivery</span>
-                            </div>
-                        </div>
-                        <div className={styles.feature}>
-                            <div className={styles.featureIcon}>
-                                <Award size={20} />
-                            </div>
-                            <div className={styles.featureText}>
-                                <span className={styles.featureTitle}>1-Year Warranty</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="container">
-                <div className={styles.header}>
-                    <h1 className={styles.title}>Checkout</h1>
-                    <p className={styles.subtitle}>Complete your purchase securely</p>
-                </div>
-
-                <div className={styles.content}>
-                    {/* Checkout Form */}
-                    <div className={styles.formSection}>
-                        <form onSubmit={handleSubmit}>
-                            {/* Customer Information */}
-                            <div className={styles.formGroup}>
-                                <div className={styles.sectionHeader}>
-                                    <div className={styles.sectionIcon}>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        </svg>
-                                    </div>
-                                    <h2>Customer Information</h2>
-                                </div>
-
-                                <div className={styles.formRow}>
-                                    <div className={styles.formField}>
-                                        <label htmlFor="firstName">First Name *</label>
-                                        <input
-                                            type="text"
-                                            id="firstName"
-                                            name="firstName"
-                                            value={formData.firstName}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                        />
-                                    </div>
-
-                                    <div className={styles.formField}>
-                                        <label htmlFor="lastName">Last Name *</label>
-                                        <input
-                                            type="text"
-                                            id="lastName"
-                                            name="lastName"
-                                            value={formData.lastName}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className={styles.formRow}>
-                                    <div className={styles.formField}>
-                                        <label htmlFor="email">Email Address *</label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                        />
-                                    </div>
-
-                                    <div className={styles.formField}>
-                                        <label htmlFor="phone">Phone Number *</label>
-                                        <input
-                                            type="tel"
-                                            id="phone"
-                                            name="phone"
-                                            value={formData.phone}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className={styles.formField}>
-                                    <label htmlFor="address">Address *</label>
-                                    <textarea
-                                        id="address"
-                                        name="address"
-                                        value={formData.address}
-                                        onChange={handleInputChange}
-                                        required
-                                        rows={3}
-                                        className={styles.textarea}
-                                    />
-                                </div>
-
-                                <div className={styles.formRow}>
-                                    <div className={styles.formField}>
-                                        <label htmlFor="city">City *</label>
-                                        <input
-                                            type="text"
-                                            id="city"
-                                            name="city"
-                                            value={formData.city}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                            placeholder="e.g., W1D 1BS"
-                                        />
-                                    </div>
-
-                                    <div className={styles.formField}>
-                                        <label htmlFor="postcode">Postcode *</label>
-                                        <input
-                                            type="text"
-                                            id="postcode"
-                                            name="postcode"
-                                            value={formData.postcode}
-                                            onChange={handleInputChange}
-                                            required
-                                            className={styles.input}
-                                            placeholder="e.g., W1D 1BS"
-                                        />
-                                    </div>
-
-                                    <div className={styles.formField}>
-                                        <label htmlFor="country">Country</label>
-                                        <select
-                                            id="country"
-                                            name="country"
-                                            value={formData.country}
-                                            onChange={handleInputChange}
-                                            className={styles.select}
-                                        >
-                                            <option value="United Kingdom">United Kingdom</option>
-                                            <option value="Ireland">Ireland</option>
-                                            <option value="France">France</option>
-                                            <option value="Germany">Germany</option>
-                                            <option value="Spain">Spain</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Delivery Options */}
-                            <div className={styles.formGroup}>
-                                <div className={styles.sectionHeader}>
-                                    <div className={styles.sectionIcon}>
-                                        <Truck size={20} />
-                                    </div>
-                                    <h2>Delivery Options</h2>
-                                </div>
-
-                                <div className={styles.deliveryOptions}>
-                                    <label className={`${styles.deliveryOption} ${deliveryOption === 'standard' ? styles.selected : ''}`}>
-                                        <input
-                                            type="radio"
-                                            name="delivery"
-                                            value="standard"
-                                            checked={deliveryOption === 'standard'}
-                                            onChange={() => setDeliveryOption('standard')}
-                                            className={styles.radio}
-                                        />
-                                        <div className={styles.deliveryInfo}>
-                                            <div className={styles.deliveryTitle}>
-                                                <span className={styles.deliveryName}>Standard Delivery (3-5 business days)</span>
-                                                <span className={styles.deliveryPrice}>Free</span>
-                                            </div>
-                                            <p className={styles.deliveryDescription}>Free delivery</p>
-                                        </div>
-                                    </label>
-
-                                    <label className={`${styles.deliveryOption} ${deliveryOption === 'express' ? styles.selected : ''}`}>
-                                        <input
-                                            type="radio"
-                                            name="delivery"
-                                            value="express"
-                                            checked={deliveryOption === 'express'}
-                                            onChange={() => setDeliveryOption('express')}
-                                            className={styles.radio}
-                                        />
-                                        <div className={styles.deliveryInfo}>
-                                            <div className={styles.deliveryTitle}>
-                                                <span className={styles.deliveryName}>Express Delivery (1-2 business days)</span>
-                                                <span className={styles.deliveryPrice}>Rs15.00</span>
-                                            </div>
-                                            <p className={styles.deliveryDescription}>Priority handling and tracking</p>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Order Summary */}
-                    <div className={styles.summarySection}>
-                        <div className={styles.orderSummary}>
-                            <h2 className={styles.summaryTitle}>Order Summary</h2>
-
-                            <div className={styles.summaryRow}>
-                                <span>Subtotal</span>
-                                <span>Rs{mockCartTotal.subtotal.toFixed(2)}</span>
-                            </div>
-
-                            <div className={styles.summaryRow}>
-                                <span>Delivery</span>
-                                <span className={deliveryOption === 'standard' ? styles.freeDelivery : ''}>
-                                    {deliveryOption === 'standard' ? 'Free' : `Rs${deliveryFee.toFixed(2)}`}
-                                </span>
-                            </div>
-
-                            <div className={styles.summaryDivider}></div>
-
-                            <div className={styles.summaryTotal}>
-                                <span>Total</span>
-                                <span>Rs{finalTotal.toFixed(2)}</span>
-                            </div>
-
-                            <button type="submit" onClick={handleSubmit} className={styles.checkoutBtn}>
-                                <Lock size={20} />
-                                Secure Checkout
-                            </button>
-
-                            <div className={styles.securityInfo}>
-                                <div className={styles.securityIcon}>
-                                    <Lock size={16} />
-                                </div>
-                                <div className={styles.securityText}>
-                                    <p className={styles.securityTitle}>256-bit SSL encryption</p>
-                                    <p className={styles.securitySubtitle}>Your payment information is secure and encrypted</p>
-                                </div>
-                            </div>
-
-                            {/* Payment Methods */}
-                            <div className={styles.paymentMethods}>
-                                <p className={styles.paymentTitle}>We accept:</p>
-                                <div className={styles.paymentIcons}>
-                                    <span className={styles.paymentIcon}>Cash On Delivery</span>
-                                    <span className={styles.paymentIcon}>JazzCash</span>
-                                   
-                                </div>
-                            </div>
-
-                            {/* Warranty Badge */}
-                            <div className={styles.warranty}>
-                                <ShieldCheck size={24} />
-                                <span>10 Days Warranty</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div className={styles.checkoutPage}>
+        <div className="container">
+          <div className={styles.successContainer}>
+            <ShieldCheck size={64} />
+            <h2>Order Placed Successfully!</h2>
+            <p>Redirecting to order details...</p>
+          </div>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className={styles.checkoutPage}>
+      {/* Features Bar */}
+      <div className={styles.featuresBar}>
+        <div className="container">
+          <div className={styles.features}>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <Lock size={20} />
+              </div>
+              <div className={styles.featureText}>
+                <span className={styles.featureTitle}>Secure Checkout</span>
+              </div>
+            </div>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <Truck size={20} />
+              </div>
+              <div className={styles.featureText}>
+                <span className={styles.featureTitle}>Free Delivery</span>
+              </div>
+            </div>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <Award size={20} />
+              </div>
+              <div className={styles.featureText}>
+                <span className={styles.featureTitle}>10 Days Warranty</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container">
+        <div className={styles.header}>
+          <h1 className={styles.title}>Checkout</h1>
+          <p className={styles.subtitle}>Complete your purchase securely</p>
+        </div>
+
+        {error && checkoutState === 'error' && (
+          <div className={styles.errorBanner}>
+            <AlertTriangle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className={styles.content}>
+          {/* Checkout Form */}
+          <div className={styles.formSection}>
+            <form onSubmit={handleCheckout}>
+              {/* Delivery Address */}
+              <div className={styles.formGroup}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionIcon}>
+                    <MapPin size={20} />
+                  </div>
+                  <h2>Delivery Address</h2>
+                </div>
+
+                {/* Map Location Picker */}
+                <div className={styles.mapPickerContainer}>
+                  <MapLocationPicker
+                    onLocationSelect={handleLocationSelect}
+                    height="400px"
+                    required
+                  />
+                </div>
+
+                {/* Customer Details */}
+                <div className={styles.customerDetails}>
+                  <div className={styles.formRow}>
+                    <div className={styles.formField}>
+                      <label htmlFor="fullName">Full Name *</label>
+                      <input
+                        type="text"
+                        id="fullName"
+                        name="fullName"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                        className={styles.input}
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+
+                    <div className={styles.formField}>
+                      <label htmlFor="phoneNumber">Phone Number *</label>
+                      <input
+                        type="tel"
+                        id="phoneNumber"
+                        name="phoneNumber"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        required
+                        className={styles.input}
+                        placeholder="03XX-XXXXXXX"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Display selected address */}
+                  {selectedLocation?.formatted_address && (
+                    <div className={styles.selectedAddress}>
+                      <MapPin size={16} />
+                      <span>{selectedLocation.formatted_address}</span>
+                    </div>
+                  )}
+
+                  {/* Save address checkbox */}
+                  <div className={styles.checkboxField}>
+                    <input
+                      type="checkbox"
+                      id="saveAddress"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      className={styles.checkbox}
+                    />
+                    <label htmlFor="saveAddress">Save this address for later use</label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Options */}
+              <div className={styles.formGroup}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionIcon}>
+                    <Truck size={20} />
+                  </div>
+                  <h2>Delivery Options</h2>
+                </div>
+
+                <div className={styles.deliveryOptions}>
+                  <label className={`${styles.deliveryOption} ${shippingMethod === 'shipping' ? styles.selected : ''}`}>
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="shipping"
+                      checked={shippingMethod === 'shipping'}
+                      onChange={() => setShippingMethod('shipping')}
+                      className={styles.radio}
+                    />
+                    <div className={styles.deliveryInfo}>
+                      <div className={styles.deliveryTitle}>
+                        <span className={styles.deliveryName}>Home Delivery (1-3 Hours)</span>
+                        <span className={styles.deliveryPrice}>Free</span>
+                      </div>
+                      <p className={styles.deliveryDescription}>Free delivery to your doorstep</p>
+                    </div>
+                  </label>
+
+                  <label className={`${styles.deliveryOption} ${shippingMethod === 'pickup' ? styles.selected : ''}`}>
+                    <input
+                      type="radio"
+                      name="delivery"
+                      value="pickup"
+                      checked={shippingMethod === 'pickup'}
+                      onChange={() => setShippingMethod('pickup')}
+                      className={styles.radio}
+                    />
+                    <div className={styles.deliveryInfo}>
+                      <div className={styles.deliveryTitle}>
+                        <span className={styles.deliveryName}>Store Pickup</span>
+                        <span className={styles.deliveryPrice}>Free</span>
+                      </div>
+                      <p className={styles.deliveryDescription}>Pick up from our store</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className={styles.formGroup}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionIcon}>
+                    <Lock size={20} />
+                  </div>
+                  <h2>Payment Method</h2>
+                </div>
+
+                <div className={styles.paymentOptions}>
+                  <label className={`${styles.paymentOption} ${paymentMethod === 'cod' ? styles.selected : ''}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="cod"
+                      checked={paymentMethod === 'cod'}
+                      onChange={() => setPaymentMethod('cod')}
+                      className={styles.radio}
+                    />
+                    <span>Cash on Delivery</span>
+                  </label>
+
+                  <label className={`${styles.paymentOption} ${paymentMethod === 'jazzcash' ? styles.selected : ''}`}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="jazzcash"
+                      checked={paymentMethod === 'jazzcash'}
+                      onChange={() => setPaymentMethod('jazzcash')}
+                      className={styles.radio}
+                    />
+                    <span>JazzCash</span>
+                  </label>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Order Summary */}
+          <div className={styles.summarySection}>
+            <div className={styles.orderSummary}>
+              <h2 className={styles.summaryTitle}>Order Summary</h2>
+
+              {/* Cart Items */}
+              <div className={styles.summaryItems}>
+                {cartItems.slice(0, 3).map((item) => (
+                  <div key={item.cartId} className={styles.summaryItem}>
+                    <span className={styles.itemName}>
+                      {item.productName} ({item.variantName}) x {item.quantity}
+                    </span>
+                    <span className={styles.itemPrice}>Rs {(item.sellPrice * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+                {cartItems.length > 3 && (
+                  <p className={styles.moreItems}>+{cartItems.length - 3} more items</p>
+                )}
+              </div>
+
+              <div className={styles.summaryRow}>
+                <span>Subtotal</span>
+                <span>Rs {subtotal.toFixed(2)}</span>
+              </div>
+
+              <div className={styles.summaryRow}>
+                <span>Delivery</span>
+                <span className={styles.freeDelivery}>Free</span>
+              </div>
+
+              <div className={styles.summaryDivider}></div>
+
+              <div className={styles.summaryTotal}>
+                <span>Total</span>
+                <span>Rs {finalTotal.toFixed(2)}</span>
+              </div>
+
+              <button 
+                type="submit" 
+                onClick={handleCheckout} 
+                className={styles.checkoutBtn}
+                disabled={checkoutState === 'processing'}
+              >
+                <Lock size={20} />
+                {checkoutState === 'processing' ? 'Processing...' : 'Place Order'}
+              </button>
+
+              <div className={styles.securityInfo}>
+                <div className={styles.securityIcon}>
+                  <Lock size={16} />
+                </div>
+                <div className={styles.securityText}>
+                  <p className={styles.securityTitle}>Secure Payment</p>
+                  <p className={styles.securitySubtitle}>Your information is safe with us</p>
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div className={styles.paymentMethods}>
+                <p className={styles.paymentTitle}>We accept:</p>
+                <div className={styles.paymentIcons}>
+                  <span className={styles.paymentIcon}>Cash On Delivery</span>
+                  <span className={styles.paymentIcon}>JazzCash</span>
+                </div>
+              </div>
+
+              {/* Warranty Badge */}
+              <div className={styles.warranty}>
+                <ShieldCheck size={24} />
+                <span>10 Days Warranty</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default Checkout;

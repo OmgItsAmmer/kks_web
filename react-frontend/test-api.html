@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>KKS API Connection Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, isError = false) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.style.color = isError ? 'red' : 'green';
+            results.appendChild(p);
+            console.log(message);
+        }
+        
+        async function testAPI() {
+            log('=== Testing API Connection ===');
+            log('Current URL: ' + window.location.href);
+            
+            // Test 1: Check if we can reach the proxy
+            log('\n--- Test 1: Fetch from /api/v1/products/popular ---');
+            try {
+                const url = '/api/v1/products/popular?page=1&pageSize=5';
+                log('Fetching: ' + url);
+                
+                const response = await fetch(url);
+                log('Response Status: ' + response.status);
+                log('Response OK: ' + response.ok);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ SUCCESS! Got ' + (data.data?.length || 0) + ' products');
+                    log('Response: ' + JSON.stringify(data, null, 2));
+                } else {
+                    const text = await response.text();
+                    log('❌ ERROR Response: ' + text, true);
+                }
+            } catch (error) {
+                log('❌ FETCH ERROR: ' + error.message, true);
+                log('Error type: ' + error.constructor.name, true);
+                log('Full error: ' + JSON.stringify(error), true);
+            }
+            
+            // Test 2: Try direct connection (without proxy)
+            log('\n--- Test 2: Direct connection to backend ---');
+            try {
+                const url = 'http://localhost:3000/api/v1/products/popular?page=1&pageSize=5';
+                log('Fetching: ' + url);
+                
+                const response = await fetch(url);
+                log('Response Status: ' + response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Direct connection works! Backend is running.');
+                } else {
+                    log('⚠️ Backend responded but with error: ' + response.status, true);
+                }
+            } catch (error) {
+                log('❌ Cannot connect directly to backend', true);
+                log('Error: ' + error.message, true);
+                log('This is expected if CORS is blocking, or backend is not running', true);
+            }
+            
+            // Test 3: Check backend health
+            log('\n--- Test 3: Check backend root endpoint ---');
+            try {
+                const response = await fetch('http://localhost:3000/');
+                const text = await response.text();
+                log('Backend root response: ' + text);
+            } catch (error) {
+                log('❌ Cannot reach backend root: ' + error.message, true);
+            }
+        }
+        
+        // Run tests
+        testAPI();
+    </script>
+</body>
+</html>
