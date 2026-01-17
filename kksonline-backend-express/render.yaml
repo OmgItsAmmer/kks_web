@@ -4,7 +4,7 @@ services:
     env: node
     plan: starter
     region: singapore
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npm run prisma:generate && npx tsc && npx tsc-alias && node scripts/fix-imports.js
     startCommand: npm start
     envVars:
       - key: NODE_ENV

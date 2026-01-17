@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec \"npx tsx src/index.ts\"",
     "build": "npm run prisma:generate && tsc && npx tsc-alias && node scripts/fix-imports.js",
+    "build:render": "npm ci && npm run build",
     "build:clean": "rm -rf dist && npm run build",
     "start": "node dist/index.js",
     "start:prod": "NODE_ENV=production node dist/index.js",

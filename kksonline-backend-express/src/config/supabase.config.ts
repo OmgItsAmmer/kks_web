@@ -25,7 +25,7 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 const getProjectRef = (url: string): string | null => {
   try {
     const match = url.match(/https?:\/\/([^.]+)\.supabase\.co/);
-    return match ? match[1] : null;
+    return match && match[1] ? match[1] : null;
   } catch {
     return null;
   }
