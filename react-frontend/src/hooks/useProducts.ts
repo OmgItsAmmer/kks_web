@@ -1,9 +1,8 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { productService, type BackendProduct, type BackendProductWithDetails, type BackendProductVariant } from '../services/product.service';
-import { reviewService, type BackendReview } from '../services/review.service';
+import { productService } from '../services/product.service';
+import { reviewService } from '../services/review.service';
 import { transformBackendProduct } from '../types/product';
 import { RateLimitError } from '../services/api.config';
-import type { Product } from '../types';
 
 /**
  * React Query hook for fetching popular products with caching

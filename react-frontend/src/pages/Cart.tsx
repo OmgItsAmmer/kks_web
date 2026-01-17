@@ -14,7 +14,7 @@ type CartState = 'loading' | 'ready' | 'validating' | 'error' | 'empty';
 
 const Cart: React.FC = () => {
   const { isAuthenticated, showLoginModal } = useAuth();
-  const { showError, showWarning, showSuccess } = useSnackbar();
+  const { showError, showWarning } = useSnackbar();
   const navigate = useNavigate();
   
   const [cartState, setCartState] = useState<CartState>('loading');

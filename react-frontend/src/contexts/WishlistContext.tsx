@@ -137,7 +137,7 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
   useEffect(() => {
     if (isAuthenticated) {
       // Try cache first for instant UI
-      const cacheValid = loadFromCache();
+      loadFromCache();
       
       // Always refresh from server, but cache provides instant feedback
       refreshWishlist();

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { collectionService, type BackendCollection, type BackendCollectionWithItems, type CollectionCartItem } from '../services/collection.service';
+import { collectionService, type CollectionCartItem } from '../services/collection.service';
 
 /**
  * React Query hook for fetching featured collections (for hero section)

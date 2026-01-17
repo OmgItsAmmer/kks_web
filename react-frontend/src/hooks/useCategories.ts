@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { categoryService, type Category } from '../services/category.service';
+import { categoryService } from '../services/category.service';
 
 /**
  * React Query hook for fetching all categories with caching

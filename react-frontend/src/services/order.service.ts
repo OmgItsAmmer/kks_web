@@ -1,4 +1,3 @@
-import API_ENDPOINTS from './api.config';
 import { apiRequest } from './api.config';
 
 export interface OrderItem {
