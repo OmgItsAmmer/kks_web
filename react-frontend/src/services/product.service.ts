@@ -222,7 +222,7 @@ class ProductService {
                 status: response.status,
                 statusText: response.statusText,
                 ok: response.ok,
-                headers: Object.fromEntries(response.headers.entries()),
+                headers: Object.fromEntries(Array.from(response.headers.entries())),
             });
 
             if (!response.ok) {
@@ -424,7 +424,7 @@ class ProductService {
                 statusCode: response.status,
                 statusText: response.statusText,
                 responseTime: `${responseTime}ms`,
-                headers: Object.fromEntries(response.headers.entries()),
+                headers: Object.fromEntries(Array.from(response.headers.entries())),
             };
 
             console.log('========================================');

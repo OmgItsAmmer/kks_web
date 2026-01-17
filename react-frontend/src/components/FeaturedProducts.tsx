@@ -16,7 +16,7 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   title = 'Handpicked Favourites',
   subtitle = 'Discover our most-loved collections',
   showTabs = true,
-  initialCategory = 'all',
+  initialCategory = 'all' as const,
 }) => {
   const [activeCategory, setActiveCategory] = useState<number | 'all'>(initialCategory);
   

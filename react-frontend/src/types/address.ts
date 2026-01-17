@@ -31,7 +31,7 @@ export interface CreateAddressRequest {
 
 export interface UpdateAddressRequest extends Partial<CreateAddressRequest> {}
 
-export interface OrderAddress extends Address {
+export interface OrderAddress extends Omit<Address, 'address_id'> {
   order_address_id: number;
   address_id?: number;
 }

@@ -5,6 +5,9 @@ const API_VERSION = 'v1';
 export const API_ENDPOINTS = {
     BASE_URL: `${API_BASE_URL}/api/${API_VERSION}`,
 
+    // Health check
+    HEALTH_CHECK: '/health',
+
     // Category endpoints
     CATEGORIES: '/categories',
     FEATURED_CATEGORIES: '/categories/featured',

@@ -29,7 +29,7 @@ const MainHeader: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const searchTimeoutRef = useRef<number | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close user menu when clicking outside
   useEffect(() => {
