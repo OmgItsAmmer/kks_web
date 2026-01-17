@@ -11,10 +11,15 @@ const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const env_config_1 = require("./config/env.config");
 const logger_1 = require("./utils/logger");
+const database_config_1 = require("./config/database.config");
 const error_middleware_1 = require("./middleware/error.middleware");
 const customer_middleware_1 = require("./middleware/customer.middleware");
 const index_1 = __importDefault(require("./routes/index"));
 const node_timers_1 = require("node:timers");
+const network_config_1 = require("./utils/network.config");
+// Configure networking BEFORE any network operations
+(0, network_config_1.configureNetworking)();
+(0, network_config_1.logNetworkInfo)();
 // Create Express app
 const app = (0, express_1.default)();
 // Trust proxy (for rate limiting behind reverse proxy)
@@ -99,6 +104,17 @@ app.use(error_middleware_1.errorHandler);
 // Start server
 const startServer = async () => {
     try {
+        // Test Supabase connectivity first
+        const supabaseConnected = await (0, network_config_1.testSupabaseConnectivity)(env_config_1.config.supabase.url);
+        if (!supabaseConnected) {
+            logger_1.logger.warn('⚠️ Supabase connectivity issues detected. Storage features may not work properly.');
+            logger_1.logger.warn('💡 If you are experiencing connection issues, try:');
+            logger_1.logger.warn('   1. Change your system DNS to 8.8.8.8 and 8.8.4.4 (Google DNS)');
+            logger_1.logger.warn('   2. Use a VPN like Warp or ProtonVPN');
+            logger_1.logger.warn('   3. Check if your ISP is blocking Supabase domains');
+        }
+        // Test database connection on startup
+        await (0, database_config_1.checkDatabaseConnection)();
         const server = app.listen(env_config_1.config.server.port, '0.0.0.0', () => {
             logger_1.logger.info(`🚀 Server started in ${env_config_1.config.server.nodeEnv} mode`);
             logger_1.logger.info(`📍 Listening on port ${env_config_1.config.server.port}`);

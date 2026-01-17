@@ -14,11 +14,31 @@ if (!supabaseUrl || !supabaseServiceKey) {
     logger_1.logger.error('Supabase configuration missing. Storage features will not work properly.');
     logger_1.logger.error('Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env file');
 }
-// Create Supabase client
+// Create Supabase client with enhanced configuration for better connectivity
 exports.supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceKey, {
     auth: {
         autoRefreshToken: false,
         persistSession: false,
+    },
+    global: {
+        fetch: (url, options = {}) => {
+            // Increase timeout for fetch requests
+            const timeoutMs = 30000; // 30 seconds
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, {
+                ...options,
+                signal: controller.signal,
+            }).finally(() => clearTimeout(timeoutId));
+        },
+    },
+    db: {
+        schema: 'public',
+    },
+    realtime: {
+        params: {
+            eventsPerSecond: 2,
+        },
     },
 });
 // Extract project reference from Supabase URL

@@ -1,5 +1,5 @@
 // Prisma schema for KKS Online Backend
-// Using direct connection to Supabase Postgres
+// Using Supabase Session Pooler (IPv4) for production-ready connection pooling
 
 generator client {
   provider = "prisma-client-js"
