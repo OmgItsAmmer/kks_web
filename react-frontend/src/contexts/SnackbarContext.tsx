@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import Snackbar, { type SnackbarMessage, type SnackbarType } from '../components/Snackbar';
 import styles from '../components/Snackbar.module.css';
 

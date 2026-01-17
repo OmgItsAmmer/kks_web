@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { wishlistService, type WishlistItem } from '../services/wishlist.service';
 import { useAuth } from './AuthContext';
 import { AuthenticationError } from '../services/api.config';
