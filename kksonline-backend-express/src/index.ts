@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 
 import { config } from "./config/env.config";
 import { logger } from "./utils/logger";
+import { checkDatabaseConnection } from "./config/database.config";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
 import { extractCustomerId } from "./middleware/customer.middleware";
 import routes from "./routes/index";
@@ -111,6 +112,9 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
+    // Test database connection on startup
+    await checkDatabaseConnection();
+
     const server = app.listen(config.server.port, '0.0.0.0', () => {
       logger.info(`🚀 Server started in ${config.server.nodeEnv} mode`);
       logger.info(`📍 Listening on port ${config.server.port}`);

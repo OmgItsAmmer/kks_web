@@ -66,7 +66,10 @@ PORT=10000  # Render sets this automatically, but can be explicitly set
 API_VERSION=v1
 
 # Database (Prisma connection to Supabase)
-DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres?pgbouncer=true
+# OPTION 1: Connection Pooler (RECOMMENDED for production/Render)
+DATABASE_URL=postgresql://postgres:[PASSWORD]@[PROJECT].pooler.supabase.com:6543/postgres?pgbouncer=true
+# OPTION 2: Direct Connection (requires SSL)
+# DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:5432/postgres?sslmode=require
 
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
@@ -177,9 +180,34 @@ After deployment:
 
 ### Database Connection Issues
 
-- Verify `DATABASE_URL` is correct (check Supabase Dashboard)
-- Ensure Supabase allows connections from Render's IP ranges
-- Check Prisma schema is up to date
+**Error**: `Can't reach database server at db.xxx.supabase.co:5432`
+
+**Causes & Solutions**:
+
+1. **Missing SSL parameter** (for direct connection on port 5432):
+   - Your `DATABASE_URL` should end with `?sslmode=require`
+   - Example: `postgresql://postgres:[PASSWORD]@db.xxx.supabase.co:5432/postgres?sslmode=require`
+
+2. **Wrong port for connection pooler** (recommended fix):
+   - Use connection pooler URL with port 6543
+   - Format: `postgresql://postgres:[PASSWORD]@[PROJECT].pooler.supabase.com:6543/postgres?pgbouncer=true`
+   - Replace `[PROJECT]` with your Supabase project reference (not full hostname)
+
+3. **How to get the correct connection string**:
+   - Go to Supabase Dashboard → Project Settings → Database
+   - Under "Connection string", select "Connection pooling" tab
+   - Copy the "Connection pooling" URI (port 6543)
+   - Or use "Direct connection" URI but add `?sslmode=require` at the end
+
+4. **Verify connection string format**:
+   - Should NOT have `pgbouncer=true` on port 5432
+   - Should use port 6543 if using `pgbouncer=true`
+   - Should use `sslmode=require` if using port 5432 (direct connection)
+
+5. **Test the connection**:
+   - Update `DATABASE_URL` in Render Dashboard → Environment
+   - Save changes (service will auto-restart)
+   - Check logs to verify connection succeeds
 
 ### Environment Variables
 

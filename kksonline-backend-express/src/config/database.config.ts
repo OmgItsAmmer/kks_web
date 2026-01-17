@@ -4,8 +4,27 @@ import { logger } from '../utils/logger';
 // Singleton instance
 let prisma: PrismaClient;
 
+// Sanitize DATABASE_URL for logging (hide password)
+const sanitizeDatabaseUrl = (url: string): string => {
+  if (!url) return 'NOT SET';
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.password) {
+      urlObj.password = '***';
+    }
+    return urlObj.toString();
+  } catch {
+    return 'INVALID FORMAT';
+  }
+};
+
 // Create and configure Prisma client
 const createPrismaClient = (): PrismaClient => {
+  // Log database connection info (sanitized) at startup
+  const dbUrl = process.env.DATABASE_URL || '';
+  const sanitizedUrl = sanitizeDatabaseUrl(dbUrl);
+  logger.info(`Database URL: ${sanitizedUrl}`);
+  
   const client = new PrismaClient({
     log: [
       { emit: 'event', level: 'query' },
@@ -56,9 +75,14 @@ export const disconnectDatabase = async (): Promise<void> => {
 export const checkDatabaseConnection = async (): Promise<boolean> => {
   try {
     await db.$queryRaw`SELECT 1`;
+    logger.info('✅ Database connection successful');
     return true;
   } catch (error) {
-    logger.error('Database connection check failed:', error);
+    logger.error('❌ Database connection check failed:', error);
+    const dbUrl = process.env.DATABASE_URL || '';
+    const sanitizedUrl = sanitizeDatabaseUrl(dbUrl);
+    logger.error(`Current DATABASE_URL: ${sanitizedUrl}`);
+    logger.error('💡 Tip: Ensure DATABASE_URL is set correctly in Render Dashboard → Environment');
     return false;
   }
 };
