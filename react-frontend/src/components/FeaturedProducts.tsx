@@ -70,7 +70,7 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
         fromCache: !productsLoading && products.length > 0,
       });
     }
-  }, [products, activeCategory, productsLoading]);
+  }, [products, activeCategory, productsLoading]);    
 
   // Load more products handler
   const loadMore = () => {

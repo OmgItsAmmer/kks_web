@@ -1,4 +1,4 @@
-import API_ENDPOINTS from './api.config';
+import API_ENDPOINTS, { apiRequest } from './api.config';
 
 // Backend types matching the Prisma schema
 export interface BackendReview {
@@ -136,43 +136,19 @@ class ReviewService {
     /**
      * Submit a new review (requires authentication)
      */
-    async submitReview(productId: number, rating: number, review: string, authToken?: string): Promise<ApiResponse<BackendReview>> {
-        const url = `${this.baseUrl}${API_ENDPOINTS.REVIEWS}`;
-        
+    async submitReview(productId: number, rating: number, review: string): Promise<ApiResponse<BackendReview>> {
         console.log('[ReviewService] Submitting review for product:', productId);
-        console.log('[ReviewService] URL:', url);
         
         try {
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-            };
-            
-            if (authToken) {
-                headers['Authorization'] = `Bearer ${authToken}`;
-            }
-
-            const response = await fetch(url, {
+            const data = await apiRequest<ApiResponse<BackendReview>>(API_ENDPOINTS.REVIEWS, {
                 method: 'POST',
-                headers,
                 body: JSON.stringify({
                     productId,
                     rating,
                     review,
                 }),
             });
-
-            console.log('[ReviewService] Response:', {
-                status: response.status,
-                ok: response.ok,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[ReviewService] Error:', errorText);
-                throw new Error(`Failed to submit review: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            
             console.log('[ReviewService] ✅ Review submitted successfully');
             return data;
         } catch (error: any) {

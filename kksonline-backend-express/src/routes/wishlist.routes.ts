@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { wishlistRepository } from '../repositories/wishlist.repository';
-import { imageService } from '../services/image.service';
+import { supabaseImageService } from '../services/supabase-image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
@@ -27,9 +27,9 @@ router.get(
 
     const items = await wishlistRepository.findWithProductDetails(req.customerId);
 
-    // Fetch images for products
+    // Fetch images for products from Supabase storage (matching product routes)
     const productIds = items.map((item) => item.productId);
-    const images = await imageService.getMainImagesForEntities(productIds, 'products');
+    const images = await supabaseImageService.getMainImagesForEntities(productIds, 'products');
 
     const itemsWithImages = items.map((item) => ({
       ...item,

@@ -9,6 +9,7 @@ export interface BackendCollection {
     image_url: string | null;
     is_active: boolean;
     is_featured: boolean;
+    is_premium?: boolean;
     display_order: number;
     created_at: Date;
     updated_at: Date;

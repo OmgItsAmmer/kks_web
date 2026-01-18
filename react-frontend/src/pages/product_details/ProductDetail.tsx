@@ -186,8 +186,6 @@ const ProductDetail: React.FC = () => {
 
     try {
       setSubmittingReview(true);
-      // For now, we'll just show a message since auth is not implemented
-      // In production, you would pass the auth token here
       await reviewService.submitReview(productId, reviewRating, reviewComment);
       showSuccess('Thank you for your review!');
       setReviewDialogOpen(false);
@@ -198,11 +196,11 @@ const ProductDetail: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['productReviews', productId] });
     } catch (err: any) {
       console.error('[ProductDetail] Error submitting review:', err);
-      // If user is not authenticated, show a friendly message
-      if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-        showWarning('Please log in to submit a review');
+      // If user is not authenticated, show login modal
+      if (err instanceof AuthenticationError || err.name === 'AuthenticationError' || err.message?.includes('401') || err.message?.includes('Unauthorized') || err.message?.includes('Authentication required')) {
+        showLoginModal();
       } else {
-        showError('Failed to submit review. Please try again.');
+        showError(err.message || 'Failed to submit review. Please try again.');
       }
     } finally {
       setSubmittingReview(false);

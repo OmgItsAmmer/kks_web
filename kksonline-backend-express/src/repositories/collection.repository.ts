@@ -2,6 +2,7 @@ import { db, Prisma } from '../config/database.config';
 import { logger } from '../utils/logger';
 import { NotFoundError, InternalServerError, BadRequestError } from '../utils/errors';
 import { supabaseImageService } from '../services/supabase-image.service';
+import { getSupabasePublicUrl } from '../config/supabase.config';
 import {
   CacheKeys,
   generateCacheKey,
@@ -55,6 +56,47 @@ export interface CollectionCartItem {
 
 export class CollectionRepository {
   /**
+   * Helper function to process collection image URL
+   * If image_url is just a filename (not a full URL), construct Supabase URL
+   */
+  private processImageUrl(imageUrl: string | null): string | null {
+    if (!imageUrl || imageUrl === '' || imageUrl === '/logo.png') {
+      return null;
+    }
+    
+    // If it's already a full URL, return as-is
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    
+    // Otherwise, construct Supabase URL from filename
+    // Collections bucket name is 'collections'
+    try {
+      return getSupabasePublicUrl('collections', imageUrl);
+    } catch (error) {
+      logger.warn('[CollectionRepository] Error constructing Supabase URL for image', { imageUrl, error });
+      return null;
+    }
+  }
+
+  /**
+   * Helper function to process a collection object and fix its image URL
+   */
+  private processCollection(collection: any): any {
+    if (collection && collection.image_url) {
+      collection.image_url = this.processImageUrl(collection.image_url);
+    }
+    return collection;
+  }
+
+  /**
+   * Helper function to process an array of collections
+   */
+  private processCollections(collections: any[]): any[] {
+    return collections.map(c => this.processCollection(c));
+  }
+
+  /**
    * Get all active collections (for customer display)
    */
   async findActive(params: { limit?: number; offset?: number; featuredOnly?: boolean } = {}): Promise<any[]> {
@@ -70,6 +112,7 @@ export class CollectionRepository {
             c.name,
             c.description,
             c.image_url,
+            c.is_premium,
             c.is_featured,
             c.display_order,
             c.created_at,
@@ -86,7 +129,7 @@ export class CollectionRepository {
           OFFSET ${offset}
         `;
 
-        return collections;
+        return this.processCollections(collections);
       } catch (error) {
         logger.error('Error fetching active collections', { error, params });
         throw new InternalServerError('Database error');
@@ -181,8 +224,9 @@ export class CollectionRepository {
           0
         );
 
+        const processedCollection = this.processCollection(collection[0]);
         return {
-          ...collection[0],
+          ...processedCollection,
           items: itemsWithDetails,
           total_price: totalPrice,
         };
@@ -228,7 +272,10 @@ export class CollectionRepository {
           LIMIT 1
         `;
 
-        return collections.length > 0 ? collections[0] : null;
+        if (collections.length > 0) {
+          return this.processCollection(collections[0]);
+        }
+        return null;
       } catch (error) {
         logger.error('Error fetching premium collection', { error });
         throw new InternalServerError('Database error');
@@ -266,7 +313,7 @@ export class CollectionRepository {
           LIMIT ${limit}
         `;
 
-        return collections;
+        return this.processCollections(collections);
       } catch (error) {
         logger.error('Error fetching standard collections', { error, limit });
         throw new InternalServerError('Database error');
@@ -304,7 +351,10 @@ export class CollectionRepository {
           LIMIT 1
         `;
 
-        return collections.length > 0 ? collections[0] : null;
+        if (collections.length > 0) {
+          return this.processCollection(collections[0]);
+        }
+        return null;
       } catch (error) {
         logger.error('Error fetching premium collection', { error });
         throw new InternalServerError('Database error');
@@ -343,7 +393,7 @@ export class CollectionRepository {
           LIMIT ${limit}
         `;
 
-        return collections;
+        return this.processCollections(collections);
       } catch (error) {
         logger.error('Error fetching standard collections', { error, limit });
         throw new InternalServerError('Database error');

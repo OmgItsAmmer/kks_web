@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { usePremiumCollection, useStandardCollections } from '../hooks/useCollections';
+import { usePremiumCollection, useFeaturedCollections } from '../hooks/useCollections';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import logo from '../assets/images/kks_new_logo_dark.png';
 import styles from './HeroSection.module.css';
 
@@ -8,31 +9,76 @@ const HeroSection: React.FC = () => {
   // Fetch premium collection (ONE for main banner)
   const { data: premiumCollection, isLoading: premiumLoading } = usePremiumCollection();
   
-  // Fetch standard collections (6 for side banners and bottom cards)
-  const { data: standardCollections, isLoading: standardLoading } = useStandardCollections(6);
+  // Fetch featured collections (includes premium and standard) for bottom cards
+  const { data: featuredCollections, isLoading: featuredLoading } = useFeaturedCollections(10);
   
-  const loading = premiumLoading || standardLoading;
+  const loading = premiumLoading || featuredLoading;
   
   // Image error state
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   const [premiumImageError, setPremiumImageError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Log collection data for debugging
   React.useEffect(() => {
     if (premiumCollection) {
-      console.log('[HeroSection] ✅ Premium collection loaded:', premiumCollection.name);
-    }
-    if (standardCollections) {
-      console.log('[HeroSection] ✅ Standard collections loaded:', {
-        total: standardCollections.length,
-        fromCache: !standardLoading && standardCollections,
+      console.log('[HeroSection] ✅ Premium collection loaded from BACKEND:');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📦 Raw Backend Response:', JSON.stringify(premiumCollection, null, 2));
+      console.log('🔗 IMAGE_URL from Backend:', premiumCollection.image_url);
+      console.log('   Type:', typeof premiumCollection.image_url);
+      console.log('   Length:', premiumCollection.image_url?.length || 0);
+      console.log('   Is Full URL?', premiumCollection.image_url?.startsWith('http'));
+      console.log('   Is Supabase URL?', premiumCollection.image_url?.includes('supabase.co'));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Collection Details:', {
+        name: premiumCollection.name,
+        collection_id: premiumCollection.collection_id,
+        image_url: premiumCollection.image_url,
+        is_premium: premiumCollection.is_premium,
+        total_price: premiumCollection.total_price,
+        item_count: premiumCollection.item_count,
       });
+    } else {
+      console.warn('[HeroSection] ⚠️ No premium collection found');
     }
-  }, [premiumCollection, standardCollections, standardLoading]);
+    if (featuredCollections && featuredCollections.length > 0) {
+      console.log('[HeroSection] ✅ Featured collections loaded from BACKEND:');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📦 Total Collections: ${featuredCollections.length}`);
+      console.log('📋 Raw Backend Response:', JSON.stringify(featuredCollections, null, 2));
+      console.log('🔗 IMAGE_URLs from Backend:');
+      featuredCollections.forEach((c, index) => {
+        console.log(`   Collection ${index + 1} (ID: ${c.collection_id}):`, {
+          name: c.name,
+          'IMAGE_URL': c.image_url,
+          'Type': typeof c.image_url,
+          'Length': c.image_url?.length || 0,
+          'Is Full URL?': c.image_url?.startsWith('http'),
+          'Is Supabase URL?': c.image_url?.includes('supabase.co'),
+        });
+      });
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+  }, [premiumCollection, featuredCollections, featuredLoading]);
 
-  // Get first 2 standard collections for side banners, remaining 4 for bottom cards
-  const sideCollections = useMemo(() => standardCollections?.slice(0, 2) || [], [standardCollections]);
-  const bottomCollections = useMemo(() => standardCollections?.slice(2, 6) || [], [standardCollections]);
+  // Filter out premium collection from featured collections (already shown in main banner)
+  // Get first 2 for side banners, remaining for bottom cards
+  const collectionsForDisplay = useMemo(() => {
+    if (!featuredCollections) return [];
+    return featuredCollections.filter(c => 
+      !premiumCollection || c.collection_id !== premiumCollection.collection_id
+    );
+  }, [featuredCollections, premiumCollection]);
+
+  const sideCollections = useMemo(() => collectionsForDisplay.slice(0, 2), [collectionsForDisplay]);
+  const allBottomCollections = useMemo(() => collectionsForDisplay.slice(2), [collectionsForDisplay]);
+  
+  // Show first 4 on mobile, all when expanded
+  const visibleBottomCollections = useMemo(() => {
+    if (isExpanded) return allBottomCollections;
+    return allBottomCollections.slice(0, 4);
+  }, [allBottomCollections, isExpanded]);
 
   const formatPrice = (price: number) => {
     return `Rs ${price.toLocaleString()}`;
@@ -40,62 +86,94 @@ const HeroSection: React.FC = () => {
 
   // Get collection image with Supabase bucket support (like ProductCard)
   const getCollectionImage = (collectionId: number, imageUrl: string | null) => {
+    console.log(`[HeroSection] getCollectionImage called for collection ${collectionId}:`, {
+      imageUrl,
+      hasImageError: imageErrors[collectionId],
+    });
+
     // If image loading failed, return logo
     if (imageErrors[collectionId]) {
+      console.warn(`[HeroSection] Collection ${collectionId} has image error, using logo`);
       return logo;
     }
     
     // If no image URL, return logo
     if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
+      console.warn(`[HeroSection] Collection ${collectionId} has no/invalid image URL:`, imageUrl);
       return logo;
     }
     
     // If it's already a full URL, use it (Supabase storage URL)
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      // Validate Supabase URL format for collections bucket
-      if (imageUrl.includes('supabase.co/storage/v1/object/public/collections/')) {
+      // Check if it's a Supabase storage URL (like ProductCard does)
+      if (imageUrl.includes('supabase.co/storage/v1/object/public/')) {
+        console.log(`[HeroSection] ✅ Collection ${collectionId} using Supabase URL:`, imageUrl);
         return imageUrl;
       }
       // Other valid URLs
+      console.log(`[HeroSection] ✅ Collection ${collectionId} using external URL:`, imageUrl);
       return imageUrl;
     }
     
     // Otherwise return logo
+    console.warn(`[HeroSection] Collection ${collectionId} image URL is not a full URL, using logo:`, imageUrl);
     return logo;
   };
 
   const getPremiumImage = (imageUrl: string | null) => {
+    console.log(`[HeroSection] getPremiumImage called:`, {
+      imageUrl,
+      hasImageError: premiumImageError,
+    });
+
     // If image loading failed, return logo
     if (premiumImageError) {
+      console.warn(`[HeroSection] Premium collection has image error, using logo`);
       return logo;
     }
     
     // If no image URL, return logo
     if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
+      console.warn(`[HeroSection] Premium collection has no/invalid image URL:`, imageUrl);
       return logo;
     }
     
     // If it's already a full URL, use it (Supabase storage URL)
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      // Validate Supabase URL format for collections bucket
-      if (imageUrl.includes('supabase.co/storage/v1/object/public/collections/')) {
+      // Check if it's a Supabase storage URL (like ProductCard does)
+      if (imageUrl.includes('supabase.co/storage/v1/object/public/')) {
+        console.log(`[HeroSection] ✅ Premium collection using Supabase URL:`, imageUrl);
         return imageUrl;
       }
       // Other valid URLs
+      console.log(`[HeroSection] ✅ Premium collection using external URL:`, imageUrl);
       return imageUrl;
     }
     
     // Otherwise return logo
+    console.warn(`[HeroSection] Premium collection image URL is not a full URL, using logo:`, imageUrl);
     return logo;
   };
 
   const handleImageError = (collectionId: number) => {
-    console.warn(`[HeroSection] Image failed to load for collection ${collectionId}`);
+    const collection = collectionsForDisplay.find(c => c.collection_id === collectionId);
+    console.error(`[HeroSection] ❌ Image failed to load for collection ${collectionId}:`, {
+      collection_name: collection?.name,
+      attempted_url: collection?.image_url,
+      current_src: (document.querySelector(`img[alt="${collection?.name}"]`) as HTMLImageElement)?.src,
+    });
     setImageErrors(prev => ({ ...prev, [collectionId]: true }));
   };
 
-  const handlePremiumImageError = () => {
-    console.warn('[HeroSection] Premium collection image failed to load');
+  const handlePremiumImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const img = e.currentTarget;
+    console.error('[HeroSection] ❌ Premium collection image failed to load:', {
+      attempted_url: premiumCollection?.image_url,
+      current_src: img.currentSrc || img.src,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      complete: img.complete,
+    });
     setPremiumImageError(true);
   };
 
@@ -128,6 +206,10 @@ const HeroSection: React.FC = () => {
                   alt={premiumCollection.name} 
                   className={styles.heroImage}
                   onError={handlePremiumImageError}
+                  onLoad={() => {
+                    const finalUrl = getPremiumImage(premiumCollection.image_url);
+                    console.log(`[HeroSection] ✅ Premium image loaded successfully:`, finalUrl);
+                  }}
                   loading="lazy"
                 />
                 <div className={styles.bannerOverlay}>
@@ -164,11 +246,18 @@ const HeroSection: React.FC = () => {
                   to={`/collection/${collection.collection_id}`} 
                   className={styles.sideBanner}
                 >
+                  {collection.is_premium && (
+                    <span className={styles.sidePremiumBadge}>Premium</span>
+                  )}
                   <img 
                     src={getCollectionImage(collection.collection_id, collection.image_url)} 
                     alt={collection.name} 
                     className={styles.sideImage}
                     onError={() => handleImageError(collection.collection_id)}
+                    onLoad={() => {
+                      const finalUrl = getCollectionImage(collection.collection_id, collection.image_url);
+                      console.log(`[HeroSection] ✅ Side collection ${collection.collection_id} image loaded:`, finalUrl);
+                    }}
                     loading="lazy"
                   />
                   <span className={styles.sideLabel}>{collection.name}</span>
@@ -192,50 +281,71 @@ const HeroSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Standard Collection Cards - Lower 4 */}
-        <div className={styles.categoryCards}>
-          {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
-              <div key={`skeleton-${index}`} className={styles.categoryCard}>
-                <div className={styles.cardImageWrapper}>
-                  <div className={styles.cardImageSkeleton}></div>
-                </div>
-                <div className={styles.cardContent}>
-                  <div className={styles.cardTitleSkeleton}></div>
-                  <div className={styles.cardPriceSkeleton}></div>
-                </div>
-              </div>
-            ))
-          ) : bottomCollections.length > 0 ? (
-            <>
-              {bottomCollections.map((collection) => (
-                <Link
-                  key={collection.collection_id}
-                  to={`/collection/${collection.collection_id}`}
-                  className={styles.categoryCard}
-                >
+        {/* Collection Cards - Bottom */}
+        <div className={styles.collectionsSection}>
+          <div className={styles.categoryCards}>
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <div key={`skeleton-${index}`} className={styles.categoryCard}>
                   <div className={styles.cardImageWrapper}>
-                    <img 
-                      src={getCollectionImage(collection.collection_id, collection.image_url)} 
-                      alt={collection.name} 
-                      className={styles.cardImage}
-                      onError={() => handleImageError(collection.collection_id)}
-                      loading="lazy"
-                    />
+                    <div className={styles.cardImageSkeleton}></div>
                   </div>
                   <div className={styles.cardContent}>
-                    <h3 className={styles.cardTitle}>{collection.name}</h3>
-                    <p className={styles.cardDescription}>
-                      {collection.item_count} {collection.item_count === 1 ? 'Item' : 'Items'}
-                    </p>
-                    <div className={styles.cardPrice}>
-                      {formatPrice(Number(collection.total_price))}
+                    <div className={styles.cardTitleSkeleton}></div>
+                    <div className={styles.cardPriceSkeleton}></div>
+                  </div>
+                </div>
+              ))
+            ) : visibleBottomCollections.length > 0 ? (
+              <>
+                {visibleBottomCollections.map((collection) => (
+                  <Link
+                    key={collection.collection_id}
+                    to={`/collection/${collection.collection_id}`}
+                    className={styles.categoryCard}
+                  >
+                    <div className={styles.cardImageWrapper}>
+                      {collection.is_premium && (
+                        <span className={styles.premiumBadge}>Premium</span>
+                      )}
+                      <img 
+                        src={getCollectionImage(collection.collection_id, collection.image_url)} 
+                        alt={collection.name} 
+                        className={styles.cardImage}
+                        onError={() => handleImageError(collection.collection_id)}
+                        onLoad={() => {
+                          const finalUrl = getCollectionImage(collection.collection_id, collection.image_url);
+                          console.log(`[HeroSection] ✅ Bottom collection ${collection.collection_id} image loaded:`, finalUrl);
+                        }}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className={styles.cardContent}>
+                      <h3 className={styles.cardTitle}>{collection.name}</h3>
+                      <p className={styles.cardDescription}>
+                        {collection.item_count} {collection.item_count === 1 ? 'Item' : 'Items'}
+                      </p>
+                      <div className={styles.cardPrice}>
+                        {formatPrice(Number(collection.total_price))}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {/* Show empty placeholders if not enough collections */}
+                {visibleBottomCollections.length < 4 && !isExpanded && Array.from({ length: 4 - visibleBottomCollections.length }).map((_, index) => (
+                  <div key={`empty-${index}`} className={styles.categoryCard}>
+                    <div className={styles.cardImageWrapper}>
+                      <div className={styles.cardImageSkeleton}></div>
+                    </div>
+                    <div className={styles.cardContent}>
+                      <div className={styles.cardTitleSkeleton}></div>
+                      <div className={styles.cardPriceSkeleton}></div>
                     </div>
                   </div>
-                </Link>
-              ))}
-              {/* Show empty placeholders if not enough collections */}
-              {bottomCollections.length < 4 && Array.from({ length: 4 - bottomCollections.length }).map((_, index) => (
+                ))}
+              </>
+            ) : (
+              Array.from({ length: 4 }).map((_, index) => (
                 <div key={`empty-${index}`} className={styles.categoryCard}>
                   <div className={styles.cardImageWrapper}>
                     <div className={styles.cardImageSkeleton}></div>
@@ -245,20 +355,27 @@ const HeroSection: React.FC = () => {
                     <div className={styles.cardPriceSkeleton}></div>
                   </div>
                 </div>
-              ))}
-            </>
-          ) : (
-            Array.from({ length: 4 }).map((_, index) => (
-              <div key={`empty-${index}`} className={styles.categoryCard}>
-                <div className={styles.cardImageWrapper}>
-                  <div className={styles.cardImageSkeleton}></div>
-                </div>
-                <div className={styles.cardContent}>
-                  <div className={styles.cardTitleSkeleton}></div>
-                  <div className={styles.cardPriceSkeleton}></div>
-                </div>
-              </div>
-            ))
+              ))
+            )}
+          </div>
+          
+          {/* Expand/Collapse Button for Mobile */}
+          {!loading && allBottomCollections.length > 4 && (
+            <button
+              className={styles.expandButton}
+              onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? 'Show less collections' : 'Show all collections'}
+            >
+              {isExpanded ? (
+                <>
+                  Show Less <ChevronUp size={16} />
+                </>
+              ) : (
+                <>
+                  Show All ({allBottomCollections.length}) <ChevronDown size={16} />
+                </>
+              )}
+            </button>
           )}
         </div>
       </div>
