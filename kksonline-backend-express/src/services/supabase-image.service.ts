@@ -2,7 +2,15 @@ import { db } from '../config/database.config';
 import { getSupabasePublicUrl } from '../config/supabase.config';
 import { logger } from '../utils/logger';
 
-export type EntityCategory = 'products' | 'brands' | 'categories' | 'customers' | 'vendors' | 'salesman' | 'shop';
+export type EntityCategory =
+  | 'products'
+  | 'brands'
+  | 'categories'
+  | 'customers'
+  | 'vendors'
+  | 'salesman'
+  | 'shop'
+  | 'collections';
 
 /**
  * Service for handling Supabase Storage images

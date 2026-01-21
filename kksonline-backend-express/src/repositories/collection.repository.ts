@@ -83,8 +83,8 @@ export class CollectionRepository {
    * Helper function to process a collection object and fix its image URL
    */
   private processCollection(collection: any): any {
-    if (collection && collection.image_url) {
-      collection.image_url = this.processImageUrl(collection.image_url);
+    if (collection) {
+      collection.image_url = this.processImageUrl(collection.image_url ?? null);
     }
     return collection;
   }
@@ -94,6 +94,37 @@ export class CollectionRepository {
    */
   private processCollections(collections: any[]): any[] {
     return collections.map(c => this.processCollection(c));
+  }
+
+  /**
+   * Attach main images for collections from `image_entity` + `images` tables.
+   *
+   * Why: In your DB, `collections.image_url` can be NULL; images are stored in
+   * Supabase Storage and mapped by `image_entity` with `entity_category='collections'`,
+   * where `images.folderType` is the bucket name and `images.filename` is the file name.
+   */
+  private async attachMainImagesForCollections(collections: any[]): Promise<any[]> {
+    if (!collections || collections.length === 0) return [];
+
+    const ids = collections
+      .map((c) => Number(c.collection_id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ids.length === 0) {
+      return this.processCollections(collections);
+    }
+
+    const images = await supabaseImageService.getMainImagesForEntities(ids, 'collections');
+
+    return collections.map((c) => {
+      const id = Number(c.collection_id);
+      const fallbackFromImages = images.get(id) || null;
+      const merged = {
+        ...c,
+        image_url: c.image_url || fallbackFromImages,
+      };
+      return this.processCollection(merged);
+    });
   }
 
   /**
@@ -129,7 +160,7 @@ export class CollectionRepository {
           OFFSET ${offset}
         `;
 
-        return this.processCollections(collections);
+        return await this.attachMainImagesForCollections(collections);
       } catch (error) {
         logger.error('Error fetching active collections', { error, params });
         throw new InternalServerError('Database error');
@@ -224,7 +255,11 @@ export class CollectionRepository {
           0
         );
 
-        const processedCollection = this.processCollection(collection[0]);
+        const mainImage = await supabaseImageService.getMainImageUrl(collectionId, 'collections');
+        const processedCollection = this.processCollection({
+          ...collection[0],
+          image_url: collection[0].image_url || mainImage,
+        });
         return {
           ...processedCollection,
           items: itemsWithDetails,
@@ -273,7 +308,12 @@ export class CollectionRepository {
         `;
 
         if (collections.length > 0) {
-          return this.processCollection(collections[0]);
+          const c = collections[0];
+          const img = await supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+          return this.processCollection({
+            ...c,
+            image_url: c.image_url || img,
+          });
         }
         return null;
       } catch (error) {
@@ -313,7 +353,7 @@ export class CollectionRepository {
           LIMIT ${limit}
         `;
 
-        return this.processCollections(collections);
+        return await this.attachMainImagesForCollections(collections);
       } catch (error) {
         logger.error('Error fetching standard collections', { error, limit });
         throw new InternalServerError('Database error');
@@ -352,7 +392,12 @@ export class CollectionRepository {
         `;
 
         if (collections.length > 0) {
-          return this.processCollection(collections[0]);
+          const c = collections[0];
+          const img = await supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+          return this.processCollection({
+            ...c,
+            image_url: c.image_url || img,
+          });
         }
         return null;
       } catch (error) {
@@ -393,7 +438,7 @@ export class CollectionRepository {
           LIMIT ${limit}
         `;
 
-        return this.processCollections(collections);
+        return await this.attachMainImagesForCollections(collections);
       } catch (error) {
         logger.error('Error fetching standard collections', { error, limit });
         throw new InternalServerError('Database error');

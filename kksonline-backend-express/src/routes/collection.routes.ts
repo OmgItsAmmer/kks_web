@@ -88,37 +88,10 @@ router.get(
 
 /**
  * @route   GET /api/v1/collections/premium
- * @desc    Get premium collection (for main banner)
+ * @desc    Get standard collections (non-premium, for side/bottom cards)
  * @access  Public
  */
-router.get(
-  '/premium',
-  asyncHandler(async (req: Request, res: Response) => {
-    const premiumCollection = await collectionRepository.findPremiumCollection();
-
-    logger.info(`[CollectionRoutes] /premium - Found premium collection:`, premiumCollection?.name || 'None');
-
-    return sendSuccess(res, premiumCollection);
-  })
-);
-
-/**
- * @route   GET /api/v1/collections/standard
- * @desc    Get standard collections (excludes premium, for hero section)
- * @access  Public
- */
-router.get(
-  '/standard',
-  asyncHandler(async (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string, 10) || 6;
-    
-    const collections = await collectionRepository.findStandardCollections(limit);
-
-    logger.info(`[CollectionRoutes] /standard - Found ${collections.length} standard collections`);
-
-    return sendSuccess(res, collections);
-  })
-);
+// NOTE: Duplicate `/premium` and `/standard` routes removed. Keep the earlier handlers above.
 
 /**
  * @route   GET /api/v1/collections/:id
