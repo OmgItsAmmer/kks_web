@@ -6,6 +6,23 @@ import logo from '../assets/images/kks_new_logo_dark.png';
 import styles from './HeroSection.module.css';
 
 const HeroSection: React.FC = () => {
+  // Track viewport width for responsive behavior
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isSmallScreen = viewportWidth < 1024; // where side banners are hidden
+  const isExpandEnabled = viewportWidth < 768; // where "show more" button is shown
+
   // Fetch premium collection (ONE for main banner)
   const { data: premiumCollection, isLoading: premiumLoading } = usePremiumCollection();
   
@@ -72,13 +89,27 @@ const HeroSection: React.FC = () => {
   }, [featuredCollections, premiumCollection]);
 
   const sideCollections = useMemo(() => collectionsForDisplay.slice(0, 2), [collectionsForDisplay]);
-  const allBottomCollections = useMemo(() => collectionsForDisplay.slice(2), [collectionsForDisplay]);
+
+  // Bottom collections:
+  // - On small screens (<1024px), include ALL collections (including the two "side" ones)
+  //   because the side banners are hidden via CSS.
+  // - On large screens (>=1024px), exclude the first two which are shown as side banners.
+  const allBottomCollections = useMemo(
+    () => (isSmallScreen ? collectionsForDisplay : collectionsForDisplay.slice(2)),
+    [collectionsForDisplay, isSmallScreen]
+  );
   
-  // Show first 4 on mobile, all when expanded
+  // On mobile (<768px) show first 4, and reveal all in the "Show more" expansion.
+  // On larger screens, always show all bottom collections (no expansion behavior).
   const visibleBottomCollections = useMemo(() => {
-    if (isExpanded) return allBottomCollections;
+    if (!isExpandEnabled) {
+      return allBottomCollections;
+    }
+    if (isExpanded) {
+      return allBottomCollections;
+    }
     return allBottomCollections.slice(0, 4);
-  }, [allBottomCollections, isExpanded]);
+  }, [allBottomCollections, isExpanded, isExpandEnabled]);
 
   const formatPrice = (price: number) => {
     return `Rs ${price.toLocaleString()}`;

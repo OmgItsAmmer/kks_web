@@ -27,9 +27,28 @@ interface MapLocationPickerProps {
   required?: boolean;
 }
 
+// Service area bounds for Chishtian and surrounding villages
+// These coordinates define a rough bounding box around Chishtian Tehsil
+const CHISHTIAN_BOUNDS = {
+  north: 29.9,
+  south: 29.7,
+  west: 72.75,
+  east: 73.0,
+};
+
+const isWithinChishtianBounds = (lat: number, lng: number) => {
+  return (
+    lat >= CHISHTIAN_BOUNDS.south &&
+    lat <= CHISHTIAN_BOUNDS.north &&
+    lng >= CHISHTIAN_BOUNDS.west &&
+    lng <= CHISHTIAN_BOUNDS.east
+  );
+};
+
 const defaultCenter = {
-  lat: 24.8607, // Karachi, Pakistan
-  lng: 67.0011,
+  // Center on Chishtian, Pakistan
+  lat: 29.79713,
+  lng: 72.85772,
 };
 
 // Component to handle map clicks
@@ -164,6 +183,14 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
+
+          // Restrict to Chishtian + surrounding villages
+          if (!isWithinChishtianBounds(location.lat, location.lng)) {
+            setError('We currently only deliver in Chishtian and nearby villages. Please select a location inside this area on the map.');
+            setIsLoading(false);
+            return;
+          }
+
           setSelectedLocation(location);
           
           // Wait for reverse geocoding to complete before hiding loader
@@ -204,7 +231,13 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
 
   // Handle location change from map click
   const handleLocationChange = useCallback((lat: number, lng: number) => {
-    // Clear error when user manually selects location
+    // Restrict selection to Chishtian + surrounding villages
+    if (!isWithinChishtianBounds(lat, lng)) {
+      setError('We currently only deliver in Chishtian and nearby villages. Please pick a location inside this area.');
+      return;
+    }
+
+    // Clear error when user manually selects a valid location
     setError(null);
     const location = { lat, lng };
     setSelectedLocation(location);
@@ -255,6 +288,11 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
           zoom={selectedLocation ? 18 : 12}
           style={{ width: '100%', height: '100%' }}
           scrollWheelZoom={true}
+          maxBounds={[
+            [CHISHTIAN_BOUNDS.south, CHISHTIAN_BOUNDS.west],
+            [CHISHTIAN_BOUNDS.north, CHISHTIAN_BOUNDS.east],
+          ]}
+          maxBoundsViscosity={1.0}
           key={`${selectedLocation?.lat}-${selectedLocation?.lng}`}
         >
           <TileLayer
