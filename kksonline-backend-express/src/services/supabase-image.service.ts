@@ -29,8 +29,8 @@ export class SupabaseImageService {
         where: {
           entity_id: entityId,
           entity_category: entityCategory,
-          isFeatured: true,
         },
+        orderBy: { isFeatured: 'desc' },
         include: {
           image: {
             select: {
@@ -141,8 +141,12 @@ export class SupabaseImageService {
         where: {
           entity_id: { in: entityIds },
           entity_category: entityCategory,
-          isFeatured: true,
         },
+        orderBy: [
+          { entity_id: 'asc' },
+          { isFeatured: 'desc' },
+          { created_at: 'desc' },
+        ],
         include: {
           image: {
             select: {
@@ -157,9 +161,9 @@ export class SupabaseImageService {
         `[ImageService] (no-cache) Found ${imageEntities.length} image records in database for ${entityIds.length} requested entities`
       );
 
+      const processedIds = new Set<number>();
       for (const item of imageEntities) {
-        if (!item.entity_id) {
-          logger.warn('[ImageService] (no-cache) ImageEntity missing entity_id:', item);
+        if (!item.entity_id || processedIds.has(item.entity_id)) {
           continue;
         }
 
@@ -170,17 +174,11 @@ export class SupabaseImageService {
           logger.debug(
             `[ImageService] (no-cache) Generated Supabase URL for ${entityCategory} ${item.entity_id}: ${url} (bucket: ${item.image.folderType}, file: ${item.image.filename})`
           );
-        } else {
-          logger.warn('[ImageService] (no-cache) ImageEntity missing Supabase image data:', {
-            entityId: item.entity_id,
-            hasImage: !!item.image,
-            hasFolderType: !!item.image?.folderType,
-            hasFilename: !!item.image?.filename,
-          });
         }
 
         if (url) {
           result.set(item.entity_id, url);
+          processedIds.add(item.entity_id);
         }
       }
 

@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { cartRepository } from '../repositories/cart.repository';
-import { imageService } from '../services/image.service';
+import { supabaseImageService } from '../services/supabase-image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
@@ -29,12 +29,16 @@ router.get(
 
     // Fetch images for products
     const productIds = [...new Set(items.map((item) => item.productId))];
-    const images = await imageService.getMainImagesForEntities(productIds, 'products');
+    const images = await supabaseImageService.getMainImagesForEntities(productIds, 'products');
 
-    const itemsWithImages = items.map((item) => ({
-      ...item,
-      imageUrl: images.get(item.productId) || null,
-    }));
+    const itemsWithImages = items.map((item) => {
+      const imageUrl = images.get(item.productId) || null;
+      return {
+        ...item,
+        imageUrl,
+        mainImage: imageUrl, // Added for consistency with Product routes
+      };
+    });
 
     // Calculate totals
     const { subtotal, itemCount } = await cartRepository.getCartTotal(req.customerId);

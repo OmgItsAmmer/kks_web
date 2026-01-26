@@ -16,7 +16,7 @@ const Cart: React.FC = () => {
   const { isAuthenticated, showLoginModal } = useAuth();
   const { showError, showWarning } = useSnackbar();
   const navigate = useNavigate();
-  
+
   const [cartState, setCartState] = useState<CartState>('loading');
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
@@ -27,7 +27,15 @@ const Cart: React.FC = () => {
   const [imageSources, setImageSources] = useState<Map<number, string>>(new Map());
 
   // Helper function to get valid image source (similar to ProductCard logic)
-  const getValidImageSource = (imageUrl?: string): string => {
+  const getValidImageSource = (imageUrl?: string, productName?: string): string => {
+    // Logging for debugging cart image issues
+    console.log(`[Cart] Processing image source for product "${productName}":`, {
+      originalImageUrl: imageUrl,
+      isEmpty: !imageUrl,
+      isLogoPlaceholder: imageUrl === '/logo.png',
+      isAbsoluteUrl: imageUrl?.startsWith('http')
+    });
+
     if (!imageUrl || imageUrl === '/logo.png' || imageUrl === '') {
       return logo;
     }
@@ -36,14 +44,16 @@ const Cart: React.FC = () => {
       return imageUrl;
     }
     // If it's a relative path that might not exist, use logo
+    console.warn(`[Cart] Falling back to logo for product "${productName}" due to invalid image URL:`, imageUrl);
     return logo;
   };
 
   // Initialize image sources when cart items change
   useEffect(() => {
+    console.log('[Cart] Initializing image sources for', cartItems.length, 'items');
     const newImageSources = new Map<number, string>();
     cartItems.forEach((item) => {
-      const validSrc = getValidImageSource(item.imageUrl);
+      const validSrc = getValidImageSource(item.imageUrl, item.productName);
       newImageSources.set(item.cartId, validSrc);
     });
     setImageSources(newImageSources);
@@ -76,6 +86,17 @@ const Cart: React.FC = () => {
       setError(null);
 
       const cartData: CartSummary = await cartService.getCart();
+      console.log('[Cart] Backend response received:', {
+        itemCount: cartData.items.length,
+        items: cartData.items.map(item => ({
+          cartId: item.cartId,
+          productId: item.productId,
+          productName: item.productName,
+          imageUrl: item.imageUrl,
+          // @ts-ignore - checking if this field exists in raw response
+          mainImage: item.mainImage
+        }))
+      });
       setCartItems(cartData.items);
       setSubtotal(cartData.subtotal);
       setItemCount(cartData.itemCount);
@@ -89,7 +110,7 @@ const Cart: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error loading cart:', err);
-      
+
       // Handle authentication errors
       if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
         setError('Please login to view your cart');
@@ -100,7 +121,7 @@ const Cart: React.FC = () => {
         }
         return;
       }
-      
+
       setError(err.message || 'Failed to load cart');
       setCartState('error');
     }
@@ -178,13 +199,13 @@ const Cart: React.FC = () => {
       });
     } catch (err: any) {
       console.error('Error updating quantity:', err);
-      
+
       // Handle authentication errors
       if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
         showLoginModal();
         return;
       }
-      
+
       // Handle 404 - item not found (might have been deleted)
       if (err.status === 404 || err.statusCode === 404 || err.message?.includes('404') || err.message?.includes('not found') || err.message?.includes('Cart item not found')) {
         // Reload cart to sync with backend
@@ -192,7 +213,7 @@ const Cart: React.FC = () => {
         await loadCart();
         return;
       }
-      
+
       showError(err.message || 'Failed to update quantity');
     } finally {
       // Remove from updating set
@@ -224,7 +245,7 @@ const Cart: React.FC = () => {
       // Update local state
       const remainingItems = cartItems.filter((item) => item.cartId !== cartId);
       setCartItems(remainingItems);
-      
+
       // Clear validation issue
       setValidationIssues((prev) => {
         const newMap = new Map(prev);
@@ -244,13 +265,13 @@ const Cart: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error removing item:', err);
-      
+
       // Handle authentication errors
       if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
         showLoginModal();
         return;
       }
-      
+
       // Handle 404 - item already removed, just reload cart
       if (err.status === 404 || err.statusCode === 404 || err.message?.includes('404') || err.message?.includes('not found') || err.message?.includes('Cart item not found')) {
         console.log('Item already removed, reloading cart...');
@@ -258,7 +279,7 @@ const Cart: React.FC = () => {
         await loadCart();
         return;
       }
-      
+
       showError(err.message || 'Failed to remove item');
     } finally {
       setUpdatingItems((prev) => {
@@ -287,14 +308,14 @@ const Cart: React.FC = () => {
       setCartState('empty');
     } catch (err: any) {
       console.error('Error clearing cart:', err);
-      
+
       // Handle authentication errors
       if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
         showLoginModal();
         setCartState('empty');
         return;
       }
-      
+
       showError(err.message || 'Failed to clear cart');
       setCartState('ready');
     }
@@ -452,7 +473,7 @@ const Cart: React.FC = () => {
                         attemptedUrl: item.imageUrl,
                         currentSrc: img.currentSrc,
                       });
-                      
+
                       // Update image source to logo fallback
                       setImageSources((prev) => {
                         const newMap = new Map(prev);
@@ -477,7 +498,7 @@ const Cart: React.FC = () => {
                         <div className={styles.itemDetails}>
                           <h3 className={styles.itemName}>{item.productName}</h3>
                           <p className={styles.itemVariant}>· {item.variantName}</p>
-                          
+
                           {/* Stock warning */}
                           {isOutOfStock && (
                             <div className={styles.stockWarning}>
@@ -485,14 +506,14 @@ const Cart: React.FC = () => {
                               <span>Out of Stock</span>
                             </div>
                           )}
-                          
+
                           {hasStockIssue && !isOutOfStock && (
                             <div className={styles.stockWarning}>
                               <AlertTriangle size={16} />
                               <span>Only {validation.availableStock} available</span>
                             </div>
                           )}
-                          
+
                           {!isOutOfStock && item.stock < 10 && (
                             <div className={styles.lowStockWarning}>
                               <span>Only {item.stock} left in stock</span>
