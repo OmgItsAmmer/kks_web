@@ -38,10 +38,13 @@ router.get(
   '/featured',
   asyncHandler(async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string, 10) || 7;
-    
+
     const collections = await collectionRepository.findFeatured(limit);
 
     logger.info(`[CollectionRoutes] /featured - Found ${collections.length} featured collections`);
+    logger.debug('[CollectionRoutes] /featured - Collection image URLs:',
+      collections.map(c => ({ id: c.collection_id, name: c.name, image_url: c.image_url }))
+    );
 
     return sendSuccess(res, collections);
   })
@@ -63,6 +66,11 @@ router.get(
     }
 
     logger.info(`[CollectionRoutes] /premium - Found premium collection: ${collection.name}`);
+    logger.debug('[CollectionRoutes] /premium - Image URL:', {
+      id: collection.collection_id,
+      name: collection.name,
+      image_url: collection.image_url
+    });
 
     return sendSuccess(res, collection);
   })
@@ -77,7 +85,7 @@ router.get(
   '/standard',
   asyncHandler(async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string, 10) || 6;
-    
+
     const collections = await collectionRepository.findStandard(limit);
 
     logger.info(`[CollectionRoutes] /standard - Found ${collections.length} standard collections`);
@@ -105,7 +113,7 @@ router.get(
     const collectionId = parseInt(req.params.id!, 10);
 
     const collection = await collectionRepository.findById(collectionId);
-    
+
     if (!collection) {
       return sendNotFound(res, 'Collection not found');
     }

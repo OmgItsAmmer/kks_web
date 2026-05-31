@@ -63,12 +63,12 @@ export class CollectionRepository {
     if (!imageUrl || imageUrl === '' || imageUrl === '/logo.png') {
       return null;
     }
-    
+
     // If it's already a full URL, return as-is
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return imageUrl;
     }
-    
+
     // Otherwise, construct Supabase URL from filename
     // Collections bucket name is 'collections'
     try {
@@ -114,15 +114,45 @@ export class CollectionRepository {
       return this.processCollections(collections);
     }
 
+    logger.info(`[CollectionRepository] Fetching images for ${ids.length} collections:`, ids);
+
     const images = await supabaseImageService.getMainImagesForEntities(ids, 'collections');
+
+    logger.info(`[CollectionRepository] Image service returned ${images.size} images`);
+    images.forEach((url, collectionId) => {
+      logger.debug(`[CollectionRepository] Collection ${collectionId} -> ${url}`);
+    });
 
     return collections.map((c) => {
       const id = Number(c.collection_id);
       const fallbackFromImages = images.get(id) || null;
+      const originalImageUrl = c.image_url;
+
+      // Determine final image URL with proper priority:
+      // 1. Use fetched image from image_entity if available
+      // 2. Only use c.image_url if it's a valid URL (not a placeholder like '/logo.png')
+      // 3. Otherwise null
+      let finalImageUrl = null;
+
+      if (fallbackFromImages) {
+        // Prefer the fetched image from image_entity
+        finalImageUrl = fallbackFromImages;
+      } else if (originalImageUrl && originalImageUrl !== '/logo.png' && originalImageUrl !== '') {
+        // Use collections table image_url only if it's not a placeholder
+        finalImageUrl = originalImageUrl;
+      }
+
       const merged = {
         ...c,
-        image_url: c.image_url || fallbackFromImages,
+        image_url: finalImageUrl,
       };
+
+      logger.debug(`[CollectionRepository] Collection ${id} (${c.name}):`, {
+        original_image_url: originalImageUrl,
+        fetched_from_image_entity: fallbackFromImages,
+        final_image_url: merged.image_url,
+      });
+
       return this.processCollection(merged);
     });
   }
@@ -256,9 +286,18 @@ export class CollectionRepository {
         );
 
         const mainImage = await supabaseImageService.getMainImageUrl(collectionId, 'collections');
+
+        // Prefer fetched image over placeholder
+        let finalImageUrl = null;
+        if (mainImage) {
+          finalImageUrl = mainImage;
+        } else if (collection[0].image_url && collection[0].image_url !== '/logo.png' && collection[0].image_url !== '') {
+          finalImageUrl = collection[0].image_url;
+        }
+
         const processedCollection = this.processCollection({
           ...collection[0],
-          image_url: collection[0].image_url || mainImage,
+          image_url: finalImageUrl,
         });
         return {
           ...processedCollection,
@@ -310,9 +349,18 @@ export class CollectionRepository {
         if (collections.length > 0) {
           const c = collections[0];
           const img = await supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+
+          // Prefer fetched image over placeholder
+          let finalImageUrl = null;
+          if (img) {
+            finalImageUrl = img;
+          } else if (c.image_url && c.image_url !== '/logo.png' && c.image_url !== '') {
+            finalImageUrl = c.image_url;
+          }
+
           return this.processCollection({
             ...c,
-            image_url: c.image_url || img,
+            image_url: finalImageUrl,
           });
         }
         return null;
@@ -394,9 +442,18 @@ export class CollectionRepository {
         if (collections.length > 0) {
           const c = collections[0];
           const img = await supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+
+          // Prefer fetched image over placeholder
+          let finalImageUrl = null;
+          if (img) {
+            finalImageUrl = img;
+          } else if (c.image_url && c.image_url !== '/logo.png' && c.image_url !== '') {
+            finalImageUrl = c.image_url;
+          }
+
           return this.processCollection({
             ...c,
-            image_url: c.image_url || img,
+            image_url: finalImageUrl,
           });
         }
         return null;
@@ -486,7 +543,7 @@ export class CollectionRepository {
       if (existingCart && existingCart.length > 0) {
         // Update existing cart entry
         collectionCartId = existingCart[0].collection_cart_id;
-        
+
         // Delete old items
         await db.$executeRaw`
           DELETE FROM collection_cart_items
