@@ -1,14 +1,14 @@
 # *
 User-agent: *
 Allow: /
-Disallow: /cart
-Disallow: /checkout
-Disallow: /wishlist
-Disallow: /orders
-Disallow: /orders/*
-
-# Host
-Host: https://kks-online.com
+Allow: /product/
+Allow: /products
+Allow: /collection/
+Disallow: /cart$
+Disallow: /checkout$
+Disallow: /wishlist$
+Disallow: /orders$
+Disallow: /orders/
 
 # Sitemaps
-Sitemap: https://kks-online.com/sitemap.xml
+Sitemap: https://www.kks-online.com/sitemap.xml
