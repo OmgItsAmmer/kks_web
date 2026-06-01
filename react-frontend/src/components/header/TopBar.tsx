@@ -21,7 +21,7 @@ const TopBar: React.FC = () => {
             <div className={styles.contactInfo}>
               <div className={styles.contactItem}>
                 <Mail size={14} />
-                <span>hello@kksonline.co.uk</span>
+                <span>hello@kksonline.com.pk</span>
               </div>
             </div>
 

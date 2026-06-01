@@ -1,0 +1,131 @@
+.container {
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.requiredBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+}
+
+.notice {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-4);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.uploadBtn:hover:not(:disabled) {
+  background: #ffedd5;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.previewCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.successIcon {
+  flex-shrink: 0;
+}
+
+.previewImageWrap {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-light);
+}
+
+.previewImage {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+}
+
+.changeBtn,
+.removeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+}
+
+.changeBtn {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.removeBtn {
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.helperText {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--warning);
+}

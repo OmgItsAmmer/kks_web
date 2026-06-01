@@ -139,6 +139,12 @@ export class PaymentFailedError extends BadRequestError {
   }
 }
 
+export class PaymentReceiptRequiredError extends BadRequestError {
+  constructor(message = 'Advance payment receipt is required to complete checkout') {
+    super(message, ErrorCodes.PAYMENT_RECEIPT_REQUIRED);
+  }
+}
+
 export class OrderCreationFailedError extends ApiError {
   constructor(message = 'Order creation failed') {
     super(message, 500, ErrorCodes.ORDER_CREATION_FAILED);

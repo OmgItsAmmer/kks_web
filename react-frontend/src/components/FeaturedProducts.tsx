@@ -1,7 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { useCategories } from '../hooks/useCategories';
-import { useInfiniteProductsByCategory } from '../hooks/useProducts';
+import {
+  useInfiniteProductsByCategory,
+  usePopularProducts,
+} from '../hooks/useProducts';
 import { ProductGridSkeleton } from './LoadingSkeleton';
 import styles from './FeaturedProducts.module.css';
 
@@ -12,74 +16,69 @@ interface FeaturedProductsProps {
   initialCategory?: number | 'all';
 }
 
+const POPULAR_PREVIEW_COUNT = 6;
+
 const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   title = 'Handpicked Favourites',
   subtitle = 'Discover our most-loved collections',
   showTabs = true,
   initialCategory = 'all' as const,
 }) => {
-  const [activeCategory, setActiveCategory] = useState<number | 'all'>(initialCategory);
-  const [isCategoryChanging, setIsCategoryChanging] = useState(false);
-  
-  // Update active category when initialCategory prop changes (from URL params)
+  const [activeCategory, setActiveCategory] = React.useState<number | 'all'>(initialCategory);
+
   useEffect(() => {
     setActiveCategory(initialCategory);
   }, [initialCategory]);
-  
-  // Use React Query hooks with caching
+
   const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
   const categories = useMemo(() => categoriesData || [], [categoriesData]);
-  
-  // Use infinite query for better pagination support
+
+  const isAllTab = activeCategory === 'all';
+
+  const {
+    data: popularData,
+    isLoading: popularLoading,
+    isError: popularError,
+    error: popularErrorObj,
+  } = usePopularProducts(1, POPULAR_PREVIEW_COUNT);
+
   const {
     data: infiniteData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading: productsLoading,
-    isError: productsError,
-    error,
-  } = useInfiniteProductsByCategory(activeCategory, 12);
-  
-  // Flatten all pages into a single products array
-  const products = useMemo(() => {
+    isLoading: categoryProductsLoading,
+    isError: categoryProductsError,
+    error: categoryErrorObj,
+  } = useInfiniteProductsByCategory(activeCategory, 12, !isAllTab);
+
+  const categoryProducts = useMemo(() => {
     if (!infiniteData?.pages) return [];
-    return infiniteData.pages.flatMap(page => page.products);
+    return infiniteData.pages.flatMap((page) => page.products);
   }, [infiniteData]);
-  
-  // Reset category changing state when products are loaded
-  useEffect(() => {
-    if (!productsLoading && !categoriesLoading) {
-      setIsCategoryChanging(false);
-    }
-  }, [productsLoading, categoriesLoading]);
-  
-  const hasMore = hasNextPage ?? false;
-  const loading = (categoriesLoading && productsLoading) || isCategoryChanging;
 
-  // Log product data for debugging
-  React.useEffect(() => {
-    if (products.length > 0) {
-      const productsWithImages = products.filter(p => p.image && p.image !== '/logo.png');
-      const productsWithoutImages = products.filter(p => !p.image || p.image === '/logo.png');
-      console.log('[FeaturedProducts] ✅ Products loaded (cached):', {
-        category: activeCategory,
-        total: products.length,
-        withImages: productsWithImages.length,
-        withoutImages: productsWithoutImages.length,
-        fromCache: !productsLoading && products.length > 0,
-      });
-    }
-  }, [products, activeCategory, productsLoading]);    
+  const allTabProducts = useMemo(
+    () => popularData?.products.slice(0, POPULAR_PREVIEW_COUNT) ?? [],
+    [popularData]
+  );
 
-  // Load more products handler
+  const products = isAllTab ? allTabProducts : categoryProducts;
+
+  const productsLoading = isAllTab ? popularLoading : categoryProductsLoading;
+  const productsError = isAllTab ? popularError : categoryProductsError;
+  const error = isAllTab ? popularErrorObj : categoryErrorObj;
+
+  const hasMore = !isAllTab && (hasNextPage ?? false);
+  const loading =
+    (categoriesLoading && categories.length === 0) ||
+    (productsLoading && products.length === 0);
+
   const loadMore = () => {
     if (hasMore && !isFetchingNextPage) {
       fetchNextPage();
     }
   };
 
-  // Format error message
   const errorMessage = useMemo(() => {
     if (!productsError) return null;
     const err = error as any;
@@ -92,36 +91,26 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   return (
     <section id="featured-products" className={styles.section}>
       <div className="container">
-        {/* Header */}
         <div className={styles.header}>
           <div className={styles.headerText}>
             <h2 className={styles.title}>{title}</h2>
             <p className={styles.subtitle}>{subtitle}</p>
           </div>
 
-          {/* Category Tabs */}
           {showTabs && (
-            <div className={styles.tabs}>
-              {/* All tab */}
+            <div className={styles.tabs} data-lenis-prevent>
               <button
                 className={`${styles.tab} ${activeCategory === 'all' ? styles.tabActive : ''}`}
-                onClick={() => {
-                  setIsCategoryChanging(true);
-                  setActiveCategory('all');
-                }}
+                onClick={() => setActiveCategory('all')}
               >
                 All
               </button>
-              
-              {/* Dynamic category tabs */}
+
               {categories.map((category) => (
                 <button
                   key={category.category_id}
                   className={`${styles.tab} ${activeCategory === category.category_id ? styles.tabActive : ''}`}
-                  onClick={() => {
-                    setIsCategoryChanging(true);
-                    setActiveCategory(category.category_id);
-                  }}
+                  onClick={() => setActiveCategory(category.category_id)}
                 >
                   {category.category_name}
                 </button>
@@ -130,12 +119,8 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           )}
         </div>
 
-        {/* Initial Loading State */}
-        {loading && (
-          <ProductGridSkeleton count={8} />
-        )}
+        {loading && <ProductGridSkeleton count={8} />}
 
-        {/* Error State */}
         {errorMessage && !loading && (
           <div className={styles.errorContainer}>
             <p style={{ color: 'red', fontWeight: 'bold' }}>❌ {errorMessage}</p>
@@ -145,7 +130,6 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           </div>
         )}
 
-        {/* Products Grid */}
         {!loading && !errorMessage && (
           <>
             <div className={styles.productsGrid}>
@@ -158,30 +142,26 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               )}
             </div>
 
-            {/* Load More Button */}
+            {isAllTab && products.length > 0 && (
+              <div className={styles.showMoreWrapper}>
+                <Link to="/products" className={styles.showMoreBtn}>
+                  Show More
+                </Link>
+              </div>
+            )}
+
             {hasMore && products.length > 0 && (
-              <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <div className={styles.loadMoreWrapper}>
                 <button
                   onClick={loadMore}
                   disabled={isFetchingNextPage}
-                  style={{
-                    padding: '0.75rem 2rem',
-                    background: isFetchingNextPage ? '#ccc' : '#2d5a3d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    cursor: isFetchingNextPage ? 'not-allowed' : 'pointer',
-                    transition: 'background 0.2s',
-                  }}
+                  className={styles.loadMoreBtn}
                 >
                   {isFetchingNextPage ? 'Loading...' : 'Load More Products'}
                 </button>
               </div>
             )}
 
-            {/* Loading more products */}
             {isFetchingNextPage && products.length > 0 && (
               <div style={{ marginTop: '2rem' }}>
                 <ProductGridSkeleton count={4} />
@@ -195,5 +175,3 @@ const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 };
 
 export default FeaturedProducts;
-
-

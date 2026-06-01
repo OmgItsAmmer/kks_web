@@ -500,6 +500,33 @@
     color: var(--text-muted);
 }
 
+.successOrderMeta {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-6);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.successContinueBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: var(--space-4);
+    padding: var(--space-3) var(--space-8);
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background-color: var(--primary);
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.successContinueBtn:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
 /* Error Banner */
 .errorBanner {
     display: flex;
@@ -521,6 +548,134 @@
 /* Address Section */
 .mapPickerContainer {
     margin-bottom: var(--space-6);
+}
+
+.bankTransferIntro {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.bankDetails {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    background: var(--bg-light);
+}
+
+.bankDetailRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.bankDetailLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.bankDetailValue {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bankDetailRow .copyLinkRow {
+    margin-bottom: 0;
+}
+
+.storeLocation {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--gray-200);
+}
+
+.storeLocationTitle {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+}
+
+.storeLocationName {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.mapEmbed {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    margin-bottom: var(--space-4);
+}
+
+.mapEmbed iframe {
+    display: block;
+    width: 100%;
+    height: 280px;
+    border: 0;
+}
+
+@media (min-width: 768px) {
+    .mapEmbed iframe {
+        height: 320px;
+    }
+}
+
+.copyLinkRow {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.copyLinkInput {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.8125rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: var(--text-secondary);
+}
+
+.copyLinkBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    background: var(--primary);
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    transition: background var(--transition-fast);
+}
+
+.copyLinkBtn:hover {
+    background: var(--primary-hover);
+}
+
+.openMapsLink {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.openMapsLink:hover {
+    color: var(--primary-hover);
 }
 
 .customerDetails {

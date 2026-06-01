@@ -11,6 +11,7 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { AuthenticationError } from '../services/api.config';
 import Loader from '../components/Loader';
 import type { CollectionCartItem } from '../services/collection.service';
+import type { CartItem } from '../types/cart';
 
 interface SelectedVariant {
   itemId: number;
@@ -106,6 +107,42 @@ const CollectionDetail: React.FC = () => {
     );
   };
 
+  const getInvalidSelectedItems = () =>
+    selectedVariants.filter((sv) => {
+      const item = collection?.items.find((i) => i.collection_item_id === sv.itemId);
+      if (!item) return true;
+      const variant = item.all_variants?.find((v) => v.variant_id === sv.variantId);
+      if (!variant) return true;
+      return sv.quantity > variant.stock || variant.stock === 0;
+    });
+
+  const buildCheckoutCartItems = (): CartItem[] => {
+    if (!collection) return [];
+
+    return selectedVariants.map((sv, index) => {
+      const item = collection.items.find((i) => i.collection_item_id === sv.itemId);
+      if (!item) {
+        throw new Error('Collection item not found');
+      }
+
+      const variant =
+        item.all_variants?.find((v) => v.variant_id === sv.variantId) ?? item;
+
+      return {
+        cartId: -(index + 1),
+        variantId: sv.variantId,
+        quantity: sv.quantity,
+        sellPrice: Number(variant.sell_price),
+        productId: item.product_id,
+        productName: item.product_name,
+        variantName: variant.variant_name || 'Default',
+        stock: variant.stock,
+        isVisible: variant.is_visible ?? item.is_visible,
+        imageUrl: item.image_url || undefined,
+      };
+    });
+  };
+
   const handleAddToCart = async () => {
     if (!isAuthenticated || !user) {
       showLoginModal();
@@ -113,13 +150,7 @@ const CollectionDetail: React.FC = () => {
     }
 
     // Validate stock for all items
-    const invalidItems = selectedVariants.filter(sv => {
-      const item = collection?.items.find(i => i.collection_item_id === sv.itemId);
-      if (!item) return true;
-      const variant = item.all_variants?.find(v => v.variant_id === sv.variantId);
-      if (!variant) return true;
-      return sv.quantity > variant.stock || variant.stock === 0;
-    });
+    const invalidItems = getInvalidSelectedItems();
 
     if (invalidItems.length > 0) {
       showError('Some items are out of stock or exceed available quantity');
@@ -152,17 +183,36 @@ const CollectionDetail: React.FC = () => {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!isAuthenticated || !user) {
       showLoginModal();
       return;
     }
 
-    // Add to cart first, then navigate to checkout
-    await handleAddToCart();
-    setTimeout(() => {
-      navigate('/checkout');
-    }, 1000);
+    const invalidItems = getInvalidSelectedItems();
+    if (invalidItems.length > 0) {
+      showError('Some items are out of stock or exceed available quantity');
+      return;
+    }
+
+    try {
+      const cartItems = buildCheckoutCartItems();
+      const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+      navigate('/checkout', {
+        state: {
+          cartItems,
+          subtotal: totalPrice,
+          itemCount,
+          isCollectionCheckout: true,
+          collectionId,
+          collectionName: collection?.name,
+        },
+      });
+    } catch (err: any) {
+      console.error('[CollectionDetail] Error preparing checkout:', err);
+      showError(err.message || 'Failed to start checkout. Please try again.');
+    }
   };
 
   if (isLoading) {

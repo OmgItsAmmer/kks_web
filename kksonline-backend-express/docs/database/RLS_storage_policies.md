@@ -12,6 +12,7 @@ Buckets are created in [migrations/002_storage_buckets.sql](./migrations/002_sto
 | `collections` | Yes | Service role + shop owner | `{collection_id}/{filename}` |
 | `shop` | Yes | Service role + shop owner | Store assets / logo |
 | `customers` | Own folder only | Own customer + service role | `{customer_id}/{filename}` |
+| `payment-receipts` | No (private) | Own customer folder + service role | `{customer_id}/pending/{filename}` |
 | `users` | Own folder only | Service role + shop owner | `{user_id}/{filename}` |
 | `vendors` | No (authenticated staff) | Service role + shop owner | `{vendor_id}/{filename}` |
 | `salesman` | No | Service role + shop owner | `{salesman_id}/{filename}` |
@@ -44,6 +45,18 @@ Buckets are created in [migrations/002_storage_buckets.sql](./migrations/002_sto
 
 Example object path: `customers/42/profile.webp` → only customer_id `42` may access.
 
+### 2b. Payment receipt bucket
+
+**Bucket:** `payment-receipts` (private)
+
+| Operation | Rule |
+|-----------|------|
+| SELECT / INSERT / UPDATE / DELETE | Authenticated customer when `(storage.foldername(name))[1] = auth_customer_id()` |
+| Shop owner | Full access via `is_shop_owner()` |
+| Express backend | Service role bypasses RLS for uploads at checkout |
+
+Example object path: `payment-receipts/42/pending/1710000000-uuid.jpg`
+
 ### 3. Staff / internal buckets
 
 **Buckets:** `users`, `vendors`, `salesman`, `guarantors`
@@ -65,6 +78,8 @@ Run in **Supabase Dashboard → SQL Editor** only (direct `postgres` role). Run 
 
 1. `002_storage_buckets.sql`
 2. `003_storage_rls_policies.sql`
+3. `004_advance_payment_receipt.sql`
+4. `005_payment_receipts_storage_rls.sql`
 
 Do **not** run storage migrations through:
 

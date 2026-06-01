@@ -136,7 +136,7 @@ const HeroSection: React.FC = () => {
     
     // If it's already a full URL, use it (Supabase storage URL)
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      // Check if it's a Supabase storage URL (like ProductCard does)
+      // Chec if it's a Supabase storage URL (like ProductCard does)
       if (imageUrl.includes('supabase.co/storage/v1/object/public/')) {
         console.log(`[HeroSection] ✅ Collection ${collectionId} using Supabase URL:`, imageUrl);
         return imageUrl;

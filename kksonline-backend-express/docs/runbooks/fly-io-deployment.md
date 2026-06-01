@@ -153,6 +153,7 @@ Healthy response:
 
 | Symptom | Likely cause | Fix |
 |---------|----------------|-----|
+| `libssl.so.1.1: No such file or directory` | Prisma musl engine vs Alpine OpenSSL 3 | Ensure `schema.prisma` has `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]` and Dockerfile runner installs `openssl`; redeploy |
 | Cold start timeout | 256 MB + Prisma startup | Increase grace period in `fly.toml` checks; or `fly scale count 1` |
 | OOM / crash loop | Memory too low | `fly scale memory 512` (costs more) |
 | DB connection errors | Direct DB URL, too many connections | Use Supabase pooler URL (`?pgbouncer=true`) |

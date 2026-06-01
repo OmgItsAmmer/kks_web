@@ -9,6 +9,7 @@ import {
   ShippingMethodInvalidError,
   PhoneNumberRequiredError,
   PaymentFailedError,
+  PaymentReceiptRequiredError,
   OrderCreationFailedError,
 } from '../utils/errors';
 import { customerRepository } from '../repositories/customer.repository';
@@ -16,6 +17,7 @@ import { cartRepository } from '../repositories/cart.repository';
 import { orderRepository } from '../repositories/order.repository';
 import { addressRepository } from '../repositories/address.repository';
 import { shopRepository } from '../repositories/shop.repository';
+import { supabaseImageService } from './supabase-image.service';
 import type { PaymentMethod, SeverityLevel, OrderStatus } from '@prisma/client';
 
 export interface CartItem {
@@ -36,6 +38,7 @@ export interface CheckoutRequest {
   shippingMethod: 'shipping' | 'pickup';
   paymentMethod: PaymentMethod;
   idempotencyKey?: string;
+  paymentReceiptPath?: string;
 }
 
 export interface CheckoutTotals {
@@ -104,6 +107,9 @@ export class CheckoutService {
     // Step 5: Validate shipping method
     await this.validateShippingMethod(request.shippingMethod, request.addressId);
 
+    // Step 5b: Validate advance payment receipt when mandatory
+    await this.validatePaymentReceipt(customerId, request.paymentReceiptPath);
+
     // Step 6: Validate cart security (prices, stock, etc.)
     const validation = await this.validateCartSecurity(cartItems);
     if (!validation.isValid) {
@@ -143,7 +149,8 @@ export class CheckoutService {
         request.shippingMethod,
         request.paymentMethod,
         validation.totals!,
-        idempotencyKey
+        idempotencyKey,
+        request.paymentReceiptPath
       );
 
       if (!orderResult.success) {
@@ -212,6 +219,13 @@ export class CheckoutService {
     shippingMethod: 'shipping' | 'pickup',
     addressId: number
   ): Promise<void> {
+    // TEMP: Home delivery disabled until maps/shipping flow is re-enabled
+    if (shippingMethod === 'shipping') {
+      throw new ShippingMethodInvalidError(
+        'Home delivery is temporarily unavailable. Please select store pickup.'
+      );
+    }
+
     if (shippingMethod === 'pickup') {
       // Pickup is always allowed
       return;
@@ -228,6 +242,36 @@ export class CheckoutService {
       if (!address) {
         throw new ShippingMethodInvalidError('Selected shipping address not found.');
       }
+    }
+  }
+
+  /**
+   * Validate advance payment receipt upload when shop requires it
+   */
+  private async validatePaymentReceipt(
+    customerId: number,
+    paymentReceiptPath?: string
+  ): Promise<void> {
+    const isMandatory = await shopRepository.isAdvancePaymentReceiptMandatory();
+
+    if (!paymentReceiptPath?.trim()) {
+      if (isMandatory) {
+        throw new PaymentReceiptRequiredError();
+      }
+      return;
+    }
+
+    const isValid = await supabaseImageService.verifyReceiptOwnership(
+      customerId,
+      paymentReceiptPath.trim()
+    );
+
+    if (!isValid) {
+      throw new PaymentReceiptRequiredError(
+        isMandatory
+          ? 'A valid advance payment receipt upload is required before checkout'
+          : 'The uploaded payment receipt could not be verified'
+      );
     }
   }
 
@@ -460,7 +504,8 @@ export class CheckoutService {
     shippingMethod: string,
     paymentMethod: PaymentMethod,
     totals: CheckoutTotals,
-    idempotencyKey: string
+    idempotencyKey: string,
+    paymentReceiptPath?: string
   ): Promise<{ success: boolean; orderId?: number; message: string }> {
     try {
       // Copy address to order_addresses if shipping
@@ -496,6 +541,7 @@ export class CheckoutService {
         shipping_method: shippingMethod,
         payment_method: paymentMethod,
         idempotency_key: idempotencyKey,
+        payment_receipt_path: paymentReceiptPath?.trim() || null,
       });
 
       // Create order items

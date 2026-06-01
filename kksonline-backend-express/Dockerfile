@@ -25,6 +25,9 @@ RUN npm run build
 # Production stage
 FROM node:18-alpine AS runner
 
+# Prisma query engine needs OpenSSL 3 libs at runtime (Alpine uses musl + OpenSSL 3)
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Create non-root user for security
