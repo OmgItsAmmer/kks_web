@@ -10,6 +10,7 @@ const mockCreateOrderItems = vi.fn();
 const mockClearCart = vi.fn();
 const mockGetMaxAllowedQuantity = vi.fn();
 const mockGetTaxRate = vi.fn();
+const mockIsAdvancePaymentReceiptMandatory = vi.fn();
 
 const mockProductVariantFindMany = vi.fn();
 const mockTransaction = vi.fn();
@@ -47,6 +48,13 @@ vi.mock('../../../src/repositories/shop.repository', () => ({
   shopRepository: {
     getMaxAllowedQuantity: mockGetMaxAllowedQuantity,
     getTaxRate: mockGetTaxRate,
+    isAdvancePaymentReceiptMandatory: mockIsAdvancePaymentReceiptMandatory,
+  },
+}));
+
+vi.mock('../../../src/services/supabase-image.service', () => ({
+  supabaseImageService: {
+    verifyReceiptOwnership: vi.fn().mockResolvedValue(true),
   },
 }));
 
@@ -80,6 +88,7 @@ describe('CheckoutService', () => {
     mockFindByIdempotencyKey.mockResolvedValue(null);
     mockGetMaxAllowedQuantity.mockResolvedValue(10);
     mockGetTaxRate.mockResolvedValue(0);
+    mockIsAdvancePaymentReceiptMandatory.mockResolvedValue(false);
     mockFindAddressById.mockResolvedValue({ address_id: 1 });
     mockCopyToOrderAddress.mockResolvedValue(true);
     mockSecurityAuditLogCreate.mockResolvedValue({});
@@ -122,8 +131,8 @@ describe('CheckoutService', () => {
     const { checkoutService } = await import('../../../src/services/checkout.service');
     const result = await checkoutService.processCheckout(1, {
       cartItems: [{ variantId: 1, quantity: 2, sellPrice: 1150 }],
-      addressId: 1,
-      shippingMethod: 'shipping',
+      addressId: 0,
+      shippingMethod: 'pickup',
       paymentMethod: 'cod',
       idempotencyKey: 'checkout_test_key_001',
     });
@@ -187,9 +196,7 @@ describe('CheckoutService', () => {
     ).rejects.toThrow('Order already processed');
   });
 
-  it('throws ShippingMethodInvalidError when shipping address is missing', async () => {
-    mockFindAddressById.mockResolvedValue(null);
-
+  it('throws ShippingMethodInvalidError when home delivery is selected', async () => {
     const { checkoutService } = await import('../../../src/services/checkout.service');
     await expect(
       checkoutService.processCheckout(1, {
@@ -199,7 +206,7 @@ describe('CheckoutService', () => {
         paymentMethod: 'cod',
         idempotencyKey: 'checkout_test_key_003',
       })
-    ).rejects.toThrow('Selected shipping address not found');
+    ).rejects.toThrow('Home delivery is temporarily unavailable. Please select store pickup.');
   });
 
   it('throws SecurityViolationError on price mismatch', async () => {
@@ -207,8 +214,8 @@ describe('CheckoutService', () => {
     await expect(
       checkoutService.processCheckout(1, {
         cartItems: [{ variantId: 1, quantity: 1, sellPrice: 999 }],
-        addressId: 1,
-        shippingMethod: 'shipping',
+        addressId: 0,
+        shippingMethod: 'pickup',
         paymentMethod: 'cod',
         idempotencyKey: 'checkout_test_key_004',
       })

@@ -1,10 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mockImageEntity } from '../../helpers/factories';
+import { mockSupabaseImageEntity } from '../../helpers/factories';
 
-const mockUploadStream = vi.fn();
-const mockUpload = vi.fn();
-const mockDestroy = vi.fn();
-const mockDeleteResources = vi.fn();
+const mockStorageUpload = vi.fn();
+const mockStorageRemove = vi.fn();
+const mockStorageFrom = vi.fn(() => ({
+  upload: mockStorageUpload,
+  remove: mockStorageRemove,
+  createSignedUrl: vi.fn().mockResolvedValue({
+    data: { signedUrl: 'https://test-project.supabase.co/storage/v1/object/sign/customers/profile.jpg' },
+    error: null,
+  }),
+  list: vi.fn().mockResolvedValue({ data: [], error: null }),
+}));
+
+const mockGetSupabasePublicUrl = vi.fn();
 
 const mockImageCreate = vi.fn();
 const mockImageDelete = vi.fn();
@@ -16,23 +25,25 @@ const mockImageEntityCreate = vi.fn();
 const mockImageEntityUpdate = vi.fn();
 const mockImageEntityUpdateMany = vi.fn();
 
-vi.mock('../../../src/config/cloudinary.config', () => ({
-  cloudinary: {
-    uploader: {
-      upload_stream: mockUploadStream,
-      upload: mockUpload,
-      destroy: mockDestroy,
-    },
-    api: {
-      delete_resources: mockDeleteResources,
-    },
+vi.mock('../../../src/config/supabase.config', () => ({
+  getSupabasePublicUrl: mockGetSupabasePublicUrl,
+  SUPABASE_BUCKETS: {
+    products: 'products',
+    vendors: 'vendors',
+    guarantors: 'guarantors',
+    salesman: 'salesman',
+    users: 'users',
+    customers: 'customers',
+    brands: 'brands',
+    categories: 'categories',
+    shop: 'shop',
+    collections: 'collections',
+    paymentReceipts: 'payment-receipts',
   },
-  CLOUDINARY_FOLDERS: { products: 'products', brands: 'brands', categories: 'categories', customers: 'customers', misc: 'misc' },
-  UPLOAD_PRESETS: {
-    product: { transformation: {}, format: 'webp' },
-    brand: { transformation: {}, format: 'webp' },
-    category: { transformation: {}, format: 'webp' },
-    profile: { transformation: {}, format: 'webp' },
+  supabase: {
+    storage: {
+      from: mockStorageFrom,
+    },
   },
 }));
 
@@ -70,15 +81,12 @@ describe('ImageService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockUploadStream.mockImplementation((_opts: unknown, cb: (err: null, result: object) => void) => ({
-      end: () =>
-        cb(null, {
-          secure_url: 'https://res.cloudinary.com/test/image.jpg',
-          public_id: 'products_1_123',
-          width: 800,
-          height: 600,
-        }),
-    }));
+    mockStorageUpload.mockResolvedValue({ error: null });
+    mockStorageRemove.mockResolvedValue({ error: null });
+    mockGetSupabasePublicUrl.mockImplementation(
+      (bucket: string, filePath: string) =>
+        `https://test-project.supabase.co/storage/v1/object/public/${bucket}/${filePath}`
+    );
 
     mockImageCreate.mockResolvedValue({ image_id: 1 });
     mockImageEntityUpdateMany.mockResolvedValue({ count: 0 });
@@ -95,19 +103,22 @@ describe('ImageService', () => {
       'rice.jpg'
     );
 
-    expect(result.url).toContain('cloudinary.com');
+    expect(result.url).toContain('supabase.co');
     expect(result.imageId).toBe(1);
     expect(mockImageCreate).toHaveBeenCalled();
     expect(mockImageEntityCreate).toHaveBeenCalled();
+    expect(mockStorageUpload).toHaveBeenCalled();
   });
 
   it('uploads image from URL', async () => {
-    mockUpload.mockResolvedValue({
-      secure_url: 'https://res.cloudinary.com/test/profile.jpg',
-      public_id: 'customers_1_123',
-      width: 200,
-      height: 200,
-    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        headers: { get: () => 'image/jpeg' },
+      })
+    );
 
     const { imageService } = await import('../../../src/services/image.service');
     const result = await imageService.uploadFromUrl(
@@ -116,16 +127,20 @@ describe('ImageService', () => {
       1
     );
 
-    expect(result.publicId).toBe('customers_1_123');
+    expect(result.url).toContain('supabase.co');
+    expect(result.imageId).toBe(1);
+
+    vi.unstubAllGlobals();
   });
 
   it('returns main image URL from database', async () => {
-    mockImageEntityFindFirst.mockResolvedValue(mockImageEntity);
+    mockImageEntityFindFirst.mockResolvedValue(mockSupabaseImageEntity);
 
     const { imageService } = await import('../../../src/services/image.service');
     const url = await imageService.getMainImageUrl(1, 'products');
 
-    expect(url).toBe('https://res.cloudinary.com/test/image.jpg');
+    expect(url).toBe('https://test-project.supabase.co/storage/v1/object/public/products/rice-5kg.jpg');
+    expect(mockGetSupabasePublicUrl).toHaveBeenCalledWith('products', 'rice-5kg.jpg');
   });
 
   it('returns null when no featured image exists', async () => {
@@ -138,24 +153,31 @@ describe('ImageService', () => {
   });
 
   it('gets all images for entity', async () => {
-    mockImageEntityFindMany.mockResolvedValue([mockImageEntity]);
+    mockImageEntityFindMany.mockResolvedValue([mockSupabaseImageEntity]);
 
     const { imageService } = await import('../../../src/services/image.service');
     const urls = await imageService.getAllImagesForEntity(1, 'products');
 
     expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('supabase.co');
   });
 
-  it('deletes main image from cloudinary and database', async () => {
-    mockImageEntityFindFirst.mockResolvedValue(mockImageEntity);
-    mockDestroy.mockResolvedValue({ result: 'ok' });
-    mockImageDelete.mockResolvedValue(mockImageEntity.image);
+  it('deletes main image from Supabase storage and database', async () => {
+    mockImageEntityFindFirst.mockResolvedValue({
+      ...mockSupabaseImageEntity,
+      image: {
+        image_id: 1,
+        filename: 'rice-5kg.jpg',
+        folderType: 'products',
+      },
+    });
+    mockImageDelete.mockResolvedValue(mockSupabaseImageEntity.image);
 
     const { imageService } = await import('../../../src/services/image.service');
     const result = await imageService.deleteMainImage(1, 'products');
 
     expect(result).toBe(true);
-    expect(mockDestroy).toHaveBeenCalled();
+    expect(mockStorageRemove).toHaveBeenCalled();
   });
 
   it('returns false when deleting missing image', async () => {
