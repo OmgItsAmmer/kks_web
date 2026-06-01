@@ -62,6 +62,8 @@ export const SUPABASE_BUCKETS = {
   brands: 'brands',
   categories: 'categories',
   shop: 'shop',
+  collections: 'collections',
+  paymentReceipts: 'payment-receipts',
 } as const;
 
 /**

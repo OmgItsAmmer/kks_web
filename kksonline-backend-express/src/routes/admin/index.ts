@@ -221,8 +221,20 @@ router.post(
     }
 
     const result = isFeatured
-      ? await imageService.updateMainImage(req.file.buffer, 'products', productId)
-      : await imageService.addImage(req.file.buffer, 'products', productId);
+      ? await imageService.updateMainImage(
+          req.file.buffer,
+          'products',
+          productId,
+          req.file.originalname,
+          req.file.mimetype
+        )
+      : await imageService.addImage(
+          req.file.buffer,
+          'products',
+          productId,
+          req.file.originalname,
+          req.file.mimetype
+        );
 
     return sendCreated(res, result);
   })
@@ -479,7 +491,13 @@ router.post(
       return sendError(res, 'No image file provided', 400);
     }
 
-    const result = await imageService.updateMainImage(req.file.buffer, 'categories', categoryId);
+    const result = await imageService.updateMainImage(
+      req.file.buffer,
+      'categories',
+      categoryId,
+      req.file.originalname,
+      req.file.mimetype
+    );
 
     return sendCreated(res, result);
   })
@@ -564,7 +582,13 @@ router.post(
       return sendError(res, 'No image file provided', 400);
     }
 
-    const result = await imageService.updateMainImage(req.file.buffer, 'brands', brandId);
+    const result = await imageService.updateMainImage(
+      req.file.buffer,
+      'brands',
+      brandId,
+      req.file.originalname,
+      req.file.mimetype
+    );
 
     return sendCreated(res, result);
   })
@@ -728,6 +752,9 @@ router.put(
     if (req.body.thresholdFreeShipping !== undefined) updates.threshold_free_shipping = req.body.thresholdFreeShipping;
     if (req.body.isShippingEnable !== undefined) updates.is_shipping_enable = req.body.isShippingEnable;
     if (req.body.maxAllowedItemQuantity !== undefined) updates.max_allowed_item_quantity = req.body.maxAllowedItemQuantity;
+    if (req.body.isAdvancePaymentReceiptMandatory !== undefined) {
+      updates.is_advance_payment_receipt_mandatory = req.body.isAdvancePaymentReceiptMandatory;
+    }
 
     const config = await shopRepository.updateConfig(updates);
 

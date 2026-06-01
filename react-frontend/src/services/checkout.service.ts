@@ -11,6 +11,12 @@ export interface CheckoutRequest {
     buyPrice?: number;
   }>;
   idempotencyKey?: string;
+  paymentReceiptPath?: string;
+}
+
+export interface PaymentReceiptUploadResponse {
+  receiptPath: string;
+  receiptUrl: string;
 }
 
 export interface CheckoutResponse {
@@ -29,6 +35,21 @@ class CheckoutService {
 
   constructor() {
     this.baseUrl = '/orders';
+  }
+
+  /**
+   * Upload advance payment receipt image
+   */
+  async uploadPaymentReceipt(file: File): Promise<PaymentReceiptUploadResponse> {
+    const formData = new FormData();
+    formData.append('receipt', file);
+
+    const response = await apiRequest<ApiResponse<PaymentReceiptUploadResponse>>('/orders/payment-receipt', {
+      method: 'POST',
+      body: formData,
+    });
+
+    return response.data;
   }
 
   /**

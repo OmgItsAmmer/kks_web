@@ -1,7 +1,9 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { orderRepository } from '../repositories/order.repository';
 import { checkoutService } from '../services/checkout.service';
+import { supabaseImageService } from '../services/supabase-image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
@@ -9,6 +11,18 @@ import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../utils/re
 import type { CustomerRequest, ErrorCode } from '../types/api.types';
 
 const router = Router();
+
+const receiptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 // All order routes require customer identification
 router.use(requireCustomer);
@@ -105,6 +119,34 @@ router.post(
     } else {
       return sendError(res, result.message, 400, result.errorCode as ErrorCode | undefined);
     }
+  })
+);
+
+/**
+ * @route   POST /api/v1/orders/payment-receipt
+ * @desc    Upload advance payment receipt image for checkout
+ * @access  Private
+ */
+router.post(
+  '/payment-receipt',
+  receiptUpload.single('receipt'),
+  asyncHandler(async (req: CustomerRequest, res: Response) => {
+    if (!req.customerId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    if (!req.file) {
+      return sendError(res, 'No receipt image provided', 400);
+    }
+
+    const result = await supabaseImageService.uploadReceipt(
+      req.customerId,
+      req.file.buffer,
+      req.file.mimetype,
+      req.file.originalname
+    );
+
+    return sendSuccess(res, result, 'Payment receipt uploaded successfully');
   })
 );
 

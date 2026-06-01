@@ -70,7 +70,8 @@ export function useProductsByCategory(
  */
 export function useInfiniteProductsByCategory(
   categoryId: number | 'all',
-  pageSize = 12
+  pageSize = 12,
+  enabled = true
 ) {
   return useInfiniteQuery({
     queryKey: ['productsByCategory', 'infinite', categoryId, pageSize],
@@ -95,7 +96,43 @@ export function useInfiniteProductsByCategory(
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 1,
-    enabled: categoryId !== null && categoryId !== undefined,
+    enabled: enabled && categoryId !== null && categoryId !== undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 2,
+  });
+}
+
+/**
+ * Infinite query hook for all store products (paginated catalog)
+ */
+export function useInfiniteAllProducts(pageSize = 20) {
+  return useInfiniteQuery({
+    queryKey: ['allProducts', 'infinite', pageSize],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await productService.getProducts({
+        page: pageParam,
+        pageSize,
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+      });
+
+      if (response.success && response.data) {
+        return {
+          products: response.data.map(transformBackendProduct),
+          pagination: response.pagination,
+          nextPage:
+            response.pagination && pageParam < response.pagination.totalPages
+              ? pageParam + 1
+              : undefined,
+        };
+      }
+      return { products: [], pagination: null, nextPage: undefined };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

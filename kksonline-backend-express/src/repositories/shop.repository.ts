@@ -61,6 +61,14 @@ export class ShopRepository {
   }
 
   /**
+   * Check if advance payment receipt is mandatory at checkout
+   */
+  async isAdvancePaymentReceiptMandatory(): Promise<boolean> {
+    const config = await this.getConfig();
+    return config?.is_advance_payment_receipt_mandatory ?? true;
+  }
+
+  /**
    * Update shop configuration (admin)
    */
   async updateConfig(updates: Prisma.ShopUpdateInput): Promise<Shop> {

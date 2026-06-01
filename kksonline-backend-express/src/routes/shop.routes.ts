@@ -22,17 +22,19 @@ router.get(
         taxRate: 0,
         shippingPrice: 0,
         freeShippingThreshold: null,
+        isAdvancePaymentReceiptMandatory: true,
       });
     }
 
-    return sendSuccess(res, {
-      shopName: config.shopname,
-      isShippingEnabled: config.is_shipping_enable,
-      maxAllowedQuantity: Number(config.max_allowed_item_quantity),
-      taxRate: Number(config.taxrate),
-      shippingPrice: Number(config.shipping_price),
-      freeShippingThreshold: config.threshold_free_shipping ? Number(config.threshold_free_shipping) : null,
-    });
+  return sendSuccess(res, {
+    shopName: config.shopname,
+    isShippingEnabled: config.is_shipping_enable,
+    maxAllowedQuantity: Number(config.max_allowed_item_quantity),
+    taxRate: Number(config.taxrate),
+    shippingPrice: Number(config.shipping_price),
+    freeShippingThreshold: config.threshold_free_shipping ? Number(config.threshold_free_shipping) : null,
+    isAdvancePaymentReceiptMandatory: config.is_advance_payment_receipt_mandatory,
+  });
   })
 );
 

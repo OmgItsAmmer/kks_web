@@ -150,6 +150,7 @@ export const schemas = {
     shippingMethod: z.enum(['shipping', 'pickup']),
     paymentMethod: z.enum(['cod', 'credit_card', 'bank_transfer', 'pickup', 'jazzcash']),
     idempotencyKey: z.string().optional(),
+    paymentReceiptPath: z.string().min(1).max(500).optional(),
   }),
 
   // Review
@@ -217,6 +218,7 @@ export const schemas = {
     thresholdFreeShipping: z.number().min(0).optional(),
     isShippingEnable: z.boolean().optional(),
     maxAllowedItemQuantity: z.number().int().positive().optional(),
+    isAdvancePaymentReceiptMandatory: z.boolean().optional(),
   }),
 
   // Coupon (admin)

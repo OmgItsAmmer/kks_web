@@ -16,7 +16,7 @@ import Wishlist from './pages/Wishlist';
 import SearchResults from './pages/SearchResults';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
-import Addresses from './pages/Addresses';
+import AllProducts from './pages/AllProducts';
 
 // Google Client ID from environment variable
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -57,6 +57,7 @@ function App() {
                 <Route path="/products/:category/:productId" element={<ProductDetail />} />
                 <Route path="/collection/:id" element={<CollectionDetail />} />
                 <Route path="/search" element={<SearchResults />} />
+                <Route path="/products" element={<AllProducts />} />
                 <Route 
                   path="/cart" 
                   element={
@@ -97,14 +98,14 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
-                <Route 
+                {/* <Route 
                   path="/addresses" 
                   element={
                     <ProtectedRoute>
                       <Addresses />
                     </ProtectedRoute>
                   } 
-                />
+                /> */}
                 {/* Add more routes as needed */}
                 <Route path="*" element={<Home />} />
               </Route>

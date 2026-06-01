@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, User, Heart, ShoppingCart, Truck, Menu, X, LogOut, Package, MapPin } from 'lucide-react';
+import { Search, User, Heart, ShoppingCart, Truck, Menu, X, LogOut, Package } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWishlist } from '../../contexts/WishlistContext';
 import LoginModal from '../auth/LoginModal';
@@ -250,14 +250,14 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
                           <Package size={18} />
                           <span>All Orders</span>
                         </Link>
-                        <Link 
+                        {/* <Link 
                           to="/addresses" 
                           className={styles.dropdownItem}
                           onClick={() => setShowUserMenu(false)}
                         >
                           <MapPin size={18} />
                           <span>Addresses</span>
-                        </Link>
+                        </Link> */}
                         <button 
                           className={styles.logoutButton}
                           onClick={handleLogout}

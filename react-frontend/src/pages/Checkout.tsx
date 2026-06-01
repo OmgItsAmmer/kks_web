@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle, Store, Copy, ExternalLink, Landmark } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import Loader from '../components/Loader';
-import MapLocationPicker from '../components/GoogleMapLocationPicker';
-import { addressService } from '../services/address.service';
+import PaymentReceiptUpload from '../components/checkout/PaymentReceiptUpload';
+// TEMP: Maps disabled — store pickup only
 import { checkoutService } from '../services/checkout.service';
 import { cartService } from '../services/cart.service';
-import type { CreateAddressRequest } from '../types/address';
+import { shopService } from '../services/shop.service';
 import type { CartItem } from '../types/cart';
 import styles from './Checkout.module.css';
 
@@ -19,34 +19,42 @@ interface LocationState {
   subtotal?: number;
   itemCount?: number;
   isReorder?: boolean;
+  isCollectionCheckout?: boolean;
+  collectionId?: number;
+  collectionName?: string;
 }
+
+const STORE_MAP_URL = 'https://maps.app.goo.gl/FnSNEcv2gNYyRhDJA';
+const STORE_NAME = 'Kashif Karyana Store';
+const STORE_MAP_EMBED_URL =
+  'https://maps.google.com/maps?q=29.7973111,72.8596898&z=16&output=embed';
+
+const BANK_NAME = 'HBL';
+const BANK_ACCOUNT_NAME = 'M Saeed Sarwar';
+const BANK_ACCOUNT_NUMBER = '01057900259703';
+const BANK_ACCOUNT_NUMBER_DISPLAY = '0105 7900 259703';
 
 const Checkout: React.FC = () => {
   const { isAuthenticated, showLoginModal } = useAuth();
-  const { showError, showWarning } = useSnackbar();
+  const { showWarning, showSuccess } = useSnackbar();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState;
 
   const [checkoutState, setCheckoutState] = useState<CheckoutState>('loading');
-  const [shippingMethod, setShippingMethod] = useState<'shipping' | 'pickup'>('shipping');
   const [error, setError] = useState<string | null>(null);
 
   // Cart data
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
 
-  // Google Maps location data
-  const [selectedLocation, setSelectedLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    place_id?: string;
-    formatted_address?: string;
-    address_components?: any;
-  } | null>(null);
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [saveAddress, setSaveAddress] = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
+  const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null);
+  const [isReceiptMandatory, setIsReceiptMandatory] = useState(true);
+  const [paymentReceiptPath, setPaymentReceiptPath] = useState<string | null>(null);
+  const [paymentReceiptPreviewUrl, setPaymentReceiptPreviewUrl] = useState<string | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -57,18 +65,14 @@ const Checkout: React.FC = () => {
     }
 
     loadData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, location.key]);
 
-  /**
-   * Load cart data
-   */
   const loadData = async () => {
     try {
       setCheckoutState('loading');
       setError(null);
 
-      // Load cart data (from state or fetch)
-      if (state?.cartItems && state?.subtotal) {
+      if (state?.cartItems && state?.subtotal !== undefined) {
         setCartItems(state.cartItems);
         setSubtotal(state.subtotal);
       } else {
@@ -76,6 +80,9 @@ const Checkout: React.FC = () => {
         setCartItems(cartData.items);
         setSubtotal(cartData.subtotal);
       }
+
+      const shopConfig = await shopService.getConfig();
+      setIsReceiptMandatory(shopConfig.isAdvancePaymentReceiptMandatory);
 
       setCheckoutState('ready');
     } catch (err: any) {
@@ -85,26 +92,9 @@ const Checkout: React.FC = () => {
     }
   };
 
-  /**
-   * Handle location selection from Google Maps
-   */
-  const handleLocationSelect = (location: {
-    latitude: number;
-    longitude: number;
-    place_id?: string;
-    formatted_address?: string;
-    address_components?: any;
-  }) => {
-    setSelectedLocation(location);
-  };
-
-  /**
-   * Process checkout
-   */
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate cart is not empty
     if (!cartItems || cartItems.length === 0) {
       if (state?.isReorder) {
         showWarning('No items available to reorder. All items may be out of stock.');
@@ -115,25 +105,20 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    // Validation
-    if (!selectedLocation) {
-      showWarning('Please select a delivery location on the map');
-      return;
-    }
-
     if (!fullName || !phoneNumber) {
       showWarning('Please provide your full name and phone number');
       return;
     }
 
-    // Extract address components from Google Maps data
-    const addressComponents = selectedLocation.address_components || {};
-    
+    if (isReceiptMandatory && !paymentReceiptPath) {
+      showWarning('Please upload your advance payment receipt before placing the order');
+      return;
+    }
+
     try {
       setCheckoutState('processing');
       setError(null);
 
-      // Prepare cart items for checkout
       const checkoutItems = cartItems.map((item) => {
         const cartItem: {
           variantId: number;
@@ -145,149 +130,89 @@ const Checkout: React.FC = () => {
           quantity: Number(item.quantity),
           sellPrice: Number(item.sellPrice),
         };
-        
-        // Only include buyPrice if it exists
+
         if (item.buyPrice !== undefined && item.buyPrice !== null) {
           cartItem.buyPrice = Number(item.buyPrice);
         }
-        
+
         return cartItem;
       });
 
-      // Validate cart items
       if (!checkoutItems || checkoutItems.length === 0) {
         throw new Error('Cart is empty. Please add items to cart before checkout.');
       }
 
-      // Helper function to get non-empty value or undefined
-      const getNonEmpty = (value: string | undefined) => {
-        const trimmed = value?.trim();
-        return trimmed && trimmed.length > 0 ? trimmed : undefined;
-      };
-
-      // Create address with Google Maps data - only include non-empty fields
-      const addressData: CreateAddressRequest = {
-        fullName: fullName.trim(),
-        phoneNumber: phoneNumber.trim(),
-        country: 'Pakistan',
-        latitude: selectedLocation.latitude,
-        longitude: selectedLocation.longitude,
-      };
-
-      // Only add optional fields if they have non-empty values
-      const formattedAddress = getNonEmpty(selectedLocation.formatted_address);
-      if (formattedAddress) {
-        addressData.shippingAddress = formattedAddress;
-        addressData.formatted_address = formattedAddress;
-      }
-
-      const city = getNonEmpty(
-        addressComponents.city || 
-        addressComponents.locality || 
-        addressComponents.town || 
-        addressComponents.village
-      );
-      if (city) {
-        addressData.city = city;
-      }
-
-      const postalCode = getNonEmpty(addressComponents.postal_code);
-      if (postalCode) {
-        addressData.postalCode = postalCode;
-      }
-
-      const placeId = getNonEmpty(selectedLocation.place_id);
-      if (placeId) {
-        addressData.place_id = placeId;
-      }
-
-      // Create address (save if checkbox is checked, otherwise temporary)
-      let addressIdToUse: number;
-      
-      try {
-        const addressResponse = await addressService.createAddress(addressData);
-        addressIdToUse = addressResponse.data.address_id;
-        
-        // If user doesn't want to save, we'll still create it but it will be associated with the order
-        // The backend can handle cleanup of unsaved addresses if needed
-      } catch (err: any) {
-        console.error('Error creating address:', err);
-        showError(err.message || 'Failed to create address');
-        return;
-      }
-
-      // Create checkout request (COD only)
       const checkoutRequest = {
-        addressId: addressIdToUse,
-        shippingMethod: shippingMethod as 'shipping' | 'pickup',
+        addressId: 0,
+        shippingMethod: 'pickup' as const,
         paymentMethod: 'cod' as const,
         cartItems: checkoutItems,
+        ...(paymentReceiptPath ? { paymentReceiptPath } : {}),
       };
-
-      console.log('[Checkout] Sending checkout request:', checkoutRequest);
 
       const result = await checkoutService.createOrder(checkoutRequest);
 
+      setPlacedOrderId(result.orderId ?? null);
+      setPlacedOrderTotal(result.total ?? null);
       setCheckoutState('success');
-
-      // Redirect to order confirmation
-      setTimeout(() => {
-        navigate(`/orders/${result.orderId}`, { 
-          state: { 
-            message: 'Order placed successfully!',
-            orderId: result.orderId,
-            total: result.total 
-          } 
-        });
-      }, 1000);
     } catch (err: any) {
       console.error('Error processing checkout:', err);
-      
-      // Handle validation errors with details
+
       if (err.status === 422 || err.statusCode === 422) {
         let errorMessage = 'Validation failed. Please check your input.';
-        
-        // Add validation error details if available
+
         if (err.errors) {
           const errorDetails = Object.entries(err.errors)
             .flatMap(([field, messages]) => {
               const msgArray = Array.isArray(messages) ? messages : [messages];
-              return msgArray.map(msg => `${field}: ${msg}`);
+              return msgArray.map((msg) => `${field}: ${msg}`);
             })
             .join('\n');
-          
+
           if (errorDetails) {
             errorMessage = `${errorMessage}\n\n${errorDetails}`;
           }
         } else if (err.message) {
           errorMessage = err.message;
         }
-        
-        console.error('[Checkout] Validation errors:', err.errors || err.response);
+
         setError(errorMessage);
       } else {
         setError(err.message || 'Failed to process checkout');
       }
-      
+
       setCheckoutState('error');
-      
-      // Reset to ready state after showing error
+
       setTimeout(() => {
         setCheckoutState('ready');
       }, 5000);
     }
   };
 
-  // Calculate totals
-  const deliveryFee = shippingMethod === 'shipping' ? 0 : 0; // Free delivery
-  const finalTotal = subtotal + deliveryFee;
+  const finalTotal = subtotal;
 
-  // Loading state
+  const handleCopyStoreLink = async () => {
+    try {
+      await navigator.clipboard.writeText(STORE_MAP_URL);
+      showSuccess('Store location link copied!');
+    } catch {
+      showWarning('Could not copy link. Please copy it manually.');
+    }
+  };
+
+  const handleCopyAccountNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(BANK_ACCOUNT_NUMBER);
+      showSuccess('Account number copied!');
+    } catch {
+      showWarning('Could not copy account number. Please copy it manually.');
+    }
+  };
+
   if (checkoutState === 'loading') {
     return <Loader message="Loading checkout..." variant="fullpage" />;
   }
 
-  // Success state
   if (checkoutState === 'success') {
     return (
       <div className={styles.checkoutPage}>
@@ -295,7 +220,20 @@ const Checkout: React.FC = () => {
           <div className={styles.successContainer}>
             <ShieldCheck size={64} />
             <h2>Order Placed Successfully!</h2>
-            <p>Redirecting to order details...</p>
+            <p>Thank you for your order. We will have it ready for store pickup.</p>
+            {placedOrderId && (
+              <p className={styles.successOrderMeta}>
+                Order #{placedOrderId}
+                {placedOrderTotal != null && ` · Rs ${placedOrderTotal.toFixed(2)}`}
+              </p>
+            )}
+            <button
+              type="button"
+              className={styles.successContinueBtn}
+              onClick={() => navigate('/')}
+            >
+              Continue
+            </button>
           </div>
         </div>
       </div>
@@ -304,7 +242,6 @@ const Checkout: React.FC = () => {
 
   return (
     <div className={styles.checkoutPage}>
-      {/* Features Bar */}
       <div className={styles.featuresBar}>
         <div className="container">
           <div className={styles.features}>
@@ -318,10 +255,10 @@ const Checkout: React.FC = () => {
             </div>
             <div className={styles.feature}>
               <div className={styles.featureIcon}>
-                <Truck size={20} />
+                <Store size={20} />
               </div>
               <div className={styles.featureText}>
-                <span className={styles.featureTitle}>Free Delivery</span>
+                <span className={styles.featureTitle}>Store Pickup</span>
               </div>
             </div>
             <div className={styles.feature}>
@@ -336,7 +273,6 @@ const Checkout: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="container">
         <div className={styles.header}>
           <h1 className={styles.title}>Checkout</h1>
@@ -351,28 +287,16 @@ const Checkout: React.FC = () => {
         )}
 
         <div className={styles.content}>
-          {/* Checkout Form */}
           <div className={styles.formSection}>
             <form onSubmit={handleCheckout}>
-              {/* Delivery Address */}
               <div className={styles.formGroup}>
                 <div className={styles.sectionHeader}>
                   <div className={styles.sectionIcon}>
                     <MapPin size={20} />
                   </div>
-                  <h2>Delivery Address</h2>
+                  <h2>Pickup Details</h2>
                 </div>
 
-                {/* Map Location Picker */}
-                <div className={styles.mapPickerContainer}>
-                  <MapLocationPicker
-                    onLocationSelect={handleLocationSelect}
-                    height="400px"
-                    required
-                  />
-                </div>
-
-                {/* Customer Details */}
                 <div className={styles.customerDetails}>
                   <div className={styles.formRow}>
                     <div className={styles.formField}>
@@ -403,86 +327,138 @@ const Checkout: React.FC = () => {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  {/* Display selected address */}
-                  {selectedLocation?.formatted_address && (
-                    <div className={styles.selectedAddress}>
-                      <MapPin size={16} />
-                      <span>{selectedLocation.formatted_address}</span>
+              <div className={styles.formGroup}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionIcon}>
+                    <Landmark size={20} />
+                  </div>
+                  <h2>Advance Payment</h2>
+                </div>
+
+                <p className={styles.bankTransferIntro}>
+                  Transfer <strong>Rs {finalTotal.toFixed(2)}</strong> to our bank account below, then upload your payment receipt.
+                </p>
+
+                <div className={styles.bankDetails}>
+                  <div className={styles.bankDetailRow}>
+                    <span className={styles.bankDetailLabel}>Bank Name</span>
+                    <span className={styles.bankDetailValue}>{BANK_NAME}</span>
+                  </div>
+                  <div className={styles.bankDetailRow}>
+                    <span className={styles.bankDetailLabel}>Account Name</span>
+                    <span className={styles.bankDetailValue}>{BANK_ACCOUNT_NAME}</span>
+                  </div>
+                  <div className={styles.bankDetailRow}>
+                    <span className={styles.bankDetailLabel}>Account Number</span>
+                    <div className={styles.copyLinkRow}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={BANK_ACCOUNT_NUMBER_DISPLAY}
+                        className={styles.copyLinkInput}
+                        aria-label="Bank account number"
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <button
+                        type="button"
+                        className={styles.copyLinkBtn}
+                        onClick={handleCopyAccountNumber}
+                      >
+                        <Copy size={16} />
+                        Copy
+                      </button>
                     </div>
-                  )}
-
-                  {/* Save address checkbox */}
-                  <div className={styles.checkboxField}>
-                    <input
-                      type="checkbox"
-                      id="saveAddress"
-                      checked={saveAddress}
-                      onChange={(e) => setSaveAddress(e.target.checked)}
-                      className={styles.checkbox}
-                    />
-                    <label htmlFor="saveAddress">Save this address for later use</label>
                   </div>
                 </div>
               </div>
 
-              {/* Delivery Options */}
+              <PaymentReceiptUpload
+                isMandatory={isReceiptMandatory}
+                receiptPath={paymentReceiptPath}
+                receiptPreviewUrl={paymentReceiptPreviewUrl}
+                onReceiptChange={({ receiptPath, receiptPreviewUrl }) => {
+                  setPaymentReceiptPath(receiptPath);
+                  setPaymentReceiptPreviewUrl(receiptPreviewUrl);
+                }}
+                onUploadError={(message) => showWarning(message)}
+              />
+
               <div className={styles.formGroup}>
                 <div className={styles.sectionHeader}>
                   <div className={styles.sectionIcon}>
                     <Truck size={20} />
                   </div>
-                  <h2>Delivery Options</h2>
+                  <h2>Pickup Option</h2>
                 </div>
 
                 <div className={styles.deliveryOptions}>
-                  <label className={`${styles.deliveryOption} ${shippingMethod === 'shipping' ? styles.selected : ''}`}>
-                    <input
-                      type="radio"
-                      name="delivery"
-                      value="shipping"
-                      checked={shippingMethod === 'shipping'}
-                      onChange={() => setShippingMethod('shipping')}
-                      className={styles.radio}
-                    />
-                    <div className={styles.deliveryInfo}>
-                      <div className={styles.deliveryTitle}>
-                        <span className={styles.deliveryName}>Home Delivery (1-3 Hours)</span>
-                        <span className={styles.deliveryPrice}>Free</span>
-                      </div>
-                      <p className={styles.deliveryDescription}>Free delivery to your doorstep</p>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.deliveryOption} ${shippingMethod === 'pickup' ? styles.selected : ''}`}>
-                    <input
-                      type="radio"
-                      name="delivery"
-                      value="pickup"
-                      checked={shippingMethod === 'pickup'}
-                      onChange={() => setShippingMethod('pickup')}
-                      className={styles.radio}
-                    />
+                  <div className={`${styles.deliveryOption} ${styles.selected}`}>
                     <div className={styles.deliveryInfo}>
                       <div className={styles.deliveryTitle}>
                         <span className={styles.deliveryName}>Store Pickup</span>
                         <span className={styles.deliveryPrice}>Free</span>
                       </div>
-                      <p className={styles.deliveryDescription}>Pick up from our store</p>
+                      <p className={styles.deliveryDescription}>
+                        Collect your order from our KKS store. Home delivery is temporarily unavailable.
+                      </p>
                     </div>
-                  </label>
+                  </div>
+                </div>
+
+                <div className={styles.storeLocation}>
+                  <p className={styles.storeLocationTitle}>Store Location</p>
+                  <p className={styles.storeLocationName}>{STORE_NAME}</p>
+
+                  <div className={styles.mapEmbed} data-lenis-prevent>
+                    <iframe
+                      title={`${STORE_NAME} on Google Maps`}
+                      src={STORE_MAP_EMBED_URL}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      allowFullScreen
+                    />
+                  </div>
+
+                  <div className={styles.copyLinkRow}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={STORE_MAP_URL}
+                      className={styles.copyLinkInput}
+                      aria-label="Store location link"
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      type="button"
+                      className={styles.copyLinkBtn}
+                      onClick={handleCopyStoreLink}
+                    >
+                      <Copy size={16} />
+                      Copy
+                    </button>
+                  </div>
+
+                  <a
+                    href={STORE_MAP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.openMapsLink}
+                  >
+                    <ExternalLink size={16} />
+                    Open in Google Maps
+                  </a>
                 </div>
               </div>
-
             </form>
           </div>
 
-          {/* Order Summary */}
           <div className={styles.summarySection}>
             <div className={styles.orderSummary}>
               <h2 className={styles.summaryTitle}>Order Summary</h2>
 
-              {/* Cart Items */}
               <div className={styles.summaryItems}>
                 {cartItems.slice(0, 3).map((item, index) => (
                   <div key={`${item.cartId || 'item'}-${item.variantId}-${index}`} className={styles.summaryItem}>
@@ -503,7 +479,7 @@ const Checkout: React.FC = () => {
               </div>
 
               <div className={styles.summaryRow}>
-                <span>Delivery</span>
+                <span>Pickup</span>
                 <span className={styles.freeDelivery}>Free</span>
               </div>
 
@@ -514,11 +490,14 @@ const Checkout: React.FC = () => {
                 <span>Rs {finalTotal.toFixed(2)}</span>
               </div>
 
-              <button 
-                type="submit" 
-                onClick={handleCheckout} 
+              <button
+                type="submit"
+                onClick={handleCheckout}
                 className={styles.checkoutBtn}
-                disabled={checkoutState === 'processing'}
+                disabled={
+                  checkoutState === 'processing' ||
+                  (isReceiptMandatory && !paymentReceiptPath)
+                }
               >
                 <Lock size={20} />
                 {checkoutState === 'processing' ? 'Processing...' : 'Place Order'}
@@ -534,7 +513,6 @@ const Checkout: React.FC = () => {
                 </div>
               </div>
 
-              {/* Payment Method */}
               <div className={styles.paymentMethods}>
                 <p className={styles.paymentTitle}>Payment Method:</p>
                 <div className={styles.paymentIcons}>
@@ -542,7 +520,6 @@ const Checkout: React.FC = () => {
                 </div>
               </div>
 
-              {/* Warranty Badge */}
               <div className={styles.warranty}>
                 <ShieldCheck size={24} />
                 <span>10 Days Warranty</span>

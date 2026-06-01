@@ -118,7 +118,8 @@ router.post(
       req.file.buffer,
       'customers',
       req.customerId,
-      req.file.originalname
+      req.file.originalname,
+      req.file.mimetype
     );
 
     return sendSuccess(res, {
