@@ -39,7 +39,7 @@ const features: Feature[] = [
 const FeaturesBar: React.FC = () => {
   return (
     <div className={styles.featuresBar}>
-      <div className={styles.scrollContainer}>
+      <div className={styles.scrollContainer} data-lenis-prevent>
         <div className={styles.featuresGrid}>
           {features.map((feature, index) => (
             <div key={index} className={styles.featureItem}>
