@@ -16,6 +16,29 @@ vi.mock('../../../src/config/database.config', () => ({
 
 vi.mock('../../../src/config/supabase.config', () => ({
   getSupabasePublicUrl: mockGetSupabasePublicUrl,
+  SUPABASE_BUCKETS: {
+    products: 'products',
+    vendors: 'vendors',
+    guarantors: 'guarantors',
+    salesman: 'salesman',
+    users: 'users',
+    customers: 'customers',
+    brands: 'brands',
+    categories: 'categories',
+    shop: 'shop',
+    collections: 'collections',
+    paymentReceipts: 'payment-receipts',
+  },
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn().mockResolvedValue({ error: null }),
+        remove: vi.fn().mockResolvedValue({ error: null }),
+        createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: 'https://signed.example/receipt' }, error: null }),
+        list: vi.fn().mockResolvedValue({ data: [], error: null }),
+      })),
+    },
+  },
 }));
 
 vi.mock('../../../src/utils/logger', () => ({
