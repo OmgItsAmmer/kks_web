@@ -101,7 +101,7 @@ router.post(
       return sendSuccess(res, {
         orderId: result.orderId,
         total: result.total,
-      }, result.message);
+      }, result.message); 
     } else {
       return sendError(res, result.message, 400, result.errorCode as ErrorCode | undefined);
     }
