@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "next-sitemap --config next-sitemap.config.cjs",
+    "sitemap": "next-sitemap --config next-sitemap.config.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -15,6 +17,7 @@
     "leaflet": "^1.9.4",
     "lenis": "^1.3.23",
     "lucide-react": "^0.468.0",
+    "next-sitemap": "^4.2.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
