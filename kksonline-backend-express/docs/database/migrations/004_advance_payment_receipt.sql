@@ -2,7 +2,7 @@
 -- 004_advance_payment_receipt.sql
 -- KKS Online — Advance payment receipt feature (shop toggle + order receipt path)
 -- Docs: ../schema.md, ../RLS_policies.md
--- Default: receipt upload is mandatory (true)
+-- Default: receipt upload is mandatory (true). TEMP off: see 006_disable_advance_payment_receipt_temp.sql + feature-flags.ts
 -- Safe to re-run where noted.
 -- =============================================================================
 

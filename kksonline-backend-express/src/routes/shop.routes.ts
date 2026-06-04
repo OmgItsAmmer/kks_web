@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { shopRepository } from '../repositories/shop.repository';
 import { asyncHandler } from '../middleware/error.middleware';
 import { sendSuccess } from '../utils/response';
+import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get(
         taxRate: 0,
         shippingPrice: 0,
         freeShippingThreshold: null,
-        isAdvancePaymentReceiptMandatory: true,
+        isAdvancePaymentReceiptMandatory: ADVANCE_PAYMENT_RECEIPT_ENABLED,
       });
     }
 
@@ -33,7 +34,9 @@ router.get(
     taxRate: Number(config.taxrate),
     shippingPrice: Number(config.shipping_price),
     freeShippingThreshold: config.threshold_free_shipping ? Number(config.threshold_free_shipping) : null,
-    isAdvancePaymentReceiptMandatory: config.is_advance_payment_receipt_mandatory,
+    isAdvancePaymentReceiptMandatory: ADVANCE_PAYMENT_RECEIPT_ENABLED
+      ? config.is_advance_payment_receipt_mandatory
+      : false,
   });
   })
 );

@@ -376,3 +376,20 @@
 | wishlist                | created_at                | timestamp with time zone    |
 | wishlist                | product_id                | integer                     |
 | wishlist                | customer_id               | integer                     |
+
+---
+
+## Advance payment receipt (TEMP disabled)
+
+Columns added in `004_advance_payment_receipt.sql` (not all reflected in the table dump above):
+
+| table_name | column_name | data_type | notes |
+| ---------- | ----------- | --------- | ----- |
+| shop | is_advance_payment_receipt_mandatory | boolean | Default `true`; set to `false` via `006_disable_advance_payment_receipt_temp.sql` while feature is off |
+| orders | payment_receipt_path | text | Supabase path under `payment-receipts` bucket; not written while disabled |
+
+**Runtime:** `ADVANCE_PAYMENT_RECEIPT_ENABLED = false` in `src/config/feature-flags.ts` skips checkout validation, receipt upload API (`POST /orders/payment-receipt`), and Supabase receipt storage helpers.
+
+**Storage:** `payment-receipts` bucket and RLS (`005_payment_receipts_storage_rls.sql`) remain in place but are unused until re-enabled.
+
+**Re-enable:** Run migration toggle (or `UPDATE shop SET is_advance_payment_receipt_mandatory = true`), set feature flag to `true` in backend and `react-frontend/src/config/feature-flags.ts`, restore checkout UI.

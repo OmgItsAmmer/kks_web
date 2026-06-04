@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { InternalServerError, NotFoundError } from '../utils/errors';
 import { CacheKeys, withCache, deleteFromCache } from '../utils/cache';
 import type { Shop, AppVersion } from '@prisma/client';
+import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 
 export class ShopRepository {
   /**
@@ -64,6 +65,10 @@ export class ShopRepository {
    * Check if advance payment receipt is mandatory at checkout
    */
   async isAdvancePaymentReceiptMandatory(): Promise<boolean> {
+    if (!ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      return false;
+    }
+
     const config = await this.getConfig();
     return config?.is_advance_payment_receipt_mandatory ?? true;
   }

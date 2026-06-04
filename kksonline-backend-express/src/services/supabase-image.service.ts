@@ -4,6 +4,7 @@ import { supabase, getSupabasePublicUrl, SUPABASE_BUCKETS } from '../config/supa
 import { logger } from '../utils/logger';
 import { BadRequestError, InternalServerError, NotFoundError } from '../utils/errors';
 import { CacheKeys, deleteByPattern } from '../utils/cache';
+import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 
 export type EntityCategory =
   | 'products'
@@ -411,8 +412,14 @@ export class SupabaseImageService {
   }
 
   // ---------------------------------------------------------------------------
-  // Payment receipts (private bucket)
+  // Payment receipts (private bucket) — TEMP disabled via feature flag
   // ---------------------------------------------------------------------------
+
+  private assertReceiptFeatureEnabled(): void {
+    if (!ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      throw new BadRequestError('Advance payment receipt upload is temporarily disabled');
+    }
+  }
 
   async uploadReceipt(
     customerId: number,
@@ -420,6 +427,8 @@ export class SupabaseImageService {
     mimeType: string,
     originalFilename?: string
   ): Promise<PaymentReceiptUploadResult> {
+    this.assertReceiptFeatureEnabled();
+
     if (!UPLOAD_ALLOWED_MIME_TYPES.has(mimeType)) {
       throw new BadRequestError('Only JPEG, PNG, WebP, or GIF receipt images are allowed');
     }
@@ -442,6 +451,10 @@ export class SupabaseImageService {
   }
 
   async verifyReceiptOwnership(customerId: number, receiptPath: string): Promise<boolean> {
+    if (!ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      return false;
+    }
+
     if (!this.isValidReceiptPath(customerId, receiptPath)) {
       return false;
     }
@@ -472,6 +485,8 @@ export class SupabaseImageService {
   }
 
   async createReceiptSignedUrl(receiptPath: string): Promise<string> {
+    this.assertReceiptFeatureEnabled();
+
     const { data, error } = await supabase.storage
       .from(PAYMENT_RECEIPT_BUCKET)
       .createSignedUrl(receiptPath, SIGNED_URL_TTL_SECONDS);

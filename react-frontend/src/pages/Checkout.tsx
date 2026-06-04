@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle, Store, Copy, ExternalLink, Landmark } from 'lucide-react';
+import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle, Store, Copy, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import Loader from '../components/Loader';
-import PaymentReceiptUpload from '../components/checkout/PaymentReceiptUpload';
-// TEMP: Maps disabled — store pickup only
+// TEMP: Advance payment receipt + bank details disabled — see src/config/feature-flags.ts
 import { checkoutService } from '../services/checkout.service';
 import { cartService } from '../services/cart.service';
-import { shopService } from '../services/shop.service';
 import type { CartItem } from '../types/cart';
 import styles from './Checkout.module.css';
 
@@ -29,11 +27,6 @@ const STORE_NAME = 'Kashif Karyana Store';
 const STORE_MAP_EMBED_URL =
   'https://maps.google.com/maps?q=29.7973111,72.8596898&z=16&output=embed';
 
-const BANK_NAME = 'HBL';
-const BANK_ACCOUNT_NAME = 'M Saeed Sarwar';
-const BANK_ACCOUNT_NUMBER = '01057900259703';
-const BANK_ACCOUNT_NUMBER_DISPLAY = '0105 7900 259703';
-
 const Checkout: React.FC = () => {
   const { isAuthenticated, showLoginModal } = useAuth();
   const { showWarning, showSuccess } = useSnackbar();
@@ -44,7 +37,6 @@ const Checkout: React.FC = () => {
   const [checkoutState, setCheckoutState] = useState<CheckoutState>('loading');
   const [error, setError] = useState<string | null>(null);
 
-  // Cart data
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
 
@@ -52,11 +44,7 @@ const Checkout: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null);
-  const [isReceiptMandatory, setIsReceiptMandatory] = useState(true);
-  const [paymentReceiptPath, setPaymentReceiptPath] = useState<string | null>(null);
-  const [paymentReceiptPreviewUrl, setPaymentReceiptPreviewUrl] = useState<string | null>(null);
 
-  // Load initial data
   useEffect(() => {
     if (!isAuthenticated) {
       showLoginModal();
@@ -81,9 +69,6 @@ const Checkout: React.FC = () => {
         setSubtotal(cartData.subtotal);
       }
 
-      const shopConfig = await shopService.getConfig();
-      setIsReceiptMandatory(shopConfig.isAdvancePaymentReceiptMandatory);
-
       setCheckoutState('ready');
     } catch (err: any) {
       console.error('Error loading checkout data:', err);
@@ -107,11 +92,6 @@ const Checkout: React.FC = () => {
 
     if (!fullName || !phoneNumber) {
       showWarning('Please provide your full name and phone number');
-      return;
-    }
-
-    if (isReceiptMandatory && !paymentReceiptPath) {
-      showWarning('Please upload your advance payment receipt before placing the order');
       return;
     }
 
@@ -147,7 +127,6 @@ const Checkout: React.FC = () => {
         shippingMethod: 'pickup' as const,
         paymentMethod: 'cod' as const,
         cartItems: checkoutItems,
-        ...(paymentReceiptPath ? { paymentReceiptPath } : {}),
       };
 
       const result = await checkoutService.createOrder(checkoutRequest);
@@ -197,15 +176,6 @@ const Checkout: React.FC = () => {
       showSuccess('Store location link copied!');
     } catch {
       showWarning('Could not copy link. Please copy it manually.');
-    }
-  };
-
-  const handleCopyAccountNumber = async () => {
-    try {
-      await navigator.clipboard.writeText(BANK_ACCOUNT_NUMBER);
-      showSuccess('Account number copied!');
-    } catch {
-      showWarning('Could not copy account number. Please copy it manually.');
     }
   };
 
@@ -333,62 +303,6 @@ const Checkout: React.FC = () => {
               <div className={styles.formGroup}>
                 <div className={styles.sectionHeader}>
                   <div className={styles.sectionIcon}>
-                    <Landmark size={20} />
-                  </div>
-                  <h2>Advance Payment</h2>
-                </div>
-
-                <p className={styles.bankTransferIntro}>
-                  Transfer <strong>Rs {finalTotal.toFixed(2)}</strong> to our bank account below, then upload your payment receipt.
-                </p>
-
-                <div className={styles.bankDetails}>
-                  <div className={styles.bankDetailRow}>
-                    <span className={styles.bankDetailLabel}>Bank Name</span>
-                    <span className={styles.bankDetailValue}>{BANK_NAME}</span>
-                  </div>
-                  <div className={styles.bankDetailRow}>
-                    <span className={styles.bankDetailLabel}>Account Name</span>
-                    <span className={styles.bankDetailValue}>{BANK_ACCOUNT_NAME}</span>
-                  </div>
-                  <div className={styles.bankDetailRow}>
-                    <span className={styles.bankDetailLabel}>Account Number</span>
-                    <div className={styles.copyLinkRow}>
-                      <input
-                        type="text"
-                        readOnly
-                        value={BANK_ACCOUNT_NUMBER_DISPLAY}
-                        className={styles.copyLinkInput}
-                        aria-label="Bank account number"
-                        onFocus={(e) => e.target.select()}
-                      />
-                      <button
-                        type="button"
-                        className={styles.copyLinkBtn}
-                        onClick={handleCopyAccountNumber}
-                      >
-                        <Copy size={16} />
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <PaymentReceiptUpload
-                isMandatory={isReceiptMandatory}
-                receiptPath={paymentReceiptPath}
-                receiptPreviewUrl={paymentReceiptPreviewUrl}
-                onReceiptChange={({ receiptPath, receiptPreviewUrl }) => {
-                  setPaymentReceiptPath(receiptPath);
-                  setPaymentReceiptPreviewUrl(receiptPreviewUrl);
-                }}
-                onUploadError={(message) => showWarning(message)}
-              />
-
-              <div className={styles.formGroup}>
-                <div className={styles.sectionHeader}>
-                  <div className={styles.sectionIcon}>
                     <Truck size={20} />
                   </div>
                   <h2>Pickup Option</h2>
@@ -494,10 +408,7 @@ const Checkout: React.FC = () => {
                 type="submit"
                 onClick={handleCheckout}
                 className={styles.checkoutBtn}
-                disabled={
-                  checkoutState === 'processing' ||
-                  (isReceiptMandatory && !paymentReceiptPath)
-                }
+                disabled={checkoutState === 'processing'}
               >
                 <Lock size={20} />
                 {checkoutState === 'processing' ? 'Processing...' : 'Place Order'}

@@ -9,6 +9,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
 import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../utils/response';
 import type { CustomerRequest, ErrorCode } from '../types/api.types';
+import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 
 const router = Router();
 
@@ -131,6 +132,10 @@ router.post(
   '/payment-receipt',
   receiptUpload.single('receipt'),
   asyncHandler(async (req: CustomerRequest, res: Response) => {
+    if (!ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      return sendError(res, 'Advance payment receipt upload is temporarily disabled', 503);
+    }
+
     if (!req.customerId) {
       return sendError(res, 'Unauthorized', 401);
     }

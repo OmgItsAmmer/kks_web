@@ -18,6 +18,7 @@ import { orderRepository } from '../repositories/order.repository';
 import { addressRepository } from '../repositories/address.repository';
 import { shopRepository } from '../repositories/shop.repository';
 import { supabaseImageService } from './supabase-image.service';
+import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 import type { PaymentMethod, SeverityLevel, OrderStatus } from '@prisma/client';
 
 export interface CartItem {
@@ -107,8 +108,10 @@ export class CheckoutService {
     // Step 5: Validate shipping method
     await this.validateShippingMethod(request.shippingMethod, request.addressId);
 
-    // Step 5b: Validate advance payment receipt when mandatory
-    await this.validatePaymentReceipt(customerId, request.paymentReceiptPath);
+    // Step 5b: Validate advance payment receipt when feature is enabled
+    if (ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      await this.validatePaymentReceipt(customerId, request.paymentReceiptPath);
+    }
 
     // Step 6: Validate cart security (prices, stock, etc.)
     const validation = await this.validateCartSecurity(cartItems);
@@ -150,7 +153,7 @@ export class CheckoutService {
         request.paymentMethod,
         validation.totals!,
         idempotencyKey,
-        request.paymentReceiptPath
+        ADVANCE_PAYMENT_RECEIPT_ENABLED ? request.paymentReceiptPath : undefined
       );
 
       if (!orderResult.success) {
@@ -252,6 +255,10 @@ export class CheckoutService {
     customerId: number,
     paymentReceiptPath?: string
   ): Promise<void> {
+    if (!ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+      return;
+    }
+
     const isMandatory = await shopRepository.isAdvancePaymentReceiptMandatory();
 
     if (!paymentReceiptPath?.trim()) {
@@ -541,7 +548,9 @@ export class CheckoutService {
         shipping_method: shippingMethod,
         payment_method: paymentMethod,
         idempotency_key: idempotencyKey,
-        payment_receipt_path: paymentReceiptPath?.trim() || null,
+        payment_receipt_path: ADVANCE_PAYMENT_RECEIPT_ENABLED
+          ? paymentReceiptPath?.trim() || null
+          : null,
       });
 
       // Create order items
