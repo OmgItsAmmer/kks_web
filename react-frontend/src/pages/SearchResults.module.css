@@ -75,6 +75,30 @@
   margin: 0;
 }
 
+.pricing {
+  margin-top: auto;
+}
+
+.fromLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 0.125rem;
+}
+
+.productPrices {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.originalPrice {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .pagination {
   display: flex;
   align-items: center;
