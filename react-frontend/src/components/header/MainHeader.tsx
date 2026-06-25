@@ -12,7 +12,7 @@ import styles from './MainHeader.module.css';
 interface SearchProduct {
   product_id: number;
   name: string;
-  sale_price: string;
+
   mainImage?: string | null;
 }
 
@@ -32,6 +32,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
   const { wishlistCount } = useWishlist();
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -41,7 +42,11 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      const clickedOutsideSearch = 
+        (!searchRef.current || !searchRef.current.contains(event.target as Node)) &&
+        (!mobileSearchRef.current || !mobileSearchRef.current.contains(event.target as Node));
+      
+      if (clickedOutsideSearch) {
         setShowSearchDropdown(false);
       }
     };
@@ -62,6 +67,21 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
     } else {
       setCartCount(0);
     }
+  }, [isAuthenticated]);
+
+  // Listen for cart update events
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      if (isAuthenticated) {
+        loadCartCount();
+      } else {
+        setCartCount(0);
+      }
+    };
+    window.addEventListener('cart-updated', handleCartUpdate);
+    return () => {
+      window.removeEventListener('cart-updated', handleCartUpdate);
+    };
   }, [isAuthenticated]);
 
   // Search debounce
@@ -191,7 +211,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
                             )}
                             <div className={styles.searchResultInfo}>
                               <p className={styles.searchResultName}>{product.name}</p>
-                              <p className={styles.searchResultPrice}>Rs {parseFloat(product.sale_price).toLocaleString()}</p>
+                              {/* <p className={styles.searchResultPrice}>Rs {parseFloat(product.sale_price).toLocaleString()}</p> */}
                             </div>
                           </div>
                         ))}
@@ -298,17 +318,60 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
           </div>
 
           {/* Mobile Search */}
-          <div className={styles.mobileSearch}>
-            <div className={styles.mobileSearchWrapper}>
+          <div className={styles.mobileSearch} ref={mobileSearchRef}>
+            <form onSubmit={handleSearchSubmit} className={styles.mobileSearchWrapper}>
               <input
                 type="text"
                 placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
                 className={styles.mobileSearchInput}
               />
-              <button className={styles.mobileSearchButton} aria-label="Search">
+              <button type="submit" className={styles.mobileSearchButton} aria-label="Search">
                 <Search size={20} />
               </button>
-            </div>
+            </form>
+
+            {/* Mobile Search Dropdown */}
+            {showSearchDropdown && (
+              <div className={styles.searchDropdown}>
+                {isSearching ? (
+                  <div className={styles.searchLoading}>Searching...</div>
+                ) : searchResults.length > 0 ? (
+                  <>
+                    {searchResults.map((product) => (
+                      <div
+                        key={product.product_id}
+                        className={styles.searchResultItem}
+                        onClick={() => handleProductClick(product.product_id)}
+                      >
+                        {product.mainImage && (
+                          <img
+                            src={product.mainImage}
+                            alt={product.name}
+                            className={styles.searchResultImage}
+                          />
+                        )}
+                        <div className={styles.searchResultInfo}>
+                          <p className={styles.searchResultName}>{product.name}</p>
+                          {/* <p className={styles.searchResultPrice}>Rs {parseFloat(product.sale_price).toLocaleString()}</p> */}
+                        </div>
+                      </div>
+                    ))}
+                    <Link 
+                      to={`/search?q=${encodeURIComponent(searchQuery)}`} 
+                      className={styles.searchViewAll}
+                      onClick={() => setShowSearchDropdown(false)}
+                    >
+                      View all results
+                    </Link>
+                  </>
+                ) : (
+                  <div className={styles.searchNoResults}>No products found</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

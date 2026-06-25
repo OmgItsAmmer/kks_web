@@ -43,6 +43,20 @@ const Home: React.FC = () => {
     }
   }, [categoryParam]);
 
+  // Scroll to testimonials section when scroll param is present
+  const scrollParam = searchParams.get('scroll');
+  useEffect(() => {
+    if (scrollParam === 'testimonials') {
+      const scrollTimer = setTimeout(() => {
+        const element = document.getElementById('testimonials-section');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [scrollParam]);
+
   return (
     <main>
       {/* Features Bar - Trust indicators */}

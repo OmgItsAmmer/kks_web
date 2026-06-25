@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isOperationalError = exports.OrderCreationFailedError = exports.PaymentFailedError = exports.PhoneNumberRequiredError = exports.ShippingMethodInvalidError = exports.SecurityViolationError = exports.PriceMismatchError = exports.InventoryUnavailableError = exports.DuplicateOrderError = exports.CartEmptyError = exports.ExternalServiceError = exports.DatabaseError = exports.InternalServerError = exports.TooManyRequestsError = exports.ValidationError = exports.ConflictError = exports.NotFoundError = exports.ForbiddenError = exports.UnauthorizedError = exports.BadRequestError = exports.ApiError = void 0;
+exports.isOperationalError = exports.OrderCreationFailedError = exports.PaymentReceiptRequiredError = exports.PaymentFailedError = exports.PhoneNumberRequiredError = exports.ShippingMethodInvalidError = exports.SecurityViolationError = exports.PriceMismatchError = exports.InventoryUnavailableError = exports.DuplicateOrderError = exports.CartEmptyError = exports.ExternalServiceError = exports.DatabaseError = exports.InternalServerError = exports.TooManyRequestsError = exports.ValidationError = exports.ConflictError = exports.NotFoundError = exports.ForbiddenError = exports.UnauthorizedError = exports.BadRequestError = exports.ApiError = void 0;
 const api_types_js_1 = require("../types/api.types.js");
 // Base API Error class
 class ApiError extends Error {
@@ -131,6 +131,12 @@ class PaymentFailedError extends BadRequestError {
     }
 }
 exports.PaymentFailedError = PaymentFailedError;
+class PaymentReceiptRequiredError extends BadRequestError {
+    constructor(message = 'Advance payment receipt is required to complete checkout') {
+        super(message, api_types_js_1.ErrorCodes.PAYMENT_RECEIPT_REQUIRED);
+    }
+}
+exports.PaymentReceiptRequiredError = PaymentReceiptRequiredError;
 class OrderCreationFailedError extends ApiError {
     constructor(message = 'Order creation failed') {
         super(message, 500, api_types_js_1.ErrorCodes.ORDER_CREATION_FAILED);

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const wishlist_repository_1 = require("../repositories/wishlist.repository");
-const image_service_1 = require("../services/image.service");
+const supabase_image_service_1 = require("../services/supabase-image.service");
 const validation_middleware_1 = require("../middleware/validation.middleware");
 const error_middleware_1 = require("../middleware/error.middleware");
 const customer_middleware_1 = require("../middleware/customer.middleware");
@@ -21,9 +21,9 @@ router.get('/', (0, error_middleware_1.asyncHandler)(async (req, res) => {
         return (0, response_1.sendError)(res, 'Unauthorized', 401);
     }
     const items = await wishlist_repository_1.wishlistRepository.findWithProductDetails(req.customerId);
-    // Fetch images for products
+    // Fetch images for products from Supabase storage (matching product routes)
     const productIds = items.map((item) => item.productId);
-    const images = await image_service_1.imageService.getMainImagesForEntities(productIds, 'products');
+    const images = await supabase_image_service_1.supabaseImageService.getMainImagesForEntities(productIds, 'products');
     const itemsWithImages = items.map((item) => ({
         ...item,
         imageUrl: images.get(item.productId) || null,

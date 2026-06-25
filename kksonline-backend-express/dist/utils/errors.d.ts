@@ -60,6 +60,9 @@ export declare class PhoneNumberRequiredError extends BadRequestError {
 export declare class PaymentFailedError extends BadRequestError {
     constructor(message?: string);
 }
+export declare class PaymentReceiptRequiredError extends BadRequestError {
+    constructor(message?: string);
+}
 export declare class OrderCreationFailedError extends ApiError {
     constructor(message?: string);
 }

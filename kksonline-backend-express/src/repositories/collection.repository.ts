@@ -559,7 +559,7 @@ export class CollectionRepository {
         collectionCartId = newCart[0].collection_cart_id;
       }
 
-      // Insert cart items
+      // Insert cart items into collection_cart_items
       for (const item of items) {
         await db.$executeRaw`
           INSERT INTO collection_cart_items (collection_cart_id, variant_id, quantity)
@@ -567,8 +567,35 @@ export class CollectionRepository {
         `;
       }
 
+      // Also add collection items to the main cart (so they appear in customer's regular cart)
+      for (const item of items) {
+        const existingCartItem = await db.cart.findFirst({
+          where: {
+            customer_id: customerId,
+            variant_id: item.variant_id,
+          },
+        });
+
+        if (existingCartItem) {
+          const newQty = parseInt(existingCartItem.quantity, 10) + item.quantity;
+          await db.cart.update({
+            where: { cart_id: existingCartItem.cart_id },
+            data: { quantity: newQty.toString() },
+          });
+        } else {
+          await db.cart.create({
+            data: {
+              customer_id: customerId,
+              variant_id: item.variant_id,
+              quantity: item.quantity.toString(),
+            },
+          });
+        }
+      }
+
       // Invalidate cart cache
       deleteByPattern(`CART_customer:${customerId}`);
+      deleteByPattern(`COLLECTION_CART_customer:${customerId}`);
 
       return { collection_cart_id: collectionCartId, message: 'Collection added to cart' };
     } catch (error) {

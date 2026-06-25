@@ -613,10 +613,16 @@ const ProductDetail: React.FC = () => {
                   <div className={styles.relatedContent}>
                     <h3>{item.name}</h3>
                     <div className={styles.relatedPricing}>
-                      <span className={styles.fromLabel}>from</span>
+                      <span className={styles.fromLabel}>
+                        {item.price_range && item.price_range.trim().length > 0 ? 'price range' : 'from'}
+                      </span>
                       <div className={styles.relatedPrices}>
-                        <span className={styles.relatedPrice}>{formatPrice(itemPrice)}</span>
-                        {hasItemDiscount && (
+                        <span className={styles.relatedPrice}>
+                          {item.price_range && item.price_range.trim().length > 0
+                            ? `Rs ${item.price_range}`
+                            : formatPrice(itemPrice)}
+                        </span>
+                        {!(item.price_range && item.price_range.trim().length > 0) && hasItemDiscount && (
                           <span className={styles.relatedOriginal}>{formatPrice(itemOriginalPrice)}</span>
                         )}
                       </div>

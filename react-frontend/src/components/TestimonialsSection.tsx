@@ -121,7 +121,7 @@ const TestimonialsSection: React.FC = () => {
   }
 
   return (
-    <section className={styles.section}>
+    <section id="testimonials-section" className={styles.section}>
       <div className="container">
         {/* Header */}
         <div className={styles.header}>

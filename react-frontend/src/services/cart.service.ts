@@ -46,6 +46,7 @@ class CartService {
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      window.dispatchEvent(new CustomEvent('cart-updated'));
     } catch (error) {
       console.error('[CartService] Error adding to cart:', error);
       throw error;
@@ -61,6 +62,7 @@ class CartService {
         method: 'PUT',
         body: JSON.stringify(request),
       });
+      window.dispatchEvent(new CustomEvent('cart-updated'));
     } catch (error) {
       console.error('[CartService] Error updating cart item:', error);
       throw error;
@@ -75,6 +77,7 @@ class CartService {
       await apiRequest<any>(`${this.baseUrl}/${cartId}`, {
         method: 'DELETE',
       });
+      window.dispatchEvent(new CustomEvent('cart-updated'));
       // 204 No Content returns null, which is fine
     } catch (error) {
       console.error('[CartService] Error removing cart item:', error);
@@ -90,6 +93,7 @@ class CartService {
       await apiRequest<any>(this.baseUrl, {
         method: 'DELETE',
       });
+      window.dispatchEvent(new CustomEvent('cart-updated'));
       // 204 No Content returns null, which is fine
     } catch (error) {
       console.error('[CartService] Error clearing cart:', error);

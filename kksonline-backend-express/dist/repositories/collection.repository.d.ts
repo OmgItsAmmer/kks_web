@@ -40,6 +40,27 @@ export interface CollectionCartItem {
 }
 export declare class CollectionRepository {
     /**
+     * Helper function to process collection image URL
+     * If image_url is just a filename (not a full URL), construct Supabase URL
+     */
+    private processImageUrl;
+    /**
+     * Helper function to process a collection object and fix its image URL
+     */
+    private processCollection;
+    /**
+     * Helper function to process an array of collections
+     */
+    private processCollections;
+    /**
+     * Attach main images for collections from `image_entity` + `images` tables.
+     *
+     * Why: In your DB, `collections.image_url` can be NULL; images are stored in
+     * Supabase Storage and mapped by `image_entity` with `entity_category='collections'`,
+     * where `images.folderType` is the bucket name and `images.filename` is the file name.
+     */
+    private attachMainImagesForCollections;
+    /**
      * Get all active collections (for customer display)
      */
     findActive(params?: {

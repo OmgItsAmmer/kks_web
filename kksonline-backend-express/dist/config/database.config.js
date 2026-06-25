@@ -34,51 +34,13 @@ const sanitizeDatabaseUrl = (url) => {
         return 'INVALID FORMAT';
     }
 };
-// Enhance DATABASE_URL with connection parameters for better reliability
-const enhanceDatabaseUrl = (url) => {
-    if (!url)
-        return url;
-    try {
-        const urlObj = new URL(url);
-        const params = new URLSearchParams(urlObj.search);
-        // Add connection parameters if not already present
-        if (!params.has('connect_timeout')) {
-            params.set('connect_timeout', '30'); // Increase timeout to 30 seconds
-        }
-        if (!params.has('pool_timeout')) {
-            params.set('pool_timeout', '30');
-        }
-        if (!params.has('connection_limit')) {
-            params.set('connection_limit', '10');
-        }
-        // Force SSL with less strict certificate validation (helps with ISP SSL inspection)
-        if (!params.has('sslmode')) {
-            params.set('sslmode', 'require');
-        }
-        urlObj.search = params.toString();
-        const enhancedUrl = urlObj.toString();
-        logger_1.logger.info('Enhanced DATABASE_URL with connection parameters');
-        return enhancedUrl;
-    }
-    catch (error) {
-        logger_1.logger.warn('Could not enhance DATABASE_URL, using original', { error });
-        return url;
-    }
-};
 // Create and configure Prisma client
 const createPrismaClient = () => {
     // Log database connection info (sanitized) at startup
-    let dbUrl = process.env.DATABASE_URL || '';
+    const dbUrl = process.env.DATABASE_URL || '';
     const sanitizedUrl = sanitizeDatabaseUrl(dbUrl);
     logger_1.logger.info(`Database URL: ${sanitizedUrl}`);
-    // Enhance the connection URL with better parameters
-    dbUrl = enhanceDatabaseUrl(dbUrl);
     const client = new client_1.PrismaClient({
-        datasources: {
-            db: {
-                url: dbUrl,
-            },
-        },
         log: [
             { emit: 'event', level: 'query' },
             { emit: 'event', level: 'error' },

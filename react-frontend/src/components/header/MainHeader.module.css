@@ -244,6 +244,7 @@
 .mobileSearch {
   display: block;
   margin-top: 1rem;
+  position: relative;
 }
 
 @media (min-width: 1024px) {

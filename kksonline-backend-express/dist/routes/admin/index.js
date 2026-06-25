@@ -169,8 +169,8 @@ router.post('/products/:id/images', upload.single('image'), (0, error_middleware
         return (0, response_1.sendError)(res, 'No image file provided', 400);
     }
     const result = isFeatured
-        ? await image_service_1.imageService.updateMainImage(req.file.buffer, 'products', productId)
-        : await image_service_1.imageService.addImage(req.file.buffer, 'products', productId);
+        ? await image_service_1.imageService.updateMainImage(req.file.buffer, 'products', productId, req.file.originalname, req.file.mimetype)
+        : await image_service_1.imageService.addImage(req.file.buffer, 'products', productId, req.file.originalname, req.file.mimetype);
     return (0, response_1.sendCreated)(res, result);
 }));
 // ==================== VARIANTS ====================
@@ -347,7 +347,7 @@ router.post('/categories/:id/image', upload.single('image'), (0, error_middlewar
     if (!req.file) {
         return (0, response_1.sendError)(res, 'No image file provided', 400);
     }
-    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'categories', categoryId);
+    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'categories', categoryId, req.file.originalname, req.file.mimetype);
     return (0, response_1.sendCreated)(res, result);
 }));
 // ==================== BRANDS ====================
@@ -405,7 +405,7 @@ router.post('/brands/:id/image', upload.single('image'), (0, error_middleware_1.
     if (!req.file) {
         return (0, response_1.sendError)(res, 'No image file provided', 400);
     }
-    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'brands', brandId);
+    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'brands', brandId, req.file.originalname, req.file.mimetype);
     return (0, response_1.sendCreated)(res, result);
 }));
 // ==================== ORDERS ====================
@@ -511,6 +511,9 @@ router.put('/shop/config', (0, validation_middleware_1.validate)({ body: validat
         updates.is_shipping_enable = req.body.isShippingEnable;
     if (req.body.maxAllowedItemQuantity !== undefined)
         updates.max_allowed_item_quantity = req.body.maxAllowedItemQuantity;
+    if (req.body.isAdvancePaymentReceiptMandatory !== undefined) {
+        updates.is_advance_payment_receipt_mandatory = req.body.isAdvancePaymentReceiptMandatory;
+    }
     const config = await shop_repository_1.shopRepository.updateConfig(updates);
     return (0, response_1.sendSuccess)(res, config, 'Shop configuration updated');
 }));
