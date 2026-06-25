@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, User, Heart, ShoppingCart, Truck, Menu, X, LogOut, Package } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWishlist } from '../../contexts/WishlistContext';
@@ -34,7 +34,14 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close search dropdown and clear search results when location changes (on navigation)
+  useEffect(() => {
+    setShowSearchDropdown(false);
+    setSearchResults([]);
+  }, [location]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -141,8 +148,14 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onMobileMenuToggle, isMobileMen
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       setShowSearchDropdown(false);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     }
   };
 

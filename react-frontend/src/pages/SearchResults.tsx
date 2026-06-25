@@ -67,9 +67,23 @@ const SearchResults: React.FC = () => {
                   )}
                   <div className={styles.productInfo}>
                     <h3 className={styles.productName}>{product.name}</h3>
-                    <p className={styles.productPrice}>
-                      Rs {parseFloat(product.sale_price).toLocaleString()}
-                    </p>
+                    <div className={styles.pricing}>
+                      <span className={styles.fromLabel}>
+                        {product.price_range && product.price_range.trim().length > 0 ? 'price range' : 'from'}
+                      </span>
+                      <div className={styles.productPrices}>
+                        <span className={styles.productPrice}>
+                          {product.price_range && product.price_range.trim().length > 0
+                            ? `Rs ${product.price_range}`
+                            : `Rs ${parseFloat(product.sale_price).toLocaleString('en-PK', { maximumFractionDigits: 0 })}`}
+                        </span>
+                        {!(product.price_range && product.price_range.trim().length > 0) && parseFloat(product.base_price) > parseFloat(product.sale_price) && (
+                          <span className={styles.originalPrice}>
+                            Rs {parseFloat(product.base_price).toLocaleString('en-PK', { maximumFractionDigits: 0 })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Link>
               ))}

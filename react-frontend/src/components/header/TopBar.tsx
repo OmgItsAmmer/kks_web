@@ -64,15 +64,15 @@ const TopBar: React.FC = () => {
 
             {/* Right Section */}
             <div className={styles.rightSection}>
-              {/* Contact Info */}
-              <div className={styles.contactInfo}>
-                <a href="mailto:ammersaeed21@gmail.com" className={styles.link} aria-label="Email Us">
+              {/* Social/Contact Links */}
+              <div className={styles.socialLinks}>
+                <a 
+                  href="mailto:ammersaeed21@gmail.com" 
+                  className={styles.socialLink} 
+                  aria-label="Email Us"
+                >
                   <Mail size={14} />
                 </a>
-              </div>
-
-              {/* Social Links */}
-              <div className={styles.socialLinks}>
                 <a 
                   href="https://web.facebook.com/profile.php?id=100089805542031#" 
                   target="_blank" 
