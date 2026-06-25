@@ -44,6 +44,7 @@ export interface CheckoutRequest {
     shippingMethod: 'shipping' | 'pickup';
     paymentMethod: 'cod' | 'credit_card' | 'bank_transfer' | 'pickup' | 'jazzcash';
     idempotencyKey?: string;
+    paymentReceiptPath?: string;
 }
 export interface CheckoutTotals {
     subtotal: number;
@@ -178,6 +179,7 @@ export declare const ErrorCodes: {
     readonly SHIPPING_METHOD_INVALID: "SHIPPING_METHOD_INVALID";
     readonly PHONE_NUMBER_REQUIRED: "PHONE_NUMBER_REQUIRED";
     readonly PAYMENT_FAILED: "PAYMENT_FAILED";
+    readonly PAYMENT_RECEIPT_REQUIRED: "PAYMENT_RECEIPT_REQUIRED";
     readonly ORDER_CREATION_FAILED: "ORDER_CREATION_FAILED";
     readonly SHOP_LIMIT_EXCEEDED: "SHOP_LIMIT_EXCEEDED";
     readonly INSUFFICIENT_STOCK: "INSUFFICIENT_STOCK";

@@ -5,13 +5,13 @@ import {
   Mail, 
   MapPin, 
   Facebook, 
-  Instagram, 
   Truck,
   Shield,
   CreditCard,
   Headphones,
   Globe,
-  Linkedin
+  Linkedin,
+  Github
 } from 'lucide-react';
 import logo from '../assets/images/logo.png';
 import InfoPopup from './InfoPopup';
@@ -192,7 +192,7 @@ const legalInfo: Record<string, { title: string; content: any }> = {
 };
 
 const features = [
-  { icon: <Truck size={24} />, title: 'Free Delivery', subtitle: 'On orders over £50' },
+  { icon: <Truck size={24} />, title: 'Free Delivery', subtitle: 'Most Locations' },
   { icon: <Shield size={24} />, title: '100% Secure', subtitle: 'Safe & secure payments' },
   { icon: <CreditCard size={24} />, title: 'Flexible Payment', subtitle: '0% interest available' },
   { icon: <Headphones size={24} />, title: '24/7 Support', subtitle: 'Always here to help' },
@@ -278,10 +278,16 @@ const Footer: React.FC = () => {
                   <span>hello@kksonline.com.pk</span>
                 </div>
                 
-                <div className={styles.contactItem}>
+                <a 
+                  href="https://maps.app.goo.gl/nFtbkEi1s1z8WRS56" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className={styles.contactItem}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
                   <MapPin size={16} />
-                  <span>Pakistan</span>
-                </div>
+                  <span>Google Maps Location</span>
+                </a>
               </div>
             </div>
 
@@ -304,18 +310,21 @@ const Footer: React.FC = () => {
 
               <h5 className={styles.socialTitle}>Follow Us</h5>
               <div className={styles.socialLinks}>
-                <a href="#" className={styles.socialLink} aria-label="Facebook">
+                <a 
+                  href="https://web.facebook.com/profile.php?id=100089805542031#" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.socialLink} 
+                  aria-label="Facebook"
+                >
                   <Facebook size={18} />
-                </a>
-                <a href="#" className={styles.socialLink} aria-label="Instagram">
-                  <Instagram size={18} />
                 </a>
               </div>
             </div>
 
             {/* Developer Company Column */}
             <div className={styles.linksColumn}>
-              <h4 className={styles.columnTitle}>OMGx</h4>
+              <h4 className={styles.columnTitle}>OMGx Software House</h4>
               <ul className={styles.linksList}>
                 {omgxCompanyLinks.map((link) => (
                   <li key={link.label}>
@@ -332,14 +341,32 @@ const Footer: React.FC = () => {
 
               <h5 className={styles.socialTitle}>Follow Us</h5>
               <div className={styles.socialLinks}>
-                <a href="#" className={styles.socialLink} aria-label="Website">
+                <a 
+                  href="https://ammer-verse.vercel.app/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.socialLink} 
+                  aria-label="Website"
+                >
                   <Globe size={18} />
                 </a>
-                <a href="#" className={styles.socialLink} aria-label="LinkedIn">
+                <a 
+                  href="https://www.linkedin.com/in/ammersaeed21/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.socialLink} 
+                  aria-label="LinkedIn"
+                >
                   <Linkedin size={18} />
                 </a>
-                <a href="#" className={styles.socialLink} aria-label="Instagram">
-                  <Instagram size={18} />
+                <a 
+                  href="https://github.com/OmgItsAmmer" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.socialLink} 
+                  aria-label="Github"
+                >
+                  <Github size={18} />
                 </a>
               </div>
             </div>
@@ -389,8 +416,16 @@ const Footer: React.FC = () => {
               </a>
             </div>
             <div className={styles.poweredBy}>
-              <span>Powered by</span>
-              <span className={styles.poweredByBrand}>OMGx</span>
+              <span>Developed by</span>
+              <a 
+                href="https://ammer-verse.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={styles.poweredByBrand}
+                style={{ textDecoration: 'none' }}
+              >
+                OMGx
+              </a>
             </div>
           </div>
         </div>

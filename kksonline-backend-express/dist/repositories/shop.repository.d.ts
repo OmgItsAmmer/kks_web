@@ -26,6 +26,10 @@ export declare class ShopRepository {
      */
     getFreeShippingThreshold(): Promise<number | null>;
     /**
+     * Check if advance payment receipt is mandatory at checkout
+     */
+    isAdvancePaymentReceiptMandatory(): Promise<boolean>;
+    /**
      * Update shop configuration (admin)
      */
     updateConfig(updates: Prisma.ShopUpdateInput): Promise<Shop>;

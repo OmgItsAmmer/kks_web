@@ -93,7 +93,7 @@ router.post('/profile-picture', customer_middleware_1.requireCustomer, upload.si
     if (!req.file) {
         return (0, response_1.sendError)(res, 'No image file provided', 400);
     }
-    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'customers', req.customerId, req.file.originalname);
+    const result = await image_service_1.imageService.updateMainImage(req.file.buffer, 'customers', req.customerId, req.file.originalname, req.file.mimetype);
     return (0, response_1.sendSuccess)(res, {
         imageUrl: result.url,
         imageId: result.imageId,

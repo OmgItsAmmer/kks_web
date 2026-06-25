@@ -187,6 +187,7 @@ export declare const schemas: {
         shippingMethod: z.ZodEnum<["shipping", "pickup"]>;
         paymentMethod: z.ZodEnum<["cod", "credit_card", "bank_transfer", "pickup", "jazzcash"]>;
         idempotencyKey: z.ZodOptional<z.ZodString>;
+        paymentReceiptPath: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         addressId: number;
         shippingMethod: "shipping" | "pickup";
@@ -203,6 +204,7 @@ export declare const schemas: {
             variantId: number;
         } | undefined;
         idempotencyKey?: string | undefined;
+        paymentReceiptPath?: string | undefined;
     }, {
         addressId: number;
         shippingMethod: "shipping" | "pickup";
@@ -219,6 +221,7 @@ export declare const schemas: {
             variantId: number;
         } | undefined;
         idempotencyKey?: string | undefined;
+        paymentReceiptPath?: string | undefined;
     }>;
     review: z.ZodObject<{
         productId: z.ZodNumber;
@@ -342,6 +345,7 @@ export declare const schemas: {
         thresholdFreeShipping: z.ZodOptional<z.ZodNumber>;
         isShippingEnable: z.ZodOptional<z.ZodBoolean>;
         maxAllowedItemQuantity: z.ZodOptional<z.ZodNumber>;
+        isAdvancePaymentReceiptMandatory: z.ZodOptional<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
         shopname?: string | undefined;
         taxrate?: number | undefined;
@@ -349,6 +353,7 @@ export declare const schemas: {
         thresholdFreeShipping?: number | undefined;
         isShippingEnable?: boolean | undefined;
         maxAllowedItemQuantity?: number | undefined;
+        isAdvancePaymentReceiptMandatory?: boolean | undefined;
     }, {
         shopname?: string | undefined;
         taxrate?: number | undefined;
@@ -356,6 +361,7 @@ export declare const schemas: {
         thresholdFreeShipping?: number | undefined;
         isShippingEnable?: boolean | undefined;
         maxAllowedItemQuantity?: number | undefined;
+        isAdvancePaymentReceiptMandatory?: boolean | undefined;
     }>;
     coupon: z.ZodObject<{
         title: z.ZodString;

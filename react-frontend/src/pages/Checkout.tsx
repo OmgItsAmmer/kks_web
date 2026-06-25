@@ -134,6 +134,8 @@ const Checkout: React.FC = () => {
       setPlacedOrderId(result.orderId ?? null);
       setPlacedOrderTotal(result.total ?? null);
       setCheckoutState('success');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.dispatchEvent(new CustomEvent('cart-updated'));
     } catch (err: any) {
       console.error('Error processing checkout:', err);
 

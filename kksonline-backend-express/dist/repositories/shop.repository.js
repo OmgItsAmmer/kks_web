@@ -5,6 +5,7 @@ const database_config_1 = require("../config/database.config");
 const logger_1 = require("../utils/logger");
 const errors_1 = require("../utils/errors");
 const cache_1 = require("../utils/cache");
+const feature_flags_1 = require("../config/feature-flags");
 class ShopRepository {
     /**
      * Get shop configuration
@@ -55,6 +56,16 @@ class ShopRepository {
     async getFreeShippingThreshold() {
         const config = await this.getConfig();
         return config?.threshold_free_shipping ? Number(config.threshold_free_shipping) : null;
+    }
+    /**
+     * Check if advance payment receipt is mandatory at checkout
+     */
+    async isAdvancePaymentReceiptMandatory() {
+        if (!feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+            return false;
+        }
+        const config = await this.getConfig();
+        return config?.is_advance_payment_receipt_mandatory ?? true;
     }
     /**
      * Update shop configuration (admin)

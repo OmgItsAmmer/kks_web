@@ -14,7 +14,7 @@ type CartState = 'loading' | 'ready' | 'validating' | 'error' | 'empty';
 
 const Cart: React.FC = () => {
   const { isAuthenticated, showLoginModal } = useAuth();
-  const { showError, showWarning } = useSnackbar();
+  const { showError, showWarning, showSuccess } = useSnackbar();
   const navigate = useNavigate();
 
   const [cartState, setCartState] = useState<CartState>('loading');
@@ -25,6 +25,7 @@ const Cart: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
   const [imageSources, setImageSources] = useState<Map<number, string>>(new Map());
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Helper function to get valid image source (similar to ProductCard logic)
   const getValidImageSource = (imageUrl?: string, productName?: string): string => {
@@ -293,26 +294,28 @@ const Cart: React.FC = () => {
   /**
    * Clear entire cart
    */
-  const clearCart = async () => {
-    if (!confirm('Are you sure you want to clear your cart?')) {
-      return;
-    }
+  const clearCart = () => {
+    setShowClearConfirm(true);
+  };
 
+  const handleConfirmClearCart = async () => {
+    setShowClearConfirm(false);
     try {
       setCartState('loading');
       await cartService.clearCart();
       setCartItems([]);
       setSubtotal(0);
       setItemCount(0);
-      setValidationIssues(new Map());
       setCartState('empty');
+      setValidationIssues(new Map());
+      showSuccess('Cart cleared successfully!');
+      window.dispatchEvent(new CustomEvent('cart-updated'));
     } catch (err: any) {
       console.error('Error clearing cart:', err);
 
       // Handle authentication errors
       if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
         showLoginModal();
-        setCartState('empty');
         return;
       }
 
@@ -629,6 +632,32 @@ const Cart: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showClearConfirm && (
+        <div className={styles.confirmOverlay} onClick={() => setShowClearConfirm(false)}>
+          <div className={styles.confirmPopup} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.confirmTitle}>Clear Cart</h3>
+            <p className={styles.confirmMessage}>Are you sure you want to remove all items from your cart?</p>
+            <div className={styles.confirmActions}>
+              <button 
+                type="button" 
+                className={styles.confirmCancelBtn} 
+                onClick={() => setShowClearConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className={styles.confirmConfirmBtn} 
+                onClick={handleConfirmClearCart}
+              >
+                Clear Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

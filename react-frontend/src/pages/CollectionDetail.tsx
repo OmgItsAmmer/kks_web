@@ -12,6 +12,7 @@ import { AuthenticationError } from '../services/api.config';
 import Loader from '../components/Loader';
 import type { CollectionCartItem } from '../services/collection.service';
 import type { CartItem } from '../types/cart';
+import { cartService } from '../services/cart.service';
 
 interface SelectedVariant {
   itemId: number;
@@ -41,6 +42,32 @@ const CollectionDetail: React.FC = () => {
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [addingSingleItem, setAddingSingleItem] = useState<Record<number, boolean>>({});
+
+  const handleAddSingleItemToCart = async (variantId: number, quantity: number, itemId: number) => {
+    if (!isAuthenticated || !user) {
+      showLoginModal();
+      return;
+    }
+
+    try {
+      setAddingSingleItem(prev => ({ ...prev, [itemId]: true }));
+      await cartService.addToCart({
+        variantId,
+        quantity,
+      });
+      showSuccess('Item added to cart successfully!');
+    } catch (err: any) {
+      console.error('[CollectionDetail] Error adding single item to cart:', err);
+      if (err instanceof AuthenticationError || err.name === 'AuthenticationError') {
+        showLoginModal();
+      } else {
+        showError(err.message || 'Failed to add item to cart. Please try again.');
+      }
+    } finally {
+      setAddingSingleItem(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
 
   // Initialize selected variants when collection loads
   useEffect(() => {
@@ -170,6 +197,7 @@ const CollectionDetail: React.FC = () => {
       });
 
       showSuccess('Collection added to cart successfully!');
+      window.dispatchEvent(new CustomEvent('cart-updated'));
       
       // Optionally navigate to cart
       // navigate('/cart');
@@ -311,9 +339,11 @@ const CollectionDetail: React.FC = () => {
                                   <span>{variant.variant_name || 'Default'}</span>
                                   <div className={styles.variantInfo}>
                                     <span className={styles.variantPrice}>Rs {Number(variant.sell_price).toLocaleString()}</span>
-                                    <span className={`${styles.stockBadge} ${variant.stock === 0 ? styles.outOfStock : variant.stock < 5 ? styles.lowStock : ''}`}>
-                                      {variant.stock === 0 ? 'Out of Stock' : variant.stock < 5 ? `Only ${variant.stock} left` : 'In Stock'}
-                                    </span>
+                                    {variant.stock === 0 && (
+                                      <span className={`${styles.stockBadge} ${styles.outOfStock}`}>
+                                        Out of Stock
+                                      </span>
+                                    )}
                                   </div>
                                   {selectedVar?.variantId === variant.variant_id && (
                                     <Check size={20} className={styles.checkIcon} />
@@ -326,29 +356,36 @@ const CollectionDetail: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Quantity Selector */}
+                    {/* Quantity Selector & Add Separately Button */}
                     <div className={styles.quantitySelector}>
-                      <label>Quantity:</label>
-                      <div className={styles.quantityControls}>
-                        <button
-                          onClick={() => handleQuantityChange(item.collection_item_id, -1)}
-                          disabled={!selectedVar || selectedVar.quantity <= 1}
-                          className={styles.quantityBtn}
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <span className={styles.quantityValue}>{selectedVar?.quantity || 1}</span>
-                        <button
-                          onClick={() => handleQuantityChange(item.collection_item_id, 1)}
-                          disabled={!selectedVar || selectedVar.quantity >= currentVariant.stock}
-                          className={styles.quantityBtn}
-                        >
-                          <Plus size={16} />
-                        </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <label>Quantity:</label>
+                        <div className={styles.quantityControls}>
+                          <button
+                            onClick={() => handleQuantityChange(item.collection_item_id, -1)}
+                            disabled={!selectedVar || selectedVar.quantity <= 1}
+                            className={styles.quantityBtn}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className={styles.quantityValue}>{selectedVar?.quantity || 1}</span>
+                          <button
+                            onClick={() => handleQuantityChange(item.collection_item_id, 1)}
+                            disabled={!selectedVar || selectedVar.quantity >= currentVariant.stock}
+                            className={styles.quantityBtn}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <span className={styles.stockInfo}>
-                        {currentVariant.stock} available
-                      </span>
+                      <button
+                        type="button"
+                        className={styles.addSingleBtn}
+                        onClick={() => handleAddSingleItemToCart(currentVariant.variant_id, selectedVar?.quantity || 1, item.collection_item_id)}
+                        disabled={addingSingleItem[item.collection_item_id] || currentVariant.stock === 0}
+                      >
+                        {addingSingleItem[item.collection_item_id] ? 'Adding...' : 'Add Separately'}
+                      </button>
                     </div>
 
                     {/* Item Price */}

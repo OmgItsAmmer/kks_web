@@ -5,8 +5,97 @@ const database_config_1 = require("../config/database.config");
 const logger_1 = require("../utils/logger");
 const errors_1 = require("../utils/errors");
 const supabase_image_service_1 = require("../services/supabase-image.service");
+const supabase_config_1 = require("../config/supabase.config");
 const cache_1 = require("../utils/cache");
 class CollectionRepository {
+    /**
+     * Helper function to process collection image URL
+     * If image_url is just a filename (not a full URL), construct Supabase URL
+     */
+    processImageUrl(imageUrl) {
+        if (!imageUrl || imageUrl === '' || imageUrl === '/logo.png') {
+            return null;
+        }
+        // If it's already a full URL, return as-is
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            return imageUrl;
+        }
+        // Otherwise, construct Supabase URL from filename
+        // Collections bucket name is 'collections'
+        try {
+            return (0, supabase_config_1.getSupabasePublicUrl)('collections', imageUrl);
+        }
+        catch (error) {
+            logger_1.logger.warn('[CollectionRepository] Error constructing Supabase URL for image', { imageUrl, error });
+            return null;
+        }
+    }
+    /**
+     * Helper function to process a collection object and fix its image URL
+     */
+    processCollection(collection) {
+        if (collection) {
+            collection.image_url = this.processImageUrl(collection.image_url ?? null);
+        }
+        return collection;
+    }
+    /**
+     * Helper function to process an array of collections
+     */
+    processCollections(collections) {
+        return collections.map(c => this.processCollection(c));
+    }
+    /**
+     * Attach main images for collections from `image_entity` + `images` tables.
+     *
+     * Why: In your DB, `collections.image_url` can be NULL; images are stored in
+     * Supabase Storage and mapped by `image_entity` with `entity_category='collections'`,
+     * where `images.folderType` is the bucket name and `images.filename` is the file name.
+     */
+    async attachMainImagesForCollections(collections) {
+        if (!collections || collections.length === 0)
+            return [];
+        const ids = collections
+            .map((c) => Number(c.collection_id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+        if (ids.length === 0) {
+            return this.processCollections(collections);
+        }
+        logger_1.logger.info(`[CollectionRepository] Fetching images for ${ids.length} collections:`, ids);
+        const images = await supabase_image_service_1.supabaseImageService.getMainImagesForEntities(ids, 'collections');
+        logger_1.logger.info(`[CollectionRepository] Image service returned ${images.size} images`);
+        images.forEach((url, collectionId) => {
+            logger_1.logger.debug(`[CollectionRepository] Collection ${collectionId} -> ${url}`);
+        });
+        return collections.map((c) => {
+            const id = Number(c.collection_id);
+            const fallbackFromImages = images.get(id) || null;
+            const originalImageUrl = c.image_url;
+            // Determine final image URL with proper priority:
+            // 1. Use fetched image from image_entity if available
+            // 2. Only use c.image_url if it's a valid URL (not a placeholder like '/logo.png')
+            // 3. Otherwise null
+            let finalImageUrl = null;
+            if (fallbackFromImages) {
+                // Prefer the fetched image from image_entity
+                finalImageUrl = fallbackFromImages;
+            }
+            else if (originalImageUrl && originalImageUrl !== '/logo.png' && originalImageUrl !== '') {
+                // Use collections table image_url only if it's not a placeholder
+                finalImageUrl = originalImageUrl;
+            }
+            const merged = {
+                ...c,
+                image_url: finalImageUrl,
+            };
+            logger_1.logger.debug(`[CollectionRepository] Collection ${id} (${c.name}):`, {
+                original_image_url: originalImageUrl,
+                fetched_from_image_entity: fallbackFromImages,
+                final_image_url: merged.image_url,
+            });
+            return this.processCollection(merged);
+        });
+    }
     /**
      * Get all active collections (for customer display)
      */
@@ -22,6 +111,7 @@ class CollectionRepository {
             c.name,
             c.description,
             c.image_url,
+            c.is_premium,
             c.is_featured,
             c.display_order,
             c.created_at,
@@ -37,7 +127,7 @@ class CollectionRepository {
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-                return collections;
+                return await this.attachMainImagesForCollections(collections);
             }
             catch (error) {
                 logger_1.logger.error('Error fetching active collections', { error, params });
@@ -119,8 +209,21 @@ class CollectionRepository {
                 }));
                 // Calculate total price
                 const totalPrice = itemsWithDetails.reduce((sum, item) => sum + Number(item.sell_price) * item.default_quantity, 0);
-                return {
+                const mainImage = await supabase_image_service_1.supabaseImageService.getMainImageUrl(collectionId, 'collections');
+                // Prefer fetched image over placeholder
+                let finalImageUrl = null;
+                if (mainImage) {
+                    finalImageUrl = mainImage;
+                }
+                else if (collection[0].image_url && collection[0].image_url !== '/logo.png' && collection[0].image_url !== '') {
+                    finalImageUrl = collection[0].image_url;
+                }
+                const processedCollection = this.processCollection({
                     ...collection[0],
+                    image_url: finalImageUrl,
+                });
+                return {
+                    ...processedCollection,
                     items: itemsWithDetails,
                     total_price: totalPrice,
                 };
@@ -163,7 +266,23 @@ class CollectionRepository {
           GROUP BY c.collection_id
           LIMIT 1
         `;
-                return collections.length > 0 ? collections[0] : null;
+                if (collections.length > 0) {
+                    const c = collections[0];
+                    const img = await supabase_image_service_1.supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+                    // Prefer fetched image over placeholder
+                    let finalImageUrl = null;
+                    if (img) {
+                        finalImageUrl = img;
+                    }
+                    else if (c.image_url && c.image_url !== '/logo.png' && c.image_url !== '') {
+                        finalImageUrl = c.image_url;
+                    }
+                    return this.processCollection({
+                        ...c,
+                        image_url: finalImageUrl,
+                    });
+                }
+                return null;
             }
             catch (error) {
                 logger_1.logger.error('Error fetching premium collection', { error });
@@ -199,7 +318,7 @@ class CollectionRepository {
           ORDER BY c.display_order ASC, c.created_at DESC
           LIMIT ${limit}
         `;
-                return collections;
+                return await this.attachMainImagesForCollections(collections);
             }
             catch (error) {
                 logger_1.logger.error('Error fetching standard collections', { error, limit });
@@ -235,7 +354,23 @@ class CollectionRepository {
           ORDER BY c.display_order ASC
           LIMIT 1
         `;
-                return collections.length > 0 ? collections[0] : null;
+                if (collections.length > 0) {
+                    const c = collections[0];
+                    const img = await supabase_image_service_1.supabaseImageService.getMainImageUrl(Number(c.collection_id), 'collections');
+                    // Prefer fetched image over placeholder
+                    let finalImageUrl = null;
+                    if (img) {
+                        finalImageUrl = img;
+                    }
+                    else if (c.image_url && c.image_url !== '/logo.png' && c.image_url !== '') {
+                        finalImageUrl = c.image_url;
+                    }
+                    return this.processCollection({
+                        ...c,
+                        image_url: finalImageUrl,
+                    });
+                }
+                return null;
             }
             catch (error) {
                 logger_1.logger.error('Error fetching premium collection', { error });
@@ -272,7 +407,7 @@ class CollectionRepository {
           ORDER BY c.created_at DESC
           LIMIT ${limit}
         `;
-                return collections;
+                return await this.attachMainImagesForCollections(collections);
             }
             catch (error) {
                 logger_1.logger.error('Error fetching standard collections', { error, limit });
@@ -329,15 +464,41 @@ class CollectionRepository {
         `;
                 collectionCartId = newCart[0].collection_cart_id;
             }
-            // Insert cart items
+            // Insert cart items into collection_cart_items
             for (const item of items) {
                 await database_config_1.db.$executeRaw `
           INSERT INTO collection_cart_items (collection_cart_id, variant_id, quantity)
           VALUES (${collectionCartId}, ${item.variant_id}, ${item.quantity})
         `;
             }
+            // Also add collection items to the main cart (so they appear in customer's regular cart)
+            for (const item of items) {
+                const existingCartItem = await database_config_1.db.cart.findFirst({
+                    where: {
+                        customer_id: customerId,
+                        variant_id: item.variant_id,
+                    },
+                });
+                if (existingCartItem) {
+                    const newQty = parseInt(existingCartItem.quantity, 10) + item.quantity;
+                    await database_config_1.db.cart.update({
+                        where: { cart_id: existingCartItem.cart_id },
+                        data: { quantity: newQty.toString() },
+                    });
+                }
+                else {
+                    await database_config_1.db.cart.create({
+                        data: {
+                            customer_id: customerId,
+                            variant_id: item.variant_id,
+                            quantity: item.quantity.toString(),
+                        },
+                    });
+                }
+            }
             // Invalidate cart cache
             (0, cache_1.deleteByPattern)(`CART_customer:${customerId}`);
+            (0, cache_1.deleteByPattern)(`COLLECTION_CART_customer:${customerId}`);
             return { collection_cart_id: collectionCartId, message: 'Collection added to cart' };
         }
         catch (error) {

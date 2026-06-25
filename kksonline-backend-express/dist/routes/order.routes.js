@@ -1,14 +1,32 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
+const multer_1 = __importDefault(require("multer"));
 const order_repository_1 = require("../repositories/order.repository");
 const checkout_service_1 = require("../services/checkout.service");
+const supabase_image_service_1 = require("../services/supabase-image.service");
 const validation_middleware_1 = require("../middleware/validation.middleware");
 const error_middleware_1 = require("../middleware/error.middleware");
 const customer_middleware_1 = require("../middleware/customer.middleware");
 const response_1 = require("../utils/response");
+const feature_flags_1 = require("../config/feature-flags");
 const router = (0, express_1.Router)();
+const receiptUpload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        }
+        else {
+            cb(new Error('Only image files are allowed'));
+        }
+    },
+});
 // All order routes require customer identification
 router.use(customer_middleware_1.requireCustomer);
 /**
@@ -78,6 +96,24 @@ router.post('/checkout', (0, validation_middleware_1.validate)({ body: validatio
     else {
         return (0, response_1.sendError)(res, result.message, 400, result.errorCode);
     }
+}));
+/**
+ * @route   POST /api/v1/orders/payment-receipt
+ * @desc    Upload advance payment receipt image for checkout
+ * @access  Private
+ */
+router.post('/payment-receipt', receiptUpload.single('receipt'), (0, error_middleware_1.asyncHandler)(async (req, res) => {
+    if (!feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+        return (0, response_1.sendError)(res, 'Advance payment receipt upload is temporarily disabled', 503);
+    }
+    if (!req.customerId) {
+        return (0, response_1.sendError)(res, 'Unauthorized', 401);
+    }
+    if (!req.file) {
+        return (0, response_1.sendError)(res, 'No receipt image provided', 400);
+    }
+    const result = await supabase_image_service_1.supabaseImageService.uploadReceipt(req.customerId, req.file.buffer, req.file.mimetype, req.file.originalname);
+    return (0, response_1.sendSuccess)(res, result, 'Payment receipt uploaded successfully');
 }));
 /**
  * @route   POST /api/v1/orders/:id/cancel

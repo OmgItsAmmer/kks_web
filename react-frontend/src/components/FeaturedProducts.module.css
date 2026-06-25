@@ -147,15 +147,15 @@
   text-transform: uppercase;
   color: #ffffff;
   background: var(--primary);
-  border: 2px solid var(--primary-dark);
-  border-radius: var(--radius-full);
+  border: none;
+  border-radius: var(--radius-lg);
   box-shadow: 0 4px 14px rgb(234 88 12 / 0.35);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  text-decoration: none;
 }
 
 .showMoreBtn:hover {
   background: var(--primary-hover);
-  border-color: var(--primary-hover);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgb(234 88 12 / 0.45);
 }

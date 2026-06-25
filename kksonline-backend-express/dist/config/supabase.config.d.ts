@@ -11,6 +11,8 @@ export declare const SUPABASE_BUCKETS: {
     readonly brands: "brands";
     readonly categories: "categories";
     readonly shop: "shop";
+    readonly collections: "collections";
+    readonly paymentReceipts: "payment-receipts";
 };
 /**
  * Get public URL for a file in Supabase Storage using S3 protocol endpoint

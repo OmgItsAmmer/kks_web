@@ -13,6 +13,8 @@ const cart_repository_1 = require("../repositories/cart.repository");
 const order_repository_1 = require("../repositories/order.repository");
 const address_repository_1 = require("../repositories/address.repository");
 const shop_repository_1 = require("../repositories/shop.repository");
+const supabase_image_service_1 = require("./supabase-image.service");
+const feature_flags_1 = require("../config/feature-flags");
 class CheckoutService {
     /**
      * Process secure checkout
@@ -53,6 +55,10 @@ class CheckoutService {
         }
         // Step 5: Validate shipping method
         await this.validateShippingMethod(request.shippingMethod, request.addressId);
+        // Step 5b: Validate advance payment receipt when feature is enabled
+        if (feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+            await this.validatePaymentReceipt(customerId, request.paymentReceiptPath);
+        }
         // Step 6: Validate cart security (prices, stock, etc.)
         const validation = await this.validateCartSecurity(cartItems);
         if (!validation.isValid) {
@@ -76,7 +82,7 @@ class CheckoutService {
                 throw new errors_1.PaymentFailedError(paymentResult.message);
             }
             // Step 9: Create order
-            const orderResult = await this.createOrder(customerId, cartItems, request.addressId, request.shippingMethod, request.paymentMethod, validation.totals, idempotencyKey);
+            const orderResult = await this.createOrder(customerId, cartItems, request.addressId, request.shippingMethod, request.paymentMethod, validation.totals, idempotencyKey, feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED ? request.paymentReceiptPath : undefined);
             if (!orderResult.success) {
                 await this.rollbackInventoryReservation(idempotencyKey);
                 throw new errors_1.OrderCreationFailedError(orderResult.message);
@@ -129,6 +135,10 @@ class CheckoutService {
      * Validate shipping method
      */
     async validateShippingMethod(shippingMethod, addressId) {
+        // TEMP: Home delivery disabled until maps/shipping flow is re-enabled
+        if (shippingMethod === 'shipping') {
+            throw new errors_1.ShippingMethodInvalidError('Home delivery is temporarily unavailable. Please select store pickup.');
+        }
         if (shippingMethod === 'pickup') {
             // Pickup is always allowed
             return;
@@ -143,6 +153,27 @@ class CheckoutService {
             if (!address) {
                 throw new errors_1.ShippingMethodInvalidError('Selected shipping address not found.');
             }
+        }
+    }
+    /**
+     * Validate advance payment receipt upload when shop requires it
+     */
+    async validatePaymentReceipt(customerId, paymentReceiptPath) {
+        if (!feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED) {
+            return;
+        }
+        const isMandatory = await shop_repository_1.shopRepository.isAdvancePaymentReceiptMandatory();
+        if (!paymentReceiptPath?.trim()) {
+            if (isMandatory) {
+                throw new errors_1.PaymentReceiptRequiredError();
+            }
+            return;
+        }
+        const isValid = await supabase_image_service_1.supabaseImageService.verifyReceiptOwnership(customerId, paymentReceiptPath.trim());
+        if (!isValid) {
+            throw new errors_1.PaymentReceiptRequiredError(isMandatory
+                ? 'A valid advance payment receipt upload is required before checkout'
+                : 'The uploaded payment receipt could not be verified');
         }
     }
     /**
@@ -327,7 +358,7 @@ class CheckoutService {
     /**
      * Create order
      */
-    async createOrder(customerId, cartItems, addressId, shippingMethod, paymentMethod, totals, idempotencyKey) {
+    async createOrder(customerId, cartItems, addressId, shippingMethod, paymentMethod, totals, idempotencyKey, paymentReceiptPath) {
         try {
             // Copy address to order_addresses if shipping
             if (addressId > 0) {
@@ -359,6 +390,9 @@ class CheckoutService {
                 shipping_method: shippingMethod,
                 payment_method: paymentMethod,
                 idempotency_key: idempotencyKey,
+                payment_receipt_path: feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED
+                    ? paymentReceiptPath?.trim() || null
+                    : null,
             });
             // Create order items
             const orderItems = cartItems.map((item) => ({

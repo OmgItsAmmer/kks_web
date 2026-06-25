@@ -30,6 +30,7 @@ router.get('/featured', (0, error_middleware_1.asyncHandler)(async (req, res) =>
     const limit = parseInt(req.query.limit, 10) || 7;
     const collections = await collection_repository_1.collectionRepository.findFeatured(limit);
     logger_1.logger.info(`[CollectionRoutes] /featured - Found ${collections.length} featured collections`);
+    logger_1.logger.debug('[CollectionRoutes] /featured - Collection image URLs:', collections.map(c => ({ id: c.collection_id, name: c.name, image_url: c.image_url })));
     return (0, response_1.sendSuccess)(res, collections);
 }));
 /**
@@ -44,6 +45,11 @@ router.get('/premium', (0, error_middleware_1.asyncHandler)(async (req, res) => 
         return (0, response_1.sendSuccess)(res, null);
     }
     logger_1.logger.info(`[CollectionRoutes] /premium - Found premium collection: ${collection.name}`);
+    logger_1.logger.debug('[CollectionRoutes] /premium - Image URL:', {
+        id: collection.collection_id,
+        name: collection.name,
+        image_url: collection.image_url
+    });
     return (0, response_1.sendSuccess)(res, collection);
 }));
 /**
@@ -59,25 +65,10 @@ router.get('/standard', (0, error_middleware_1.asyncHandler)(async (req, res) =>
 }));
 /**
  * @route   GET /api/v1/collections/premium
- * @desc    Get premium collection (for main banner)
+ * @desc    Get standard collections (non-premium, for side/bottom cards)
  * @access  Public
  */
-router.get('/premium', (0, error_middleware_1.asyncHandler)(async (req, res) => {
-    const premiumCollection = await collection_repository_1.collectionRepository.findPremiumCollection();
-    logger_1.logger.info(`[CollectionRoutes] /premium - Found premium collection:`, premiumCollection?.name || 'None');
-    return (0, response_1.sendSuccess)(res, premiumCollection);
-}));
-/**
- * @route   GET /api/v1/collections/standard
- * @desc    Get standard collections (excludes premium, for hero section)
- * @access  Public
- */
-router.get('/standard', (0, error_middleware_1.asyncHandler)(async (req, res) => {
-    const limit = parseInt(req.query.limit, 10) || 6;
-    const collections = await collection_repository_1.collectionRepository.findStandardCollections(limit);
-    logger_1.logger.info(`[CollectionRoutes] /standard - Found ${collections.length} standard collections`);
-    return (0, response_1.sendSuccess)(res, collections);
-}));
+// NOTE: Duplicate `/premium` and `/standard` routes removed. Keep the earlier handlers above.
 /**
  * @route   GET /api/v1/collections/:id
  * @desc    Get collection by ID with full details

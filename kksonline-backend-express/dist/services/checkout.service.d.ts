@@ -16,6 +16,7 @@ export interface CheckoutRequest {
     shippingMethod: 'shipping' | 'pickup';
     paymentMethod: PaymentMethod;
     idempotencyKey?: string;
+    paymentReceiptPath?: string;
 }
 export interface CheckoutTotals {
     subtotal: number;
@@ -48,6 +49,10 @@ export declare class CheckoutService {
      * Validate shipping method
      */
     private validateShippingMethod;
+    /**
+     * Validate advance payment receipt upload when shop requires it
+     */
+    private validatePaymentReceipt;
     /**
      * Validate cart security (prices, stock, visibility)
      */

@@ -4,6 +4,7 @@ const express_1 = require("express");
 const shop_repository_1 = require("../repositories/shop.repository");
 const error_middleware_1 = require("../middleware/error.middleware");
 const response_1 = require("../utils/response");
+const feature_flags_1 = require("../config/feature-flags");
 const router = (0, express_1.Router)();
 /**
  * @route   GET /api/v1/shop/config
@@ -19,6 +20,7 @@ router.get('/config', (0, error_middleware_1.asyncHandler)(async (req, res) => {
             taxRate: 0,
             shippingPrice: 0,
             freeShippingThreshold: null,
+            isAdvancePaymentReceiptMandatory: feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED,
         });
     }
     return (0, response_1.sendSuccess)(res, {
@@ -28,6 +30,9 @@ router.get('/config', (0, error_middleware_1.asyncHandler)(async (req, res) => {
         taxRate: Number(config.taxrate),
         shippingPrice: Number(config.shipping_price),
         freeShippingThreshold: config.threshold_free_shipping ? Number(config.threshold_free_shipping) : null,
+        isAdvancePaymentReceiptMandatory: feature_flags_1.ADVANCE_PAYMENT_RECEIPT_ENABLED
+            ? config.is_advance_payment_receipt_mandatory
+            : false,
     });
 }));
 /**

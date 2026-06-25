@@ -131,6 +131,7 @@ exports.schemas = {
         shippingMethod: zod_1.z.enum(['shipping', 'pickup']),
         paymentMethod: zod_1.z.enum(['cod', 'credit_card', 'bank_transfer', 'pickup', 'jazzcash']),
         idempotencyKey: zod_1.z.string().optional(),
+        paymentReceiptPath: zod_1.z.string().min(1).max(500).optional(),
     }),
     // Review
     review: zod_1.z.object({
@@ -190,6 +191,7 @@ exports.schemas = {
         thresholdFreeShipping: zod_1.z.number().min(0).optional(),
         isShippingEnable: zod_1.z.boolean().optional(),
         maxAllowedItemQuantity: zod_1.z.number().int().positive().optional(),
+        isAdvancePaymentReceiptMandatory: zod_1.z.boolean().optional(),
     }),
     // Coupon (admin)
     coupon: zod_1.z.object({
