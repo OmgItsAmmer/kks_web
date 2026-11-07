@@ -3,7 +3,7 @@ import { z } from 'zod';
 import multer from 'multer';
 import { orderRepository } from '../repositories/order.repository';
 import { checkoutService } from '../services/checkout.service';
-import { supabaseImageService } from '../services/supabase-image.service';
+import { supabaseImageService } from '../services/image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';

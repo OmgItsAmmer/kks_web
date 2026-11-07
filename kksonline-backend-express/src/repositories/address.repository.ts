@@ -52,7 +52,7 @@ export class AddressRepository {
         throw new InternalServerError('Address with this information already exists');
       }
       if (error.code === 'P2003') {
-        throw new InternalServerError('Invalid reference: customer, vendor, salesman, or user not found');
+        throw new InternalServerError('Invalid reference: customer not found');
       }
       
       // Check for check constraint violations (PostgreSQL error code 23514)
@@ -131,9 +131,6 @@ export class AddressRepository {
           country: address.country,
           full_name: address.full_name,
           customer_id: address.customer_id,
-          vendor_id: address.vendor_id,
-          salesman_id: address.salesman_id,
-          user_id: address.user_id,
           address_id: address.address_id,
           // Copy Google Maps fields
           latitude: address.latitude,

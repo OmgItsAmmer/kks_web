@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (typecheck, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kksonline-backend-express
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            kksonline-backend-express/package-lock.json
+            admin-frontend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          DATABASE_URL_UNPOOLED: postgresql://user:pass@localhost:5432/db
+      - run: npx tsc --noEmit
+      # The permissions test imports the admin app's copy, so that app's files must be present (they are).
+      - run: npx vitest run --project unit
+
+  admin:
+    name: Admin app (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  storefront:
+    name: Storefront (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: react-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: react-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.example.com
+          VITE_GOOGLE_CLIENT_ID: ci
+          VITE_LOCATIONIQ_API_KEY: ci

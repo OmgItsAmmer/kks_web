@@ -1,0 +1,73 @@
+name: Nightly database backup
+
+# Dumps the Neon database, encrypts it and stores it in the PRIVATE R2 bucket (plan 4.4).
+# Runs once a day at 21:30 UTC (02:30 in Pakistan: the quietest hour). The dump wakes the free database
+# for a minute or two, once a day.
+on:
+  schedule:
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PGURL: ${{ secrets.NEON_BACKUP_DATABASE_URL }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BUCKET: kks-private
+    steps:
+      - name: Check secrets are present
+        run: |
+          for v in PGURL R2_ACCOUNT_ID AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKUP_PASSPHRASE; do
+            if [ -z "${!v}" ]; then echo "::error::Secret for $v is missing"; exit 1; fi
+          done
+
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client-18
+
+      - name: Dump, compress and encrypt
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y-%m-%dT%H%M%SZ)
+          pg_dump "$PGURL" --format=custom --no-owner --no-acl --compress=6 --file=dump.pgdump
+          # AES-256, salted, key derived from the passphrase
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -in dump.pgdump -out "kks-$STAMP.pgdump.enc"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          ls -lh kks-*.enc
+
+      - name: Upload to R2
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp "kks-${STAMP}.pgdump.enc" "s3://${BUCKET}/backups/daily/kks-${STAMP}.pgdump.enc" --endpoint-url "$ENDPOINT"
+          # First backup of each month is also kept as a monthly copy
+          if [ "$(date -u +%d)" = "01" ]; then
+            aws s3 cp "kks-${STAMP}.pgdump.enc" "s3://${BUCKET}/backups/monthly/kks-${STAMP}.pgdump.enc" --endpoint-url "$ENDPOINT"
+          fi
+
+      - name: Prune old backups (30 daily, 12 monthly)
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          prune() { # prefix keep
+            aws s3 ls "s3://${BUCKET}/backups/$1/" --endpoint-url "$ENDPOINT" | awk '{print $4}' | grep '\.enc$' | sort -r | tail -n +"$(( $2 + 1 ))" | while read -r f; do
+              echo "Deleting old backup $1/$f"
+              aws s3 rm "s3://${BUCKET}/backups/$1/$f" --endpoint-url "$ENDPOINT"
+            done
+          }
+          prune daily 30
+          prune monthly 12

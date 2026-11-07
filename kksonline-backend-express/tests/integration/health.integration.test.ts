@@ -19,24 +19,34 @@ describe('Health integration', () => {
     vi.clearAllMocks();
   });
 
-  it('GET /api/v1/health returns ok when database is connected', async () => {
-    mockCheckDatabaseConnection.mockResolvedValue(true);
+  it('GET /api/v1/health answers without touching the database (so monitors never wake Neon)', async () => {
     const agent = await getTestAgent();
 
     const response = await agent.get('/api/v1/health');
 
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('ok');
+    expect(mockCheckDatabaseConnection).not.toHaveBeenCalled();
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
+  it('GET /api/v1/health/db returns ok when the database is connected', async () => {
+    mockCheckDatabaseConnection.mockResolvedValue(true);
+    const agent = await getTestAgent();
+
+    const response = await agent.get('/api/v1/health/db');
+
+    expect(response.status).toBe(200);
     expect(response.body.database).toBe('connected');
   });
 
-  it('GET /api/v1/health returns degraded when database is down', async () => {
+  it('GET /api/v1/health/db returns 503 when the database is down', async () => {
     mockCheckDatabaseConnection.mockResolvedValue(false);
     const agent = await getTestAgent();
 
-    const response = await agent.get('/api/v1/health');
+    const response = await agent.get('/api/v1/health/db');
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(response.body.status).toBe('degraded');
     expect(response.body.database).toBe('disconnected');
   });

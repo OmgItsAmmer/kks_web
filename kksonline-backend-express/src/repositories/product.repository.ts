@@ -7,7 +7,7 @@ import {
   deleteByPattern,
   withCache
 } from '../utils/cache';
-import { supabaseImageService } from '../services/supabase-image.service';
+import { supabaseImageService } from '../services/image.service';
 import type { Product, ProductVariant, Category, Brand } from '@prisma/client';
 
 export interface SearchParams {
@@ -228,20 +228,16 @@ export class ProductRepository {
         where.tag = tag as any;
       }
 
-      // Price filtering
+      // Price filtering on the real numbers (min_price is the lowest visible variant price)
       if (minPrice !== undefined || maxPrice !== undefined) {
-        where.sale_price = {};
-        if (minPrice !== undefined) {
-          where.sale_price.gte = minPrice.toString();
-        }
-        if (maxPrice !== undefined) {
-          where.sale_price.lte = maxPrice.toString();
-        }
+        where.min_price = {};
+        if (minPrice !== undefined) where.min_price.gte = minPrice;
+        if (maxPrice !== undefined) where.min_price.lte = maxPrice;
       }
 
       // Sorting
       const orderBy: Prisma.ProductOrderByWithRelationInput = {};
-      const sortColumn = sortBy === 'popularity' ? 'ispopular' : sortBy === 'price' ? 'sale_price' : sortBy;
+      const sortColumn = sortBy === 'popularity' ? 'ispopular' : sortBy === 'price' ? 'min_price' : sortBy;
       orderBy[sortColumn as keyof Prisma.ProductOrderByWithRelationInput] = sortOrder;
 
       const [products, total] = await Promise.all([

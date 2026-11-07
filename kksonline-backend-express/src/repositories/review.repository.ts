@@ -15,7 +15,7 @@ export class ReviewRepository {
   async findByProductId(productId: number): Promise<ReviewWithCustomer[]> {
     try {
       const reviews = await db.review.findMany({
-        where: { product_id: productId },
+        where: { product_id: productId, is_hidden: false },
         include: {
           customer: {
             select: { first_name: true, last_name: true },
@@ -146,7 +146,7 @@ export class ReviewRepository {
   async getAverageRating(productId: number): Promise<{ average: number; count: number }> {
     try {
       const reviews = await db.review.findMany({
-        where: { product_id: productId },
+        where: { product_id: productId, is_hidden: false },
         select: { rating: true },
       });
 
@@ -214,7 +214,7 @@ export class ReviewRepository {
     const offset = (page - 1) * pageSize;
 
     try {
-      const where: Prisma.ReviewWhereInput = {};
+      const where: Prisma.ReviewWhereInput = { is_hidden: false };
       if (productId) where.product_id = productId;
       if (customerId) where.customer_id = customerId;
 
@@ -255,6 +255,7 @@ export class ReviewRepository {
     try {
       const reviews = await db.review.findMany({
         where: {
+          is_hidden: false,
           rating: {
             gte: minRating,
           },
@@ -288,6 +289,7 @@ export class ReviewRepository {
     try {
       const reviews = await db.review.findMany({
         where: {
+          is_hidden: false,
           rating: {
             gt: 4,
           },

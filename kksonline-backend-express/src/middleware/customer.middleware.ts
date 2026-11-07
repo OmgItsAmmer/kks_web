@@ -5,8 +5,8 @@ import { sendError } from '../utils/response';
 
 /**
  * Middleware to extract customer ID from request.
- * Supports both JWT token (Authorization header) and X-Customer-Id header.
- * JWT token takes precedence if both are provided.
+ * Only a valid signed JWT (Authorization: Bearer) identifies a customer. The old `X-Customer-Id`
+ * header fallback was removed: it let anyone act as any customer.
  */
 export const extractCustomerId = (
   req: CustomerRequest,
@@ -28,17 +28,7 @@ export const extractCustomerId = (
         }
       }
     } catch (error) {
-      // If JWT validation fails, fall through to check X-Customer-Id header
-      // Don't return error here, let requireCustomer handle it
-    }
-  }
-
-  // Fallback to X-Customer-Id header (for development/testing)
-  const customerId = req.headers['x-customer-id'];
-  if (customerId && typeof customerId === 'string') {
-    const parsed = parseInt(customerId, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      req.customerId = parsed;
+      // Invalid token: continue unauthenticated; requireCustomer will reject it
     }
   }
 
@@ -48,7 +38,6 @@ export const extractCustomerId = (
 /**
  * Middleware that requires a customer ID to be present.
  * Returns 401 if no customer ID is provided.
- * Supports both JWT token and X-Customer-Id header.
  */
 export const requireCustomer = (
   req: CustomerRequest,
@@ -70,17 +59,7 @@ export const requireCustomer = (
         }
       }
     } catch (error) {
-      // JWT validation failed, try X-Customer-Id header as fallback
-    }
-  }
-
-  // Check X-Customer-Id header as fallback
-  const customerId = req.headers['x-customer-id'];
-  if (customerId && typeof customerId === 'string') {
-    const parsed = parseInt(customerId, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      req.customerId = parsed;
-      return next();
+      // JWT validation failed
     }
   }
 

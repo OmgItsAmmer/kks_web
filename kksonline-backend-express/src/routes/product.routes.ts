@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { productRepository } from '../repositories/product.repository';
 import { reviewRepository } from '../repositories/review.repository';
-import { supabaseImageService } from '../services/supabase-image.service';
+import { supabaseImageService } from '../services/image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response';

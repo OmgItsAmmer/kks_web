@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { cartRepository } from '../repositories/cart.repository';
-import { supabaseImageService } from '../services/supabase-image.service';
+import { supabaseImageService } from '../services/image.service';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
@@ -226,34 +226,6 @@ router.get(
     const count = await cartRepository.getItemCount(req.customerId);
 
     return sendSuccess(res, { count });
-  })
-);
-
-/**
- * @route   POST /api/v1/cart/transfer-to-kiosk
- * @desc    Transfer cart to kiosk for in-store checkout
- * @access  Private
- */
-router.post(
-  '/transfer-to-kiosk',
-  asyncHandler(async (req: CustomerRequest, res: Response) => {
-    if (!req.customerId) {
-      return sendError(res, 'Unauthorized', 401);
-    }
-
-    const { kioskSessionId } = req.body;
-
-    if (!kioskSessionId) {
-      return sendError(res, 'Kiosk session ID required', 400);
-    }
-
-    const success = await cartRepository.transferToKiosk(req.customerId, kioskSessionId);
-
-    if (success) {
-      return sendSuccess(res, null, 'Cart transferred to kiosk');
-    } else {
-      return sendError(res, 'Failed to transfer cart', 500);
-    }
   })
 );
 
