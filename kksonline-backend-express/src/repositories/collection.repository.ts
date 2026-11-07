@@ -1,8 +1,8 @@
 import { db, Prisma } from '../config/database.config';
 import { logger } from '../utils/logger';
 import { NotFoundError, InternalServerError, BadRequestError } from '../utils/errors';
-import { supabaseImageService } from '../services/supabase-image.service';
-import { getSupabasePublicUrl } from '../config/supabase.config';
+import { supabaseImageService } from '../services/image.service';
+import { assetUrl } from '../services/storage.service';
 import {
   CacheKeys,
   generateCacheKey,
@@ -72,7 +72,7 @@ export class CollectionRepository {
     // Otherwise, construct Supabase URL from filename
     // Collections bucket name is 'collections'
     try {
-      return getSupabasePublicUrl('collections', imageUrl);
+      return assetUrl('collections', imageUrl);
     } catch (error) {
       logger.warn('[CollectionRepository] Error constructing Supabase URL for image', { imageUrl, error });
       return null;

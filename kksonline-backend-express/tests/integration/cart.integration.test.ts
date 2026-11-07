@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getTestAgent, resetTestApp } from '../helpers/test-app';
+import jwt from 'jsonwebtoken';
+
+// Customers are identified only by a signed token (the old X-Customer-Id header was removed: it let anyone act as any customer)
+const customerAuth = (customerId = 1): string =>
+  `Bearer ${jwt.sign({ id: customerId, email: 'c@example.com', role: 'customer', customerId }, process.env.JWT_SECRET as string)}`;
 
 const mockFindWithDetails = vi.fn();
 const mockGetCartTotal = vi.fn();
@@ -22,11 +27,10 @@ vi.mock('../../src/repositories/cart.repository', () => ({
     validateCartStock: vi.fn(),
     applyCartAdjustments: vi.fn(),
     getItemCount: vi.fn(),
-    transferToKiosk: vi.fn(),
   },
 }));
 
-vi.mock('../../src/services/supabase-image.service', () => ({
+vi.mock('../../src/services/image.service', () => ({
   supabaseImageService: {
     getMainImagesForEntities: mockGetMainImagesForEntities,
   },
@@ -65,7 +69,7 @@ describe('Cart integration', () => {
     const agent = await getTestAgent();
     const response = await agent
       .get('/api/v1/cart')
-      .set('X-Customer-Id', '1');
+      .set('Authorization', customerAuth());
 
     expect(response.status).toBe(200);
     expect(response.body.data.subtotal).toBe(2300);
@@ -78,7 +82,7 @@ describe('Cart integration', () => {
 
     const response = await agent
       .post('/api/v1/cart')
-      .set('X-Customer-Id', '1')
+      .set('Authorization', customerAuth())
       .send({ variantId: 1, quantity: 1 });
 
     expect(response.status).toBe(201);
@@ -91,8 +95,14 @@ describe('Cart integration', () => {
 
     const response = await agent
       .delete('/api/v1/cart')
-      .set('X-Customer-Id', '1');
+      .set('Authorization', customerAuth());
 
     expect(response.status).toBe(204);
+  });
+
+  it('ignores the old X-Customer-Id header (cannot act as another customer)', async () => {
+    const agent = await getTestAgent();
+    const response = await agent.get('/api/v1/cart').set('X-Customer-Id', '1');
+    expect(response.status).toBe(401);
   });
 });

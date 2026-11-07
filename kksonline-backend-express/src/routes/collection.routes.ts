@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { collectionRepository } from '../repositories/collection.repository';
 import { validate, schemas } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response';
+import { sendSuccess, sendError, sendPaginated, sendNotFound } from '../utils/response';
+import { requireCustomer } from '../middleware/customer.middleware';
+import type { CustomerRequest } from '../types/api.types';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -135,10 +137,11 @@ router.get(
  */
 router.post(
   '/:id/cart',
+  requireCustomer,
   validate({
     params: schemas.idParam,
     body: z.object({
-      customer_id: z.number().int().positive(),
+      customer_id: z.number().int().positive().optional(),
       items: z.array(
         z.object({
           variant_id: z.number().int().positive(),
@@ -149,7 +152,9 @@ router.post(
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const collectionId = parseInt(req.params.id!, 10);
-    const { customer_id, items } = req.body;
+    const { items } = req.body;
+    // The customer always comes from the signed token, never from the request body.
+    const customer_id = (req as CustomerRequest).customerId as number;
 
     const result = await collectionRepository.addToCart(customer_id, collectionId, items);
 
@@ -166,11 +171,15 @@ router.post(
  */
 router.get(
   '/cart/:customerId',
+  requireCustomer,
   validate({
     params: z.object({ customerId: z.string().transform(Number) }),
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const customerId = parseInt(req.params.customerId!, 10);
+    if (customerId !== (req as CustomerRequest).customerId) {
+      return sendError(res, 'Forbidden', 403);
+    }
 
     const cartItems = await collectionRepository.getCustomerCollectionCart(customerId);
 
@@ -187,15 +196,16 @@ router.get(
  */
 router.delete(
   '/cart/:cartId',
+  requireCustomer,
   validate({
     params: z.object({ cartId: z.string().transform(Number) }),
     body: z.object({
-      customer_id: z.number().int().positive(),
+      customer_id: z.number().int().positive().optional(),
     }),
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const collectionCartId = parseInt(req.params.cartId!, 10);
-    const { customer_id } = req.body;
+    const customer_id = (req as CustomerRequest).customerId as number;
 
     await collectionRepository.removeFromCart(customer_id, collectionCartId);
 

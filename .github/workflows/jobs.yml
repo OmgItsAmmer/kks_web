@@ -1,0 +1,45 @@
+name: Scheduled jobs
+
+# Small housekeeping calls to the API (plan 4.5). The API answers the frequent one from memory, so these
+# calls do NOT wake the sleeping database unless there is real work to do.
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # release stock held by unfinished checkouts
+    - cron: '15 22 * * *'    # daily usage check (free-plan limits)
+    - cron: '45 22 * * 0'    # weekly clean-up of old notifications and logs
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run now
+        type: choice
+        options: [release-reservations, usage-check, retention]
+        default: usage-check
+
+permissions:
+  contents: read
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: ${{ secrets.API_URL }}
+      JOBS_SECRET: ${{ secrets.JOBS_SECRET }}
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "*/30 * * * *") echo "job=release-reservations" >> "$GITHUB_OUTPUT" ;;
+            "15 22 * * *")  echo "job=usage-check" >> "$GITHUB_OUTPUT" ;;
+            "45 22 * * 0")  echo "job=retention" >> "$GITHUB_OUTPUT" ;;
+            *)              echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Call the API
+        run: |
+          set -euo pipefail
+          if [ -z "$API_URL" ] || [ -z "$JOBS_SECRET" ]; then echo "::error::API_URL or JOBS_SECRET secret is missing"; exit 1; fi
+          code=$(curl -sS -o response.json -w '%{http_code}' -m 90 --retry 2 --retry-delay 10 \
+            -X POST -H "X-Jobs-Secret: $JOBS_SECRET" "$API_URL/api/v1/internal/jobs/${{ steps.pick.outputs.job }}")
+          cat response.json; echo
+          [ "$code" = "200" ]

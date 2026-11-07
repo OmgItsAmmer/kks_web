@@ -391,38 +391,6 @@ export class CartRepository {
   }
 
   /**
-   * Transfer cart to kiosk
-   */
-  async transferToKiosk(customerId: number, kioskSessionId: string): Promise<boolean> {
-    try {
-      const cartItems = await db.cart.findMany({
-        where: { customer_id: customerId },
-      });
-
-      if (cartItems.length === 0) return false;
-
-      // Create kiosk cart items
-      await db.kioskCart.createMany({
-        data: cartItems
-          .filter((item) => item.variant_id)
-          .map((item) => ({
-            kiosk_session_id: kioskSessionId,
-            variant_id: item.variant_id!,
-            quantity: parseInt(item.quantity, 10),
-          })),
-      });
-
-      // Clear customer cart
-      await this.clearCart(customerId);
-
-      return true;
-    } catch (error) {
-      logger.error('Error transferring cart to kiosk', { error, customerId, kioskSessionId });
-      return false;
-    }
-  }
-
-  /**
    * Get cart total
    */
   async getCartTotal(customerId: number): Promise<{ subtotal: number; itemCount: number }> {

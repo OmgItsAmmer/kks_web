@@ -8,6 +8,8 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config/env.config';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { extractCustomerId } from './middleware/customer.middleware';
+import { getClientIp } from './middleware/client-ip';
+import { noStoreByDefault } from './middleware/http-cache';
 import routes from './routes/index';
 
 export const createApp = (): Express => {
@@ -35,8 +37,11 @@ export const createApp = (): Express => {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-client-info', 'apikey', 'X-Customer-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-client-info', 'apikey', 'Idempotency-Key'],
   }));
+
+  // Responses are private by default; public catalog routers opt in to edge caching (middleware/http-cache.ts)
+  app.use('/api', noStoreByDefault);
 
   app.use(extractCustomerId);
   app.use(compression());
@@ -54,7 +59,9 @@ export const createApp = (): Express => {
     },
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.path === `/api/${config.server.apiVersion}/health`,
+    // Key on the real visitor address, not the proxy's (plan 4.11)
+    keyGenerator: (req) => getClientIp(req),
+    skip: (req) => req.path.startsWith(`/api/${config.server.apiVersion}/health`) || req.path.startsWith(`/api/${config.server.apiVersion}/internal/`),
   });
 
   app.use(limiter);

@@ -20,6 +20,19 @@ const mockProductVariantFindUnique = vi.fn();
 const mockProductVariantUpdate = vi.fn();
 const mockInventoryReservationCreate = vi.fn();
 const mockSecurityAuditLogCreate = vi.fn();
+const mockApplyStockChanges = vi.fn();
+const mockMovementUpdateMany = vi.fn();
+const mockNotificationCreate = vi.fn();
+
+vi.mock('../../../src/services/inventory.service', () => ({
+  applyStockChanges: mockApplyStockChanges,
+}));
+vi.mock('../../../src/services/notification-state', () => ({
+  markNotificationsDirty: vi.fn(),
+}));
+vi.mock('../../../src/services/reservation-state', () => ({
+  markReservationsPending: vi.fn(),
+}));
 
 vi.mock('../../../src/repositories/customer.repository', () => ({
   customerRepository: { findById: mockFindCustomerById },
@@ -52,7 +65,7 @@ vi.mock('../../../src/repositories/shop.repository', () => ({
   },
 }));
 
-vi.mock('../../../src/services/supabase-image.service', () => ({
+vi.mock('../../../src/services/image.service', () => ({
   supabaseImageService: {
     verifyReceiptOwnership: vi.fn().mockResolvedValue(true),
   },
@@ -73,6 +86,8 @@ vi.mock('../../../src/config/database.config', () => ({
     securityAuditLog: {
       create: mockSecurityAuditLogCreate,
     },
+    inventoryMovement: { updateMany: mockMovementUpdateMany },
+    notification: { create: mockNotificationCreate },
     $transaction: mockTransaction,
   },
 }));
@@ -106,7 +121,13 @@ describe('CheckoutService', () => {
       },
     ]);
 
-    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
+    mockApplyStockChanges.mockResolvedValue({ movements: 1, lowStock: [], affectedProductIds: [1] });
+    mockMovementUpdateMany.mockResolvedValue({ count: 1 });
+    mockNotificationCreate.mockResolvedValue({});
+
+    mockTransaction.mockImplementation(async (fn: unknown) => {
+      // `$transaction([a, b])` (array form) just resolves the promises
+      if (Array.isArray(fn)) return Promise.all(fn);
       const tx = {
         productVariant: {
           findUnique: mockProductVariantFindUnique.mockResolvedValue({
@@ -119,7 +140,7 @@ describe('CheckoutService', () => {
           create: mockInventoryReservationCreate.mockResolvedValue({}),
         },
       };
-      await fn(tx);
+      await (fn as (tx: unknown) => Promise<void>)(tx);
     });
 
     mockCreateOrder.mockResolvedValue({ order_id: 100 });

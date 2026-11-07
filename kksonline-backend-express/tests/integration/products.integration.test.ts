@@ -24,7 +24,7 @@ vi.mock('../../src/repositories/product.repository', () => ({
   },
 }));
 
-vi.mock('../../src/services/supabase-image.service', () => ({
+vi.mock('../../src/services/image.service', () => ({
   supabaseImageService: {
     getMainImagesForEntities: mockGetMainImagesForEntities,
     getMainImageUrl: vi.fn().mockResolvedValue(null),

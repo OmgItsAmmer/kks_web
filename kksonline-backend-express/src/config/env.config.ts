@@ -1,8 +1,16 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
 import console from 'node:console';
 import { z } from 'zod';
 
 dotenv.config();
+// Neon CLI writes pulled variables to the repo root .env.local
+dotenv.config({ path: path.resolve(process.cwd(), '../.env.local') });
+
+const optionalString = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined));
 
 const envSchema = z.object({
   // Server
@@ -10,27 +18,41 @@ const envSchema = z.object({
   PORT: z.string().default('5000').transform(Number),
   API_VERSION: z.string().default('v1'),
 
-  // Database (Prisma direct connection to Supabase)
+  // Database (Neon). Pooled URL at runtime; direct URL for migrations only.
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DATABASE_URL_UNPOOLED: optionalString,
 
-  // Supabase Storage
-  SUPABASE_URL: z.string().min(1, 'SUPABASE_URL is required'),
-  SUPABASE_SERVICE_KEY: z.string().min(1, 'SUPABASE_SERVICE_KEY is required'),
-  
-  // Supabase S3 Protocol (for storage access)
-  SUPABASE_S3_ENDPOINT: z.string().optional(),
-  SUPABASE_S3_ACCESS_KEY_ID: z.string().optional(),
-  SUPABASE_S3_SECRET_ACCESS_KEY: z.string().optional(),
-  SUPABASE_S3_REGION: z.string().optional(),
-
-  // Auth
+  // Storefront customer auth
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   GOOGLE_CLIENT_ID: z.string().min(1, 'GOOGLE_CLIENT_ID is required'),
 
-  // Cloudinary (optional - for legacy image uploads)
-  CLOUDINARY_CLOUD_NAME: z.string().optional(),
-  CLOUDINARY_API_KEY: z.string().optional(),
-  CLOUDINARY_API_SECRET: z.string().optional(),
+  // Object storage: Cloudflare R2
+  R2_ACCOUNT_ID: optionalString,
+  R2_ACCESS_KEY_ID: optionalString,
+  R2_SECRET_ACCESS_KEY: optionalString,
+  R2_PUBLIC_BUCKET: z.string().default('kks-public'),
+  R2_PRIVATE_BUCKET: z.string().default('kks-private'),
+  ASSET_BASE_URL: optionalString,
+
+  // Cloudflare edge cache purge
+  CLOUDFLARE_ZONE_ID: optionalString,
+  CLOUDFLARE_API_TOKEN: optionalString,
+
+  // Admin sign-in (fixed accounts, plan 5.1)
+  ADMIN_ACCOUNTS: optionalString,
+  ADMIN_SESSION_SECRET: optionalString,
+  ADMIN_ORIGIN: z.string().default('http://localhost:5174'),
+  COOKIE_DOMAIN: optionalString,
+
+  // AI descriptions
+  OPENAI_API_KEY: optionalString,
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  AI_DAILY_LIMIT_PER_ADMIN: z.string().default('300').transform(Number),
+
+  // Scheduled jobs and monitoring
+  JOBS_SECRET: optionalString,
+  SENTRY_DSN: optionalString,
+  NEON_API_KEY: optionalString,
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform(Number),
@@ -53,6 +75,12 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
+const splitList = (value: string): string[] =>
+  value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
 export const config = {
   server: {
     nodeEnv: env.NODE_ENV,
@@ -64,31 +92,43 @@ export const config = {
   database: {
     url: env.DATABASE_URL,
   },
-  supabase: {
-    url: env.SUPABASE_URL,
-    serviceKey: env.SUPABASE_SERVICE_KEY,
-    s3: {
-      endpoint: env.SUPABASE_S3_ENDPOINT,
-      accessKeyId: env.SUPABASE_S3_ACCESS_KEY_ID,
-      secretAccessKey: env.SUPABASE_S3_SECRET_ACCESS_KEY,
-      region: env.SUPABASE_S3_REGION || 'ap-southeast-1',
-    },
-  },
   auth: {
     jwtSecret: env.JWT_SECRET,
     googleClientId: env.GOOGLE_CLIENT_ID,
   },
-  cloudinary: {
-    cloudName: env.CLOUDINARY_CLOUD_NAME,
-    apiKey: env.CLOUDINARY_API_KEY,
-    apiSecret: env.CLOUDINARY_API_SECRET,
+  r2: {
+    accountId: env.R2_ACCOUNT_ID,
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    publicBucket: env.R2_PUBLIC_BUCKET,
+    privateBucket: env.R2_PRIVATE_BUCKET,
+    assetBaseUrl: env.ASSET_BASE_URL?.replace(/\/+$/, ''),
+  },
+  cloudflare: {
+    zoneId: env.CLOUDFLARE_ZONE_ID,
+    apiToken: env.CLOUDFLARE_API_TOKEN,
+  },
+  admin: {
+    accountsJson: env.ADMIN_ACCOUNTS,
+    sessionSecret: env.ADMIN_SESSION_SECRET,
+    origin: env.ADMIN_ORIGIN,
+    cookieDomain: env.COOKIE_DOMAIN,
+  },
+  ai: {
+    apiKey: env.OPENAI_API_KEY,
+    model: env.OPENAI_MODEL,
+    dailyLimitPerAdmin: env.AI_DAILY_LIMIT_PER_ADMIN,
+  },
+  jobs: {
+    secret: env.JOBS_SECRET,
+    neonApiKey: env.NEON_API_KEY,
   },
   rateLimit: {
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     maxRequests: env.RATE_LIMIT_MAX_REQUESTS,
   },
   cors: {
-    allowedOrigins: env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()),
+    allowedOrigins: [...splitList(env.ALLOWED_ORIGINS), env.ADMIN_ORIGIN],
   },
   cache: {
     ttlSeconds: env.CACHE_TTL_SECONDS,

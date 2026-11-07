@@ -1,5 +1,5 @@
 # Multi-stage build for minimal image size
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -19,11 +19,11 @@ RUN npx prisma generate
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript, then drop dev dependencies so the final image stays small
+RUN npm run build && npm prune --omit=dev
 
 # Production stage
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 
 # Prisma query engine needs OpenSSL 3 libs at runtime (Alpine uses musl + OpenSSL 3)
 RUN apk add --no-cache openssl
@@ -40,6 +40,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+ENV NODE_ENV=production
 
 # Set ownership
 RUN chown -R nodejs:nodejs /app

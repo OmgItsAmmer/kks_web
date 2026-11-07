@@ -1,1 +1,7 @@
 daily_tasks.md
+.neon
+node_modules/
+.env.local
+admin-frontend/dist
+*.log
+.env

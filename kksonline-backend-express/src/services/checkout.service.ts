@@ -17,7 +17,10 @@ import { cartRepository } from '../repositories/cart.repository';
 import { orderRepository } from '../repositories/order.repository';
 import { addressRepository } from '../repositories/address.repository';
 import { shopRepository } from '../repositories/shop.repository';
-import { supabaseImageService } from './supabase-image.service';
+import { supabaseImageService } from './image.service';
+import { applyStockChanges } from './inventory.service';
+import { markNotificationsDirty } from './notification-state';
+import { markReservationsPending } from './reservation-state';
 import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 import type { PaymentMethod, SeverityLevel, OrderStatus } from '@prisma/client';
 
@@ -407,24 +410,20 @@ export class CheckoutService {
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
       await db.$transaction(async (tx) => {
+        // Row-locked stock decrement plus a ledger row per item (inventory.service.ts)
+        await applyStockChanges(
+          tx,
+          cartItems.map((item) => ({
+            variantId: item.variantId,
+            delta: -item.quantity,
+            reason: 'order_placed' as const,
+            refType: 'reservation',
+            refId: reservationId,
+          })),
+          'checkout'
+        );
+
         for (const item of cartItems) {
-          // Check stock
-          const variant = await tx.productVariant.findUnique({
-            where: { variant_id: item.variantId },
-            select: { stock: true, variant_name: true },
-          });
-
-          if (!variant || (variant.stock || 0) < item.quantity) {
-            throw new Error(`Insufficient stock for ${variant?.variant_name || 'item'}`);
-          }
-
-          // Reserve stock
-          await tx.productVariant.update({
-            where: { variant_id: item.variantId },
-            data: { stock: { decrement: item.quantity } },
-          });
-
-          // Create reservation record
           await tx.inventoryReservation.create({
             data: {
               reservation_id: reservationId,
@@ -436,6 +435,7 @@ export class CheckoutService {
         }
       });
 
+      markReservationsPending();
       return { success: true, message: 'Inventory reserved successfully' };
     } catch (error) {
       logger.error('Error in inventory reservation', { error });
@@ -565,6 +565,24 @@ export class CheckoutService {
 
       await orderRepository.createOrderItems(orderItems);
 
+      // Link the stock ledger rows to the order, and tell the admin (plan 7.3, notifications)
+      await db.$transaction([
+        db.inventoryMovement.updateMany({
+          where: { ref_type: 'reservation', ref_id: idempotencyKey },
+          data: { ref_type: 'order', ref_id: String(order.order_id) },
+        }),
+        db.notification.create({
+          data: {
+            NotificationType: 'new_order',
+            description: `New order #${order.order_id}`,
+            sub_description: `Rs ${totals.total}`,
+            order_id: order.order_id,
+            isRead: false,
+          },
+        }),
+      ]);
+
+      markNotificationsDirty();
       return { success: true, orderId: order.order_id, message: 'Order created successfully' };
 
     } catch (error) {
@@ -596,17 +614,21 @@ export class CheckoutService {
         where: { reservation_id: reservationId },
       });
 
-      // Restore stock
-      for (const reservation of reservations) {
-        await db.productVariant.update({
-          where: { variant_id: reservation.variant_id },
-          data: { stock: { increment: reservation.quantity } },
-        });
-      }
-
-      // Delete reservations
-      await db.inventoryReservation.deleteMany({
-        where: { reservation_id: reservationId },
+      // Restore stock and delete the reservations together, with a ledger entry
+      await db.$transaction(async (tx) => {
+        await applyStockChanges(
+          tx,
+          reservations.map((reservation) => ({
+            variantId: reservation.variant_id,
+            delta: reservation.quantity,
+            reason: 'correction' as const,
+            refType: 'reservation',
+            refId: reservationId,
+            note: 'Checkout did not complete; stock released',
+          })),
+          'checkout'
+        );
+        await tx.inventoryReservation.deleteMany({ where: { reservation_id: reservationId } });
       });
     } catch (error) {
       logger.error('Error rolling back inventory reservation', { error, reservationId });
