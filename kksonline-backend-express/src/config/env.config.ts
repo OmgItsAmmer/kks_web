@@ -90,7 +90,10 @@ if (env.NODE_ENV === 'production') {
     'JOBS_SECRET',
   ];
 
+  // A shared dev deployment (DEPLOY_TIER=dev) must not hold the Cloudflare keys: they purge the whole live zone.
+  const devTier = process.env.DEPLOY_TIER === 'dev';
   const missingProd = requiredProductionKeys.filter((key) => {
+    if (devTier && (key === 'CLOUDFLARE_ZONE_ID' || key === 'CLOUDFLARE_API_TOKEN')) return false;
     const val = env[key];
     return val === undefined || val === null || val === '';
   });

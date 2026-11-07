@@ -1303,3 +1303,13 @@ A **collection** is a bundle of product options (variants) with a default quanti
 | Admin screens | `/collections`: cards with picture, badges (main banner, featured, hidden), product count and price, warnings (empty, out of stock, hidden items), shown/hidden switch, move earlier/later, search. `/collections/:id`: product list with quantity steppers, reorder, remove and a live bundle price; an "Add products" picker that searches by name, option or SKU; details, a picture drop zone and three switches with plain explanations; a save bar that appears only when something changed, and a warning when leaving with unsaved changes |
 | Verified | Typecheck, lint, build, 13 admin tests and 64 backend unit tests pass. A live run on the dev database passed 28 of 29 checks (the one "failure" was my test expecting 400 where the API correctly answers 422 for an empty name): list and detail of the 6 real collections, create, the one-main-banner rule, items replace and reorder, duplicate and unknown product rejected, image upload and fake-image rejection, storefront shows an active one and hides an inactive one, staff cannot write, no session is refused, delete. The test removed everything it created |
 | Not done | Dragging cards to reorder (arrows are used instead). Collection pictures that live only in Supabase Storage still need the picture copy (blocked, see above) |
+
+### 14.7 Dev deployment (2026-11-07)
+
+| Part | Where |
+|---|---|
+| Admin | Vercel, `https://admin.kks-online.com` (also `kks-web-ten.vercel.app`). `/api/*` is forwarded by `admin-frontend/vercel.json`, so the login cookie is first-party |
+| API (dev) | Fly app **`kks-api-dev`** (Singapore, `kks-api-dev.fly.dev`), config `kksonline-backend-express/fly.dev.toml`, on the Neon **dev** branch with the copied shop data. **Sleeps when idle** (`auto_stop_machines = 'stop'`, `min_machines_running = 0`); first request after a pause takes about 6 s. Deploy with `fly deploy -c fly.dev.toml --remote-only --ha=false` from `kksonline-backend-express` |
+| Live shop API | **Untouched.** Fly app `kksonline-backend` (behind `api.kks-online.com`, Supabase) keeps serving the storefront |
+| Cloudflare keys | Deliberately **not** set on the dev app: the cache purge clears the whole `kks-online.com` zone, which would flush the live shop on every admin edit. `DEPLOY_TIER=dev` lets the app start without them |
+| At cutover | Switch to `fly.toml` (always on), set the production Neon branch and the Cloudflare keys, and point `api.kks-online.com` at it |
