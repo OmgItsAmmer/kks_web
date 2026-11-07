@@ -1,13 +1,12 @@
-import dotenv from 'dotenv';
-import path from 'node:path';
 import console from 'node:console';
 import { z } from 'zod';
+import { loadEnv } from './load-env';
 
-dotenv.config();
-// Neon CLI writes pulled variables to the repo root .env.local
-dotenv.config({ path: path.resolve(process.cwd(), '../.env.local') });
+// Load environment variables according to unified precedence
+const envInfo = loadEnv();
 
 const optionalString = z
+
   .string()
   .optional()
   .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined));
@@ -74,6 +73,34 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+// Production fast-fail check: If NODE_ENV is production, verify required production variables
+if (env.NODE_ENV === 'production') {
+  const requiredProductionKeys: Array<keyof typeof env> = [
+    'DATABASE_URL',
+    'JWT_SECRET',
+    'GOOGLE_CLIENT_ID',
+    'R2_ACCOUNT_ID',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+    'CLOUDFLARE_ZONE_ID',
+    'CLOUDFLARE_API_TOKEN',
+    'ADMIN_ACCOUNTS',
+    'ADMIN_SESSION_SECRET',
+    'JOBS_SECRET',
+  ];
+
+  const missingProd = requiredProductionKeys.filter((key) => {
+    const val = env[key];
+    return val === undefined || val === null || val === '';
+  });
+
+  if (missingProd.length > 0) {
+    console.error(`❌ [Production Guard] Missing required production environment variables: ${missingProd.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 
 const splitList = (value: string): string[] =>
   value

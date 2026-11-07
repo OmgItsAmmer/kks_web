@@ -1,7 +1,10 @@
 daily_tasks.md
 .neon
 node_modules/
-.env.local
 admin-frontend/dist
 *.log
-.env
+
+# Environment files: ignore all .env* except .env.example
+.env*
+!.env.example
+

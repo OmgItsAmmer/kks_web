@@ -10,13 +10,26 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const path = require('node:path');
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
-require('dotenv').config({ path: path.resolve(process.cwd(), '../.env.local') });
+const { loadEnv } = require('./load-env.cjs');
+
+const envInfo = loadEnv();
+console.log(`[Migrate Images] Active environment: ${envInfo.env}${envInfo.neonBranch ? ` (Neon branch: ${envInfo.neonBranch})` : ''}`);
+
+const isProd = envInfo.env === 'production' || process.env.APP_ENV === 'production' || envInfo.neonBranch === 'production';
+const hasConfirmedProd = process.env.CONFIRM_PRODUCTION === 'yes';
+
+if (isProd && process.argv.includes('--apply') && !hasConfirmedProd) {
+  console.error('❌ [SAFETY GUARD] Applying image migration against production requires explicit confirmation.');
+  console.error('To proceed, run with CONFIRM_PRODUCTION=yes');
+  process.exit(1);
+}
+
 const { createClient } = require('@supabase/supabase-js');
 const { S3Client, HeadObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const sharp = require('sharp');
 
 const APPLY = process.argv.includes('--apply');
+
 const WEBP = process.argv.includes('--webp');
 const PRIVATE = new Set(['customers', 'payment-receipts']);
 

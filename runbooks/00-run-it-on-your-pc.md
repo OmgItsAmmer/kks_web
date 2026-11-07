@@ -5,7 +5,8 @@
 
 ## What you need
 
-- The `.env` file in `kksonline-backend-express` with the Neon and R2 lines (you already have these).
+- The `.env.development` (or `.env.local`) file in `kksonline-backend-express` with your settings.
+- The Neon CLI wrote your dev database connection strings to the root `.env.local` automatically.
 - Node.js 22 (check with `node --version`).
 
 ## Steps
@@ -19,8 +20,8 @@
    cd kksonline-backend-express
    npm run admin:hash
    ```
-   Type a password (12+ characters). Copy the long text it prints.
-3. Add these lines to `kksonline-backend-express/.env` (the `ADMIN_ACCOUNTS` value must stay on **one line**):
+   Type a password (6+ characters). Copy the long text it prints.
+3. Add these lines to `kksonline-backend-express/.env.development` or your personal `.env.local` (the `ADMIN_ACCOUNTS` value must stay on **one line**):
    ```
    ADMIN_ACCOUNTS=[{"email":"you@example.com","name":"Your Name","role":"owner","passwordHash":"PASTE_THE_HASH"}]
    ADMIN_SESSION_SECRET=any_long_random_text_at_least_32_characters

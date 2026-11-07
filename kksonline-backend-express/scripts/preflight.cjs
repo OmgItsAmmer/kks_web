@@ -1,9 +1,12 @@
 // npm run preflight: checks that every account and key from plan section 0 works. Never prints a secret.
 const path = require('node:path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
+const { loadEnv } = require('./load-env.cjs');
+
+const envInfo = loadEnv();
+console.log(`[Preflight] Active environment: ${envInfo.env}${envInfo.neonBranch ? ` (Neon branch: ${envInfo.neonBranch})` : ''}`);
 
 const results = [];
+
 const add = (name, status, detail = '') => {
   results.push({ name, status, detail });
   const icon = status === 'ok' ? '✅' : status === 'warn' ? '⚠️ ' : status === 'skip' ? '⏭️ ' : '❌';

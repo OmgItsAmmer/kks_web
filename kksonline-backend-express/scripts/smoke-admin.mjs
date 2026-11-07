@@ -7,10 +7,18 @@ import sharp from 'sharp';
 
 const require = createRequire(import.meta.url);
 const path = require('node:path');
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
-require('dotenv').config({ path: path.resolve(process.cwd(), '../.env.local') });
+const { loadEnv } = require('./load-env.cjs');
+
+const envInfo = loadEnv();
+console.log(`[Smoke Admin] Active environment: ${envInfo.env}${envInfo.neonBranch ? ` (Neon branch: ${envInfo.neonBranch})` : ''}`);
+
+if (envInfo.env === 'production' || process.env.APP_ENV === 'production' || envInfo.neonBranch === 'production') {
+  console.error('❌ [SAFETY GUARD] smoke-admin is prohibited on production! (env/NEON_BRANCH is production)');
+  process.exit(1);
+}
 
 if (process.env.SMOKE_ALLOW_DB_WRITES !== '1') {
+
   console.error('Set SMOKE_ALLOW_DB_WRITES=1 (this writes test rows to the database)');
   process.exit(1);
 }

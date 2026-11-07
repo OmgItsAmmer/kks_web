@@ -11,12 +11,30 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const path = require('node:path');
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
-require('dotenv').config({ path: path.resolve(process.cwd(), '../.env.local') });
+const { loadEnv } = require('./load-env.cjs');
+
+const envInfo = loadEnv();
+console.log(`[Migrate From Supabase] Active environment: ${envInfo.env}${envInfo.neonBranch ? ` (Neon branch: ${envInfo.neonBranch})` : ''}`);
+
+const isProd = envInfo.env === 'production' || process.env.APP_ENV === 'production' || envInfo.neonBranch === 'production';
+const hasConfirmedProd = process.env.CONFIRM_PRODUCTION === 'yes';
+
+if (isProd && process.argv.includes('--reset')) {
+  console.error('❌ [SAFETY GUARD] --reset is prohibited against production or production Neon branch!');
+  process.exit(1);
+}
+
+if (isProd && process.argv.includes('--apply') && !hasConfirmedProd) {
+  console.error('❌ [SAFETY GUARD] Applying migrations against production requires explicit confirmation.');
+  console.error('To proceed, run with CONFIRM_PRODUCTION=yes');
+  process.exit(1);
+}
+
 const { Client } = require('pg');
 
 const APPLY = process.argv.includes('--apply');
 const RESET = process.argv.includes('--reset');
+
 const sourceUrl = process.env.SUPABASE_DATABASE_URL;
 const targetUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 if (!sourceUrl) throw new Error('SUPABASE_DATABASE_URL is not set');

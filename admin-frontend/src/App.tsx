@@ -13,6 +13,8 @@ const OrderDetail = lazy(() => import('@/pages/orders/OrderDetail'));
 const Products = lazy(() => import('@/pages/products/Products'));
 const ProductEditor = lazy(() => import('@/pages/products/ProductEditor'));
 const Lookups = lazy(() => import('@/pages/products/Lookups'));
+const Collections = lazy(() => import('@/pages/collections/Collections'));
+const CollectionEditor = lazy(() => import('@/pages/collections/CollectionEditor'));
 const Inventory = lazy(() => import('@/pages/inventory/Inventory'));
 const Receipts = lazy(() => import('@/pages/inventory/Receipts'));
 const ReceiptEditor = lazy(() => import('@/pages/inventory/ReceiptEditor'));
@@ -85,6 +87,9 @@ export function App() {
             <Route path="products/new" element={<Guard permission="catalog.write"><ProductEditor /></Guard>} />
             <Route path="products/:id" element={<Guard permission="catalog.view"><ProductEditor /></Guard>} />
             <Route path="categories" element={<Guard permission="catalog.view"><Lookups /></Guard>} />
+            <Route path="collections" element={<Guard permission="catalog.view"><Collections /></Guard>} />
+            <Route path="collections/new" element={<Guard permission="catalog.write"><CollectionEditor /></Guard>} />
+            <Route path="collections/:id" element={<Guard permission="catalog.view"><CollectionEditor /></Guard>} />
             <Route path="inventory" element={<Guard permission="inventory.view"><Inventory /></Guard>} />
             <Route path="receipts" element={<Guard permission="inventory.view"><Receipts /></Guard>} />
             <Route path="receipts/new" element={<Guard permission="inventory.receive"><ReceiptEditor /></Guard>} />

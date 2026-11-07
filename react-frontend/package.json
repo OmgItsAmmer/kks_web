@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:env": "node scripts/check-env.mjs",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
     "sitemap": "next-sitemap --config next-sitemap.config.cjs",
     "lint": "eslint .",

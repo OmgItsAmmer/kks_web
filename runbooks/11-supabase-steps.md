@@ -23,7 +23,44 @@ The old Flutter admin app may have shipped with a powerful key inside its files.
 
 If you are sure the app only ever lived on your own computer, skip A2.
 
+### A3. Close the open image buckets and the open functions (found 2026-11-07)
+
+**Why:** I read the live project and found that anyone on the internet can upload, replace or delete pictures in the `products`, `collections` and `vendors` buckets, and can call some database functions without signing in. The new system does not use any of this, so closing it cannot break the new shop. It *could* break the **old** live shop if the old storefront or app uploads pictures straight to Supabase; the storefront shows pictures only (reading stays open), so reading is not touched.
+
+1. Left menu → **SQL Editor** → **New query**.
+2. Paste and run **step 1** (stops anonymous writes to pictures; reading stays open):
+   ```sql
+   drop policy if exists "alll 1ifhysk_0" on storage.objects;
+   drop policy if exists "alll 1ifhysk_2" on storage.objects;
+   drop policy if exists "alll 1ifhysk_3" on storage.objects;
+   drop policy if exists "all unrc7p_1" on storage.objects;
+   drop policy if exists "all unrc7p_2" on storage.objects;
+   drop policy if exists "all unrc7p_3" on storage.objects;
+   drop policy if exists "all 5qvju3_1" on storage.objects;
+   ```
+   (Reading stays open through the policies `alll 1ifhysk_1` and `all unrc7p_0`. Signed-in shop owners can still upload, through the policies named `kks_owner_*`.)
+3. Run **step 2** (stops strangers calling the account and cart functions):
+   ```sql
+   revoke execute on function public.delete_customer_by_auth_uid(uuid) from anon, authenticated;
+   revoke execute on function public.transfer_cart_to_kiosk(integer, uuid) from anon, authenticated;
+   revoke execute on function public.insert_customer_simple(text,text,text,text,text,timestamptz,text,uuid,text) from anon, authenticated;
+   revoke execute on function public.insert_customer(text,text,text,text,text,timestamptz,public.gender,uuid,text) from anon, authenticated;
+   ```
+4. Run **step 3** (the customer view that skips the privacy rules):
+   ```sql
+   alter view public.customer_public_info set (security_invoker = true);
+   alter view public.collections_summary set (security_invoker = true);
+   alter view public.collection_items_detail set (security_invoker = true);
+   ```
+5. Check the old shop: open it, look at a product page (pictures still show) and sign in with Google.
+
+**If something in the old shop breaks,** tell me which page. I will give you the one line to undo it. Do steps 1 to 3 one at a time and test between them.
+
+*Not done by me:* the Supabase tool I used is able to change things, but you asked me to only read, so I changed nothing.
+
 ## Part B: Measure the sizes (Phase 1)
+
+> **Already measured by me on 2026-11-07, so you can skip Part B:** database 24 MB; images 249 files, 39.9 MB (see `docs/db-triage.md`).
 
 ### B1. Database size
 1. Left menu → **SQL Editor** → **New query**.

@@ -1,6 +1,6 @@
 # KKS Online Admin Dashboard: Rebuild Plan
 
-**Status:** v6 · **built and tested locally on 2026-11-07** (see section 14 for exactly what is done, what is verified, and what still needs you) · **Date:** 2026-11-06 · **Owner:** OmgItsAmmer
+**Status:** v7 · **built and tested locally on 2026-11-07; re-verified the same day after the folder move** (see section 14, and 14.5 for the latest check) · **Date:** 2026-11-06 · **Owner:** OmgItsAmmer
 
 This plan replaces the Flutter `OMGx` admin app with a web-only React admin limited to running the KKS Online store. It also moves the store off Supabase to a **near-$0 stack**: Neon (Postgres), Cloudflare R2 (images and backups), Cloudflare's free CDN in front of everything, and a small built-in admin sign-in (fixed accounts, no email service). Each phase ends with exit criteria that must hold before the next phase starts.
 
@@ -43,14 +43,14 @@ Every step that only you can do has a plain-language runbook in [runbooks/](runb
 
 | # | Item | Status | Runbook |
 |---|---|---|---|
-| 1 | Neon | ✅ Project, Postgres 18, `production` branch done. Open: Neon API key; and your network blocks database port 5432 | [02-neon.md](runbooks/02-neon.md) |
-| 2 | Cloudflare account, domain, API token | ⏳ Waiting for you (tell me the domain name) | [03-cloudflare-domain.md](runbooks/03-cloudflare-domain.md), [04-cloudflare-api-token.md](runbooks/04-cloudflare-api-token.md) |
-| 3 | Cloudflare R2 | ⏳ Waiting for you | [05-cloudflare-r2.md](runbooks/05-cloudflare-r2.md) |
+| 1 | Neon | ✅ Project, Postgres 18, `production` branch, both connections work (preflight 2026-11-07, 32 tables). Open: optional `NEON_API_KEY` (usage report). The old port 5432 block no longer shows up | [02-neon.md](runbooks/02-neon.md) |
+| 2 | Cloudflare account, domain, API token | ✅ `kks-online.com` is active, token and zone ID work | [03-cloudflare-domain.md](runbooks/03-cloudflare-domain.md), [04-cloudflare-api-token.md](runbooks/04-cloudflare-api-token.md) |
+| 3 | Cloudflare R2 | 🟡 Both buckets accept writes and deletes. **Open: connect `cdn.kks-online.com` to `kks-public`** (step 2 of the runbook) | [05-cloudflare-r2.md](runbooks/05-cloudflare-r2.md) |
 | 4 | OpenAI | ⏳ Needed by Phase 6 | [07-openai.md](runbooks/07-openai.md) |
 | 5 | ~~Resend (email)~~ | ✅ Dropped | none |
-| 6 | Admin sign-in | ⏳ Waiting for you: one command, then two lines in `.env` | [10-admin-accounts.md](runbooks/10-admin-accounts.md) |
+| 6 | Admin sign-in | ⏳ Still missing from `.env`: `ADMIN_ACCOUNTS`, `ADMIN_SESSION_SECRET` (also `JOBS_SECRET`). One command, then three lines | [10-admin-accounts.md](runbooks/10-admin-accounts.md) |
 | 7 | Hosting: Fly, Cloudflare Pages | ✅ Decided (Fly always on, Pages for both). ⏳ Setup | [06-cloudflare-pages.md](runbooks/06-cloudflare-pages.md), [09-fly-io.md](runbooks/09-fly-io.md) |
-| 8 | Supabase read access, sizes, Phase 0 dashboard steps | ⏳ Supabase tool connected (needs a restarted session) | [11-supabase-steps.md](runbooks/11-supabase-steps.md) |
+| 8 | Supabase read access, sizes, Phase 0 dashboard steps | 🟡 Read access works (preflight), sizes measured (24 MB DB, 39.9 MB images; G2 closed). **Open: the Phase 0 security steps A1 to A3 on the live Supabase project, done by you** | [11-supabase-steps.md](runbooks/11-supabase-steps.md) |
 | 9 | GitHub secrets | ⏳ After #3 | [12-github-secrets.md](runbooks/12-github-secrets.md) |
 | 10 | Mobile app | ✅ None | none |
 | 11 | Permission to work | ✅ You told me to code all phases once setup is done | none |
@@ -79,9 +79,9 @@ I stop and report back, instead of pushing on, if any of these happens:
 | Gate | Trigger | Why | Recommended fix | Status |
 |---|---|---|---|---|
 | **G1** | The mobile app uses Supabase directly | Leaving Supabase would break it | (none needed) | ✅ **Closed**: there is no mobile app |
-| **G2** | Database over ~350 MB or image storage over ~8 GB (after the table clean-up) | Neon's free plan holds 0.5 GB and R2's free plan holds 10 GB | Database: restore only the "Keep" tables (Phase 2 triage), which usually shrinks it a lot. Images: convert the PNGs to WebP during the copy (4.3), which typically cuts them by 60–80%. Only if it still doesn't fit do I come back to you with the upgrade cost | Open until measured in Phase 1 |
-| **G3** | The dump uses Supabase-only extensions, functions or triggers that Neon doesn't support | Neon can't run them | Standard replacements: `pg_cron` → GitHub Actions cron (4.5); `pg_net` and edge functions → backend endpoints; `auth.users` and `auth.uid()` → the fixed admin accounts and backend checks; Row Level Security policies → dropped, because the Express API is the only client and connects as `app_rw` (the policies matter only for direct Supabase access, which no one will have); ERP-only functions and triggers → dropped with the ERP tables. I list every one in `docs/db-triage.md` and stop only if something doesn't fit these rules | Open until the dump is inspected (Phase 2) |
-| **G4** | The Prisma schema and the real database disagree in ways that could lose data (a column type, a missing column, a changed default) | Baselining a wrong schema would silently damage data | Treat the **live database as the truth**: run `prisma db pull` into a scratch file and diff it against `schema.prisma`. Differences in ERP tables are ignored (they're removed anyway). Anything else is fixed by a written SQL migration, rehearsed on `dev` with row counts before and after. `prisma db push` is never used on production | Open until the diff is done (Phase 2) |
+| **G2** | Database over ~350 MB or image storage over ~8 GB (after the table clean-up) | Neon's free plan holds 0.5 GB and R2's free plan holds 10 GB | Database: restore only the "Keep" tables (Phase 2 triage), which usually shrinks it a lot. Images: convert the PNGs to WebP during the copy (4.3), which typically cuts them by 60–80%. Only if it still doesn't fit do I come back to you with the upgrade cost | ✅ **Closed 2026-11-07**: database 24 MB, images 39.9 MB, copy as they are |
+| **G3** | The dump uses Supabase-only extensions, functions or triggers that Neon doesn't support | Neon can't run them | Standard replacements: `pg_cron` → GitHub Actions cron (4.5); `pg_net` and edge functions → backend endpoints; `auth.users` and `auth.uid()` → the fixed admin accounts and backend checks; Row Level Security policies → dropped, because the Express API is the only client and connects as `app_rw` (the policies matter only for direct Supabase access, which no one will have); ERP-only functions and triggers → dropped with the ERP tables. I list every one in `docs/db-triage.md` and stop only if something doesn't fit these rules | 🟡 Inspected 2026-11-07, all listed in `docs/db-triage.md`. Found `pg_net`/`http` use and 7 edge functions. **One question for you: is `jazzcash-webhook` still used for real payments?** |
+| **G4** | The Prisma schema and the real database disagree in ways that could lose data (a column type, a missing column, a changed default) | Baselining a wrong schema would silently damage data | Treat the **live database as the truth**: run `prisma db pull` into a scratch file and diff it against `schema.prisma`. Differences in ERP tables are ignored (they're removed anyway). Anything else is fixed by a written SQL migration, rehearsed on `dev` with row counts before and after. `prisma db push` is never used on production | 🟡 Data checked against the live database (`docs/db-triage.md`): 12 order lines point at deleted variants (copied as is), 44 image rows have no file. Nothing blocks the copy. The dry run of the copy script is still to do |
 
 A **gate** is a point where I stop coding and ask you, because the answer could cost data or money. I never go past a gate without a reply.
 
@@ -843,7 +843,8 @@ admin-frontend/
 | `/orders/:id` | Order detail | Timeline (status history), items, totals, payments, customer card, address + map link, receipt viewer, actions bar with only valid transitions, print invoice, WhatsApp |
 | `/products` | Products list | Thumbnail, price range, total stock with low/out badges, visibility toggle, bulk actions |
 | `/products/new`, `/products/:id` | Product editor | Tabs: Details (with **Generate with AI**), Variants (inline grid), Images (drag to reorder, set featured), Visibility. Leave-page guard for unsaved changes |
-| `/categories`, `/brands`, `/collections[/:id]` | Catalog | Table + side-sheet editor, image upload, collection item picker |
+| `/categories`, `/brands` | Catalog | Table + side-sheet editor, image upload |
+| `/collections`, `/collections/new`, `/collections/:id` | Collections (bundles) | Card list with reorder and show/hide; editor with product picker, quantities, live bundle price, picture upload, main-banner and featured switches (14.6) |
 | `/inventory` | Stock overview | Variant table: stock, alert, cost, value; filter low/out; "Adjust" action |
 | `/inventory/receipts[/new\|/:id]` | Stock receipts | Line-item grid with variant search (SKU/name), qty, unit cost, totals; **Receive** with confirmation |
 | `/inventory/movements` | Movement history | Filter by variant/reason/date; links to the source order/receipt |
@@ -997,7 +998,7 @@ DevOps
 
 ### Phase 5: Catalog (L)
 
-**Status:** done (products, variants, images, categories, brands, bulk actions). Collections (bundles) admin screens are not built.
+**Status:** done (products, variants, images, categories, brands, bulk actions). **Collections (bundles) admin screens added 2026-11-07**, see 14.6.
 
 - [ ] Backend: products, variants, images (R2, reorder, featured), categories, brands, collections, bulk actions, soft delete.
 - [ ] Frontend: products list, product editor (details, variants grid, images), category/brand/collection screens.
@@ -1249,7 +1250,7 @@ Everything below was built on the branch `feat/admin-rebuild` and tested **local
 | Storefront on Cloudflare Pages | Needs you to connect the repo | You: runbook 06 |
 | Gate checks G2, G3, G4 | Need the real Supabase database and image sizes | Same as "copy real data" |
 | Load test | Needs a staging deployment | After deploy |
-| Collections (bundles) admin screens, similarity-ranked search, Playwright tests | Left out to finish the core; none blocks go-live | Later |
+| Similarity-ranked search, Playwright tests | Left out to finish the core; none blocks go-live | Later |
 
 ### 14.4 Decisions made while building (and why)
 
@@ -1260,3 +1261,45 @@ Everything below was built on the branch `feat/admin-rebuild` and tested **local
 - **The pooled Neon endpoint is slower from your PC** (about 500 ms per query versus 130 ms direct). That is the path from Pakistan to Singapore; on Fly in the same region it should not matter. Measure after the first deploy; if the pooled endpoint is still slow there, switch the API to the direct URL with the app's own small pool.
 - **The Fly machine is 512 MB, not 256 MB**, because image processing needs headroom. About $3.2 a month instead of about $2.
 - **Stock is changed in one place only** (`applyStockChanges`). The admin product form cannot edit stock of an existing variant, so every change is in the ledger.
+
+### 14.5 Re-verified after moving the project folder (2026-11-07)
+
+Checked again from the new folder location. Nothing was deployed or changed in any live system.
+
+| Check | Result |
+|---|---|
+| `npm run preflight` | 10 ok, 2 warnings, 3 problems (below) |
+| Neon pooled and direct connections | ✅ Postgres 18.6, 32 tables, 9.5 MB |
+| R2 `kks-public` and `kks-private` | ✅ write and delete work |
+| Cloudflare zone and token | ✅ `kks-online.com` active |
+| Old Supabase read access | ✅ database 24 MB |
+| Backend typecheck and tests | ✅ clean; 106 of 106 tests pass |
+| Admin app typecheck and tests | ✅ clean; 13 of 13 tests pass |
+| Admin app screens | Dashboard, Orders (list, detail, invoice), Products (list, editor, categories/brands), Inventory (stock, receipts, receipt editor), Customers (list, detail), Reviews, Reports, Audit, Settings, Login |
+| Phase 0 on the live Supabase project | Code side done. The dashboard steps (sign-ups off, key check, closing open image buckets and functions) are **not confirmed done** |
+
+**Open problems (all need you, none are code):**
+
+1. `ADMIN_ACCOUNTS` and `ADMIN_SESSION_SECRET` missing from `kksonline-backend-express/.env` ([runbook 10](runbooks/10-admin-accounts.md)). Without them nobody can sign in to the admin.
+2. `JOBS_SECRET` missing (a long random string; also a GitHub secret).
+3. `cdn.kks-online.com` is not connected to `kks-public` ([runbook 05](runbooks/05-cloudflare-r2.md), step 2), so admin pictures are broken.
+4. Optional: `OPENAI_API_KEY` (AI descriptions), `NEON_API_KEY` (usage report).
+5. Supabase security steps A1 to A3 in [runbook 11](runbooks/11-supabase-steps.md). Also answer: is `jazzcash-webhook` still used?
+
+**Next code steps (me):** dry run of `scripts/migrate-from-supabase.mjs` and `scripts/migrate-images.mjs` against Neon `dev` (needs only what is already in `.env`); then, once 1 and 2 are done, run `npm run smoke:admin` again. Deploy waits for runbooks 09 and 12.
+
+**Housekeeping:** `docs/db-triage.md` and `runbooks/11-supabase-steps.md` have uncommitted edits from the earlier session (live-database findings). `.mcp.json`, `OMGx/` and `image/` are untracked.
+
+**Update later the same day:** the shop data is copied into Neon `dev` (1,991 rows, counts match the triage). The picture copy failed: Supabase has restricted the project (`exceed_egress_quota`, HTTP 402 on Storage), so nothing could be downloaded. It needs a Supabase Pro month or the billing reset; then re-run `node scripts/migrate-images.mjs --apply` (safe to repeat). The live storefront's Supabase pictures are probably broken for the same reason.
+
+### 14.6 Collections in the admin (added 2026-11-07)
+
+A **collection** is a bundle of product options (variants) with a default quantity each, sold together. The storefront shows them on the home page (one "main banner" collection plus featured cards) and on `/collections/:id`. This is a store feature, not ERP, so it stays. One shop: there is no tenant or owner column.
+
+| Part | What |
+|---|---|
+| API (`modules/admin/catalog/collections.routes.ts`) | `GET /collections` (cards: picture, counts, bundle price, warnings), `GET /collections/:id` (with products), `POST`, `PATCH`, `DELETE`, `PUT /collections/:id/items` (whole list in one go, array order = display order), `PUT /collections-order`, `POST /collections/:id/image` (to R2), `GET /collections/variant-search` (the picker). Reads need `catalog.view`, writes `catalog.write` (manager and owner). Every change is audited and clears the catalog caches |
+| Rules kept | Only one collection can be the main banner (setting one clears the others, in one transaction). A hidden product or option shows as a warning and is not counted in the bundle price, matching the storefront |
+| Admin screens | `/collections`: cards with picture, badges (main banner, featured, hidden), product count and price, warnings (empty, out of stock, hidden items), shown/hidden switch, move earlier/later, search. `/collections/:id`: product list with quantity steppers, reorder, remove and a live bundle price; an "Add products" picker that searches by name, option or SKU; details, a picture drop zone and three switches with plain explanations; a save bar that appears only when something changed, and a warning when leaving with unsaved changes |
+| Verified | Typecheck, lint, build, 13 admin tests and 64 backend unit tests pass. A live run on the dev database passed 28 of 29 checks (the one "failure" was my test expecting 400 where the API correctly answers 422 for an empty name): list and detail of the 6 real collections, create, the one-main-banner rule, items replace and reorder, duplicate and unknown product rejected, image upload and fake-image rejection, storefront shows an active one and hides an inactive one, staff cannot write, no session is refused, delete. The test removed everything it created |
+| Not done | Dragging cards to reorder (arrows are used instead). Collection pictures that live only in Supabase Storage still need the picture copy (blocked, see above) |

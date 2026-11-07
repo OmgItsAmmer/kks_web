@@ -35,9 +35,9 @@ const readHidden = (prompt) =>
   });
 
 (async () => {
-  const password = await readHidden('New admin password (12+ characters): ');
-  if (password.length < 12) {
-    console.error('Too short: use at least 12 characters.');
+  const password = await readHidden('New admin password (6+ characters): ');
+  if (password.length < 6) {
+    console.error('Too short: use at least 6 characters.');
     process.exit(1);
   }
   const again = await readHidden('Type it again: ');

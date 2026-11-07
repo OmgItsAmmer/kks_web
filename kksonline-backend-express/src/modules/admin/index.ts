@@ -4,6 +4,7 @@ import { getClientIp } from '../../middleware/client-ip';
 import aiRoutes from './ai/ai.routes';
 import authRoutes from './auth/auth.routes';
 import catalogRoutes from './catalog/catalog.routes';
+import collectionsRoutes from './catalog/collections.routes';
 import { originCheck, requestId, requireAdmin } from './common/middleware';
 import inventoryRoutes from './inventory/inventory.routes';
 import ordersRoutes from './orders/orders.routes';
@@ -35,6 +36,7 @@ router.use('/auth', authRoutes);
 
 router.use(requireAdmin);
 router.use(catalogRoutes);
+router.use(collectionsRoutes);
 router.use(ordersRoutes);
 router.use(inventoryRoutes);
 router.use(peopleRoutes);

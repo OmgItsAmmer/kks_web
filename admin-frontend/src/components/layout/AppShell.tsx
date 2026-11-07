@@ -13,6 +13,7 @@ import {
   Star,
   Sun,
   Tags,
+  Layers,
   Users,
   X,
 } from 'lucide-react';
@@ -48,6 +49,7 @@ const NAV: { heading?: string; items: NavItem[] }[] = [
     items: [
       { to: '/products', label: 'Products', icon: <Package className="h-5 w-5" />, permission: 'catalog.view' },
       { to: '/categories', label: 'Categories & brands', icon: <Tags className="h-5 w-5" />, permission: 'catalog.view' },
+      { to: '/collections', label: 'Collections', icon: <Layers className="h-5 w-5" />, permission: 'catalog.view' },
     ],
   },
   {
