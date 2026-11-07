@@ -40,13 +40,17 @@ const targetUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 if (!sourceUrl) throw new Error('SUPABASE_DATABASE_URL is not set');
 if (!targetUrl) throw new Error('DATABASE_URL_UNPOOLED is not set');
 
+// Both connections use FULL certificate verification. Neon's certificate is publicly trusted. Supabase's pooler
+// uses its own root CA, which we pin from scripts/certs (Supabase Root 2021 CA, public certificate, valid to 2031).
 const clean = (u) => {
   const x = new URL(u);
   x.searchParams.delete('channel_binding');
+  x.searchParams.delete('sslmode'); // the ssl option below decides
   return x.toString();
 };
-const src = new Client({ connectionString: clean(sourceUrl), ssl: { rejectUnauthorized: false } });
-const dst = new Client({ connectionString: clean(targetUrl), ssl: { rejectUnauthorized: false } });
+const supabaseCa = require('node:fs').readFileSync(path.resolve(import.meta.dirname, 'certs/supabase-root-2021-ca.crt'), 'utf8');
+const src = new Client({ connectionString: clean(sourceUrl), ssl: { ca: supabaseCa, rejectUnauthorized: true } });
+const dst = new Client({ connectionString: clean(targetUrl), ssl: { rejectUnauthorized: true } });
 
 /** Copy order matters: parents before children. `serial` is the primary-key column to re-sync. */
 const TABLES = [

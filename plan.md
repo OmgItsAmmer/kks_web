@@ -1303,3 +1303,35 @@ A **collection** is a bundle of product options (variants) with a default quanti
 | Admin screens | `/collections`: cards with picture, badges (main banner, featured, hidden), product count and price, warnings (empty, out of stock, hidden items), shown/hidden switch, move earlier/later, search. `/collections/:id`: product list with quantity steppers, reorder, remove and a live bundle price; an "Add products" picker that searches by name, option or SKU; details, a picture drop zone and three switches with plain explanations; a save bar that appears only when something changed, and a warning when leaving with unsaved changes |
 | Verified | Typecheck, lint, build, 13 admin tests and 64 backend unit tests pass. A live run on the dev database passed 28 of 29 checks (the one "failure" was my test expecting 400 where the API correctly answers 422 for an empty name): list and detail of the 6 real collections, create, the one-main-banner rule, items replace and reorder, duplicate and unknown product rejected, image upload and fake-image rejection, storefront shows an active one and hides an inactive one, staff cannot write, no session is refused, delete. The test removed everything it created |
 | Not done | Dragging cards to reorder (arrows are used instead). Collection pictures that live only in Supabase Storage still need the picture copy (blocked, see above) |
+
+### 14.7 Dev deployment (2026-11-07) — superseded by 14.8; the `kks-api-dev` app and `fly.dev.toml` are gone
+
+| Part | Where |
+|---|---|
+| Admin | Vercel, `https://admin.kks-online.com` (also `kks-web-ten.vercel.app`). `/api/*` is forwarded by `admin-frontend/vercel.json`, so the login cookie is first-party |
+| API (dev) | Fly app **`kks-api-dev`** (Singapore, `kks-api-dev.fly.dev`), config `kksonline-backend-express/fly.dev.toml`, on the Neon **dev** branch with the copied shop data. **Sleeps when idle** (`auto_stop_machines = 'stop'`, `min_machines_running = 0`); first request after a pause takes about 6 s. Deploy with `fly deploy -c fly.dev.toml --remote-only --ha=false` from `kksonline-backend-express` |
+| Live shop API | **Untouched.** Fly app `kksonline-backend` (behind `api.kks-online.com`, Supabase) keeps serving the storefront |
+| Cloudflare keys | Deliberately **not** set on the dev app: the cache purge clears the whole `kks-online.com` zone, which would flush the live shop on every admin edit. `DEPLOY_TIER=dev` lets the app start without them |
+| At cutover | Switch to `fly.toml` (always on), set the production Neon branch and the Cloudflare keys, and point `api.kks-online.com` at it |
+
+### 14.8 Production cutover done (2026-11-07)
+
+The owner gave the go; Phase 11 was carried out in one session.
+
+| Step | Result |
+|---|---|
+| Neon `production` branch | Was empty. Migrations `0_init` and `1_collections_and_history` applied |
+| Data copy (`scripts/migrate-from-supabase.mjs --apply`) | 1,991 rows in 23 tables. Verified in Neon: 153 products, 335 variants, 83 orders, 193 order items, 44 customers, 6 collections, 304 ledger rows, 12 payments; stock total 40,878 and order total 148,974.00 match the dev copy. Supabase had no new orders or customers during the copy (83 orders, max id 148, 44 customers before and after). Both connections use full TLS verification (Neon: public CA; Supabase: pinned `scripts/certs/supabase-root-2021-ca.crt`) |
+| API | Fly app **`kksonline-backend`** (the same app that serves `api.kks-online.com`), release **v10**, one always-on 512 MB machine in Singapore, `fly.toml`. Secrets set with `scripts/fly-set-secrets.cjs` (values never printed). `JWT_SECRET`, `GOOGLE_CLIENT_ID` and `ALLOWED_ORIGINS` were left as they were, so signed-in customers stay signed in |
+| Checks on `api.kks-online.com` | Health and database connected; products (139 visible), categories (18), brands (27), collections (5 active), premium banner, shop config, price sort and filter, search; admin routes answer 401 without a session; `X-Customer-Id` impersonation refused; catalog responses are cacheable, private ones `no-store` |
+| Storefront | `www.kks-online.com` (Vercel) already calls `api.kks-online.com`, so it now uses the new backend with no change |
+| Admin | `admin.kks-online.com` (Vercel); `/api` is forwarded to `kksonline-backend.fly.dev` by `admin-frontend/vercel.json` |
+| Rollback | The previous release is v9 (`registry.fly.io/kksonline-backend:deployment-01KVZA70FE5B3PQ6DH4QXD2ZDX`). To go back: `fly deploy --image <that image> -a kksonline-backend`, then set `DATABASE_URL` to the Supabase pooled URL. Supabase was only read, so it still holds everything up to the cutover. After real orders exist on Neon, fix forward instead |
+
+**Known gaps after cutover:**
+- Pictures: Supabase Storage is blocked by `exceed_egress_quota`, so the 249 images are not in R2, and `cdn.kks-online.com` is not connected. Until both are done, product pictures are missing on the storefront and admin. Then run `node scripts/migrate-images.mjs --apply` (safe to repeat)
+- Admin password: the production admin still uses the 6-character password; change it with `make admin-hash`, then `fly secrets set ADMIN_ACCOUNTS=...`
+- A second, stopped machine exists in the app (`9080d703c59768`); remove it with `fly machine destroy 9080d703c59768 -a kksonline-backend`
+- `kks-online.com` (without `www`) returns a Cloudflare "Not Found"; add a redirect to `www`
+- No Cloudflare cache rule yet, so the edge does not cache catalog calls; GitHub Actions is locked by a billing flag (CI, backups, jobs do not run)
+- Supabase security steps A1 to A3 and "is `jazzcash-webhook` still used" are still open; the old project stays idle for 90 days

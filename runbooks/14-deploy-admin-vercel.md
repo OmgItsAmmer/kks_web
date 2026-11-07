@@ -30,7 +30,7 @@ Log in with the account that should own the KKS API, then tell me.
 2. **Add New → Project**, pick the `kks_web` repository.
 3. **Root Directory:** `admin-frontend`. Framework: Vite (detected). Leave the build settings as they are (`vercel.json` sets them).
 4. Do not add environment variables: the admin has no secrets.
-5. Click **Deploy**. The first deploy will show the login page but sign-in will not work yet, because the API address in `vercel.json` is still a placeholder. I fill it in once the Fly app exists.
+5. Click **Deploy**. (The API address in `vercel.json` is `kks-api-dev.fly.dev`, the dev API; see plan.md 14.7.)
 
 Send me the address Vercel gives you (like `kks-admin.vercel.app`).
 
