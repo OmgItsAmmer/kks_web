@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { Link } from 'react-router-dom';
 import { Package, ChevronRight } from 'lucide-react';
 import { orderService } from '../services/order.service';
@@ -8,6 +9,7 @@ import Loader from '../components/Loader';
 import styles from './Orders.module.css';
 
 const Orders: React.FC = () => {
+  usePrivateSeo('My Orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

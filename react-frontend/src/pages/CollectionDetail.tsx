@@ -10,6 +10,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { AuthenticationError } from '../services/api.config';
 import Loader from '../components/Loader';
+import { useSeo } from '../seo/useSeo';
+import { breadcrumbJsonLd, cleanText, truncate } from '../seo/builders';
+import { SITE_NAME } from '../seo/config';
 import type { CollectionCartItem } from '../services/collection.service';
 import type { CartItem } from '../types/cart';
 import { cartService } from '../services/cart.service';
@@ -34,6 +37,26 @@ const CollectionDetail: React.FC = () => {
     isError, 
     error 
   } = useCollectionDetails(collectionId > 0 ? collectionId : null);
+
+  // Title, description and breadcrumb for search engines (each collection has its own)
+  useSeo(
+    collection
+      ? {
+          title: `${collection.name} | Bundle Deal | ${SITE_NAME}`,
+          description:
+            cleanText(collection.description).length >= 40
+              ? truncate(cleanText(collection.description))
+              : truncate(
+                  `Buy the ${collection.name} bundle online from ${SITE_NAME}: ${collection.items.length} ${collection.items.length === 1 ? 'item' : 'items'} together for Rs ${Math.round(Number(collection.total_price) || 0).toLocaleString('en-US')}. Delivered across Pakistan.`,
+                ),
+          path: `/collection/${collection.collection_id}`,
+          image: collection.image_url,
+          jsonLd: breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: collection.name, path: `/collection/${collection.collection_id}` }]),
+        }
+      : isError
+        ? { title: `Collection not found | ${SITE_NAME}`, description: 'This collection is not available.', noindex: true }
+        : null,
+  );
 
   // Mutation for adding to cart
   const addToCartMutation = useAddCollectionToCart();
@@ -295,7 +318,7 @@ const CollectionDetail: React.FC = () => {
 
         {/* Collection Items */}
         <div className={styles.collectionItems}>
-          <h2 className={styles.sectionTitle}>Collection Items</h2>
+          <h2 className={styles.sectionTitle}>What is in {collection.name}</h2>
           <div className={styles.itemsList}>
             {collection.items.map((item) => {
               const selectedVar = selectedVariants.find(sv => sv.itemId === item.collection_item_id);

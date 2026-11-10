@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, Truck, Award, Lock, MapPin, AlertTriangle, Store, Copy, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,7 @@ const STORE_MAP_EMBED_URL =
   'https://maps.google.com/maps?q=29.7973111,72.8596898&z=16&output=embed';
 
 const Checkout: React.FC = () => {
+  usePrivateSeo('Checkout');
   const { isAuthenticated, showLoginModal } = useAuth();
   const { showWarning, showSuccess } = useSnackbar();
   const navigate = useNavigate();

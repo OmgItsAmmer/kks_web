@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Package, MapPin, CreditCard, Printer, ArrowLeft, AlertTriangle, X } from 'lucide-react';
 import { orderService } from '../services/order.service';
@@ -19,6 +20,7 @@ interface UnavailableItem {
 }
 
 const OrderDetail: React.FC = () => {
+  usePrivateSeo('Order Details');
   const { orderId } = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);

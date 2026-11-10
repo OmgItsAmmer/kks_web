@@ -1,5 +1,9 @@
 import React, { useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { useCategories } from '../hooks/useCategories';
+import { useSeo, DEFAULT_SEO } from '../seo/useSeo';
+import { breadcrumbJsonLd } from '../seo/builders';
+import { SITE_NAME } from '../seo/config';
 import FeaturesBar from '../components/FeaturesBar';
 import HeroSection from '../components/HeroSection';
 import FeaturedProducts from '../components/FeaturedProducts';
@@ -25,6 +29,25 @@ const Home: React.FC = () => {
     const categoryId = parseInt(categoryParam, 10);
     return isNaN(categoryId) ? 'all' : categoryId;
   }, [categoryParam]);
+
+  // Search engine tags. The home page, a category view (?category=ID) and an unknown address each get their own.
+  const { pathname } = useLocation();
+  const { data: categories } = useCategories();
+  const categoryName = typeof initialCategory === 'number' ? categories?.find((c) => c.category_id === initialCategory)?.category_name : undefined;
+  useSeo(
+    pathname !== '/' && pathname !== ''
+      ? { title: `Page not found | ${SITE_NAME}`, description: 'This page does not exist. Browse our grocery and karyana products instead.', path: '/', noindex: true }
+      : typeof initialCategory === 'number'
+        ? categoryName
+          ? {
+              title: `${categoryName} Online in Pakistan | ${SITE_NAME}`,
+              description: `Shop ${categoryName} online from ${SITE_NAME}. Quality karyana, household essentials and pantry staples delivered across Pakistan since 1995.`,
+              path: `/?category=${initialCategory}`,
+              jsonLd: breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: categoryName, path: `/?category=${initialCategory}` }]),
+            }
+          : null
+        : DEFAULT_SEO,
+  );
 
   // Scroll to featured products section when category param is present
   useEffect(() => {

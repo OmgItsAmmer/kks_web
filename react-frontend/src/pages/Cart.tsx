@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, X, ShieldCheck, Truck, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +14,7 @@ import styles from './Cart.module.css';
 type CartState = 'loading' | 'ready' | 'validating' | 'error' | 'empty';
 
 const Cart: React.FC = () => {
+  usePrivateSeo('Shopping Cart');
   const { isAuthenticated, showLoginModal } = useAuth();
   const { showError, showWarning, showSuccess } = useSnackbar();
   const navigate = useNavigate();

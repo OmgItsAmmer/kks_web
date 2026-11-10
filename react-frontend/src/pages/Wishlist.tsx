@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ArrowLeft, RotateCcw, Truck, ShieldCheck, Clock, X, ShoppingCart } from 'lucide-react';
 import { useWishlist } from '../contexts/WishlistContext';
@@ -198,6 +199,7 @@ const WishlistItemCard: React.FC<WishlistItemCardProps> = ({
 };
 
 const Wishlist: React.FC = () => {
+  usePrivateSeo('My Wishlist');
     const { wishlistItems, removeFromWishlist, isLoading, refreshWishlist } = useWishlist();
     const { isAuthenticated, showLoginModal } = useAuth();
     const { showError } = useSnackbar();

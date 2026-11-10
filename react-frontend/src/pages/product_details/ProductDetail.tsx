@@ -18,6 +18,9 @@ import { useWishlist } from '../../contexts/WishlistContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useProductDetails, useProductImages, useProductVariants, useProductReviews, useRelatedProducts } from '../../hooks/useProducts';
 import Loader from '../../components/Loader';
+import { useSeo } from '../../seo/useSeo';
+import { breadcrumbJsonLd, productDescription, productJsonLd, productTitle } from '../../seo/builders';
+import { SITE_NAME } from '../../seo/config';
 
 const ProductDetail: React.FC = () => {
   const { id, productId: routeProductId } = useParams<{ id?: string; productId?: string }>();
@@ -76,6 +79,34 @@ const ProductDetail: React.FC = () => {
 
   const loading = productLoading || imagesLoading || variantsLoading || reviewsLoading || relatedLoading;
   const error = productError ? (productErrorDetails as Error)?.message || 'Failed to load product' : null;
+
+  // Search engine tags: a title, description, canonical address, Product and breadcrumb data that belong to this product
+  const seoCategory = product?.category?.category_name ?? null;
+  const seoBrand = product?.brand?.brand_name ?? null;
+  const seoPrices = variants.map((v) => Number(v.sell_price)).filter((n) => Number.isFinite(n) && n > 0);
+  const seoInStock = variants.length > 0 ? variants.some((v) => v.is_visible !== false && Number(v.stock) > 0) : Number(product?.stock_quantity ?? 0) > 0;
+  const seoImages = [...(imagesData ?? []), product?.mainImage ?? ''].filter((u): u is string => typeof u === 'string' && /^https?:\/\//i.test(u));
+  useSeo(
+    product
+      ? (() => {
+          const description = productDescription({ name: product.name, description: product.description, categoryName: seoCategory, brandName: seoBrand, minPrice: seoPrices.length ? Math.min(...seoPrices) : null, inStock: seoInStock });
+          const path = `/product/${product.product_id}`;
+          return {
+            title: productTitle(product.name),
+            description,
+            path,
+            image: seoImages[0] ?? null,
+            type: 'product' as const,
+            jsonLd: [
+              productJsonLd({ id: product.product_id, name: product.name, description, images: [...new Set(seoImages)], sku: variants.find((v) => v.sku)?.sku ?? null, brandName: seoBrand, categoryName: seoCategory, prices: seoPrices, inStock: seoInStock, rating: productRating, reviewCount: productReviewCount }),
+              breadcrumbJsonLd([{ name: 'Home', path: '/' }, ...(seoCategory && product.category_id ? [{ name: seoCategory, path: `/?category=${product.category_id}` }] : []), { name: product.name, path }]),
+            ],
+          };
+        })()
+      : error
+        ? { title: `Product not found | ${SITE_NAME}`, description: 'This product is not available.', noindex: true }
+        : null,
+  );
 
   // UI State
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
