@@ -1362,3 +1362,14 @@ A dataset-driven suite (`kksonline-backend-express/tests/live/`, README inside) 
 **Found in the data, not fixed:** 3 old migrated cancelled orders have no `cancelled_at` (new cancellations always set it).
 
 **Things worth knowing:** `orders.paid_amount` holds the order total (the storefront reads it as "total"); the admin's paid amount comes from `order_payments`. Only store pickup works at checkout (home delivery is switched off in the code). OpenAI is not tested (no key yet).
+
+### 14.10 Fixes deployed (2026-11-10)
+
+| Item | Result |
+|---|---|
+| Deploy | Fly app `kksonline-backend`, release **v12**, built from `main` at the merge of PR #9 (the six fixes in 14.9). One always-on machine, healthy, database connected |
+| Live check after deploy (`npm run live:prod`, read-only) | **81 passed, 0 failed** (before the deploy: 73 passed, 8 failed). The write cases (289) run only on a temporary Neon copy |
+| Admin account | Unchanged (`admin@kksonline.com`); sign-in verified on the live site |
+| OpenAI | The key was set on Fly (`OPENAI_API_KEY`, model `gpt-4o-mini`) but OpenAI answers **401 "Your API key has been invalidated"** (it revokes keys it finds exposed). The feature degrades politely ("The AI writer is not available right now"). A new key is needed |
+| Rollback | The previous code is the image of release v11/v10: `registry.fly.io/kksonline-backend:deployment-01M6V0DR4G2578ZNJPHBTK4FW2`; `fly deploy --image <that> -a kksonline-backend` |
+| Still to do | New OpenAI key; delete the two temporary Neon branches `livetest-temp-20261110` and `livetest-final-20261110` (they were still listed on 2026-11-10); GitHub billing lock; optional redirect for the bare domain |
