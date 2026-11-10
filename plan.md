@@ -80,7 +80,7 @@ I stop and report back, instead of pushing on, if any of these happens:
 |---|---|---|---|---|
 | **G1** | The mobile app uses Supabase directly | Leaving Supabase would break it | (none needed) | ✅ **Closed**: there is no mobile app |
 | **G2** | Database over ~350 MB or image storage over ~8 GB (after the table clean-up) | Neon's free plan holds 0.5 GB and R2's free plan holds 10 GB | Database: restore only the "Keep" tables (Phase 2 triage), which usually shrinks it a lot. Images: convert the PNGs to WebP during the copy (4.3), which typically cuts them by 60–80%. Only if it still doesn't fit do I come back to you with the upgrade cost | ✅ **Closed 2026-11-07**: database 24 MB, images 39.9 MB, copy as they are |
-| **G3** | The dump uses Supabase-only extensions, functions or triggers that Neon doesn't support | Neon can't run them | Standard replacements: `pg_cron` → GitHub Actions cron (4.5); `pg_net` and edge functions → backend endpoints; `auth.users` and `auth.uid()` → the fixed admin accounts and backend checks; Row Level Security policies → dropped, because the Express API is the only client and connects as `app_rw` (the policies matter only for direct Supabase access, which no one will have); ERP-only functions and triggers → dropped with the ERP tables. I list every one in `docs/db-triage.md` and stop only if something doesn't fit these rules | 🟡 Inspected 2026-11-07, all listed in `docs/db-triage.md`. Found `pg_net`/`http` use and 7 edge functions. **One question for you: is `jazzcash-webhook` still used for real payments?** |
+| **G3** | The dump uses Supabase-only extensions, functions or triggers that Neon doesn't support | Neon can't run them | Standard replacements: `pg_cron` → GitHub Actions cron (4.5); `pg_net` and edge functions → backend endpoints; `auth.users` and `auth.uid()` → the fixed admin accounts and backend checks; Row Level Security policies → dropped, because the Express API is the only client and connects as `app_rw` (the policies matter only for direct Supabase access, which no one will have); ERP-only functions and triggers → dropped with the ERP tables. I list every one in `docs/db-triage.md` and stop only if something doesn't fit these rules | 🟡 Inspected 2026-11-07, all listed in `docs/db-triage.md`. Found `pg_net`/`http` use and 7 edge functions. **Decided 2026-11-07: the JazzCash webhook is dropped (scope creep); nothing to migrate** |
 | **G4** | The Prisma schema and the real database disagree in ways that could lose data (a column type, a missing column, a changed default) | Baselining a wrong schema would silently damage data | Treat the **live database as the truth**: run `prisma db pull` into a scratch file and diff it against `schema.prisma`. Differences in ERP tables are ignored (they're removed anyway). Anything else is fixed by a written SQL migration, rehearsed on `dev` with row counts before and after. `prisma db push` is never used on production | 🟡 Data checked against the live database (`docs/db-triage.md`): 12 order lines point at deleted variants (copied as is), 44 image rows have no file. Nothing blocks the copy. The dry run of the copy script is still to do |
 
 A **gate** is a point where I stop coding and ask you, because the answer could cost data or money. I never go past a gate without a reply.
@@ -1284,7 +1284,7 @@ Checked again from the new folder location. Nothing was deployed or changed in a
 2. `JOBS_SECRET` missing (a long random string; also a GitHub secret).
 3. `cdn.kks-online.com` is not connected to `kks-public` ([runbook 05](runbooks/05-cloudflare-r2.md), step 2), so admin pictures are broken.
 4. Optional: `OPENAI_API_KEY` (AI descriptions), `NEON_API_KEY` (usage report).
-5. Supabase security steps A1 to A3 in [runbook 11](runbooks/11-supabase-steps.md). Also answer: is `jazzcash-webhook` still used?
+5. Supabase security steps A1 to A3 in [runbook 11](runbooks/11-supabase-steps.md). (The JazzCash webhook is dropped: decided 2026-11-07.)
 
 **Next code steps (me):** dry run of `scripts/migrate-from-supabase.mjs` and `scripts/migrate-images.mjs` against Neon `dev` (needs only what is already in `.env`); then, once 1 and 2 are done, run `npm run smoke:admin` again. Deploy waits for runbooks 09 and 12.
 
@@ -1329,9 +1329,36 @@ The owner gave the go; Phase 11 was carried out in one session.
 | Rollback | The previous release is v9 (`registry.fly.io/kksonline-backend:deployment-01KVZA70FE5B3PQ6DH4QXD2ZDX`). To go back: `fly deploy --image <that image> -a kksonline-backend`, then set `DATABASE_URL` to the Supabase pooled URL. Supabase was only read, so it still holds everything up to the cutover. After real orders exist on Neon, fix forward instead |
 
 **Known gaps after cutover:**
-- Pictures: Supabase Storage is blocked by `exceed_egress_quota`, so the 249 images are not in R2, and `cdn.kks-online.com` is not connected. Until both are done, product pictures are missing on the storefront and admin. Then run `node scripts/migrate-images.mjs --apply` (safe to repeat)
+- ~~Pictures~~ **Done 2026-11-10:** after the Supabase quota reset, 245 of 289 image rows (39.3 MB) were copied to R2. The other 44 are orphan rows whose files never existed in Supabase (35 unused customer pictures, 4 brands, 2 collections, 3 products), so nothing is lost. Checked on the live API: 139 of 139 product pictures, 5 of 5 collection pictures, 15 of 15 category pictures, 25 of 25 brand pictures and the main banner all load from `cdn.kks-online.com`
 - Admin password: the production admin still uses the 6-character password; change it with `make admin-hash`, then `fly secrets set ADMIN_ACCOUNTS=...`
 - A second, stopped machine exists in the app (`9080d703c59768`); remove it with `fly machine destroy 9080d703c59768 -a kksonline-backend`
 - `kks-online.com` (without `www`) returns a Cloudflare "Not Found"; add a redirect to `www`
 - No Cloudflare cache rule yet, so the edge does not cache catalog calls; GitHub Actions is locked by a billing flag (CI, backups, jobs do not run)
-- Supabase security steps A1 to A3 and "is `jazzcash-webhook` still used" are still open; the old project stays idle for 90 days
+- Supabase security steps A1 to A3 are still open (JazzCash webhook: dropped, decided); the old project stays idle for 90 days
+
+### 14.9 Live check on a temporary copy of production (2026-11-10)
+
+A dataset-driven suite (`kksonline-backend-express/tests/live/`, README inside) runs the real backend code against a **temporary Neon branch copied from production** (real data, deleted afterwards), plus a read-only mode against the real site.
+
+| Result | Number |
+|---|---|
+| Full run on a fresh production copy | **366 passed, 0 failed**, 4 skipped (they only apply to the live-site mode) |
+| Existing backend tests | 107 of 107 pass; admin app 13 of 13 |
+| Read-only run against the live site **before** the fixes were deployed (release v10) | 73 passed, 8 failed: exactly the bugs below that touch public pages |
+
+**Real bugs the suite found (all fixed in the code, not yet deployed to Fly):**
+
+| # | Bug | Severity | Fix |
+|---|---|---|---|
+| 1 | **Checkout accepted another customer's saved address id**, copying that person's name, address and phone into the order | High (privacy) | Checkout now requires the address to belong to the customer; unit test added |
+| 2 | **Cart quantity and delete endpoints had no owner check**: any customer could change or delete any cart row by id | High (integrity) | Both are scoped to the signed-in customer |
+| 3 | The same checkout sent twice at once could return a 500 and showed raw database text | Medium | Returns 409 `DUPLICATE_ORDER`; only the request's own reservation is released; no database text reaches the customer |
+| 4 | `?page=-5`, text in `page`, `/products/abc` and other bad ids returned 500 "Database error"; `pageSize` was unlimited | Medium | Bad values fall back safely or get a 4xx; `pageSize` capped at 100; one shared id check used by every route |
+| 5 | A request from a foreign website origin returned a 500 instead of a plain refusal | Low | CORS now just withholds permission |
+| 6 | Duplicate category and brand names were accepted although the code said they were refused | Low | Case-insensitive duplicate check on create and rename |
+
+**Not bugs (wrong expectations in my cases, corrected):** enum names, a no-op "set stock" being refused, the cart and picture response shapes, token requests being deliberately uncached.
+
+**Found in the data, not fixed:** 3 old migrated cancelled orders have no `cancelled_at` (new cancellations always set it).
+
+**Things worth knowing:** `orders.paid_amount` holds the order total (the storefront reads it as "total"); the admin's paid amount comes from `order_payments`. Only store pickup works at checkout (home delivery is switched off in the code). OpenAI is not tested (no key yet).

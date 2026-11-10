@@ -1,0 +1,645 @@
+{
+  "name": "Admin: categories, brands, products, pictures",
+  "cases": [
+    {
+      "id": "adm-000",
+      "title": "STARTING INVARIANT: no variant has negative stock",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants where stock < 0",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "adm-001",
+      "title": "STARTING INVARIANT: every variant's stock equals the sum of its ledger rows",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants v where coalesce((select sum(m.delta) from inventory_movements m where m.variant_id = v.variant_id),0) <> coalesce(v.stock,0)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "adm-002",
+      "title": "STARTING INVARIANT: product stock_quantity equals the sum of its variants",
+      "sql": [
+        {
+          "q": "select count(*)::int n from products p where p.stock_quantity is distinct from (select coalesce(sum(v.stock),0) from product_variants v where v.product_id = p.product_id) and exists (select 1 from product_variants v where v.product_id = p.product_id)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "adm-010",
+      "title": "create a category",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/categories",
+      "body": {
+        "name": "LT Category {{runId}}",
+        "isFeatured": false
+      },
+      "save": {
+        "catId": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "adm-011",
+      "title": "duplicate category name is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/categories",
+      "body": {
+        "name": "LT Category {{runId}}"
+      },
+      "expect": {
+        "status": [
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "adm-012",
+      "title": "staff cannot create a category",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/categories",
+      "body": {
+        "name": "staff cat {{runId}}"
+      },
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "adm-013",
+      "title": "category with an empty name is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/categories",
+      "body": {
+        "name": "   "
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "adm-014",
+      "title": "category list shows product counts",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/categories",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.0.productCount": {
+            "$exists": true
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-015",
+      "title": "create a brand",
+      "as": "manager",
+      "method": "POST",
+      "path": "/admin/brands",
+      "body": {
+        "name": "LT Brand {{runId}}"
+      },
+      "save": {
+        "brandId": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "adm-020",
+      "title": "create a product with two variants",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT Phone {{runId}}",
+        "description": "live test",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "isVisible": true,
+        "variants": [
+          {
+            "variantName": "64GB",
+            "sku": "LT-{{runId}}-A",
+            "sellPrice": 1000,
+            "buyPrice": 700,
+            "stock": 10,
+            "alertStock": 3
+          },
+          {
+            "variantName": "128GB",
+            "sku": "LT-{{runId}}-B",
+            "sellPrice": "1500.50",
+            "buyPrice": 900,
+            "stock": 5,
+            "alertStock": 2
+          }
+        ]
+      },
+      "save": {
+        "pid": "data.id",
+        "vA": "data.variants.0.id",
+        "vB": "data.variants.1.id",
+        "pUpdated": "data.updatedAt"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "data.variants": {
+            "$length": 2
+          },
+          "data.stockQuantity": 15
+        }
+      }
+    },
+    {
+      "id": "adm-021",
+      "title": "database: derived price range and stock total are right",
+      "sql": [
+        {
+          "q": "select min_price::float mn, max_price::float mx, stock_quantity sq from products where product_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.mn": 1000,
+            "rows.0.mx": 1500.5,
+            "rows.0.sq": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "adm-022",
+      "title": "database: opening stock is in the ledger for both variants",
+      "sql": [
+        {
+          "q": "select count(*)::int n, sum(delta)::int s from inventory_movements where product_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.n": 2,
+            "rows.0.s": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "adm-023",
+      "title": "duplicate SKU is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT dup sku {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "variants": [
+          {
+            "variantName": "x",
+            "sku": "LT-{{runId}}-A",
+            "sellPrice": 5,
+            "buyPrice": 1,
+            "stock": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": [
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "adm-024",
+      "title": "negative price is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT neg {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "variants": [
+          {
+            "variantName": "x",
+            "sellPrice": -5,
+            "buyPrice": 1,
+            "stock": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "adm-025",
+      "title": "a product with no variants is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT novar {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "variants": []
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "adm-026",
+      "title": "staff cannot create products",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT staff {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "variants": [
+          {
+            "variantName": "x",
+            "sellPrice": 5,
+            "buyPrice": 1,
+            "stock": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "adm-027",
+      "title": "staff does not see the buy price",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/products/{{pid}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.variants.0.buyPrice": {
+            "$exists": false
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-028",
+      "title": "owner sees the buy price",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/products/{{pid}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.variants.0.buyPrice": {
+            "$exists": true
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-029",
+      "title": "stale edit is refused with 409",
+      "as": "owner",
+      "method": "PATCH",
+      "path": "/admin/products/{{pid}}",
+      "body": {
+        "name": "LT Phone {{runId}}",
+        "expectedUpdatedAt": "2020-01-01T00:00:00.000Z"
+      },
+      "expect": {
+        "status": 409
+      }
+    },
+    {
+      "id": "adm-030",
+      "title": "edit with the current timestamp works",
+      "as": "owner",
+      "method": "PATCH",
+      "path": "/admin/products/{{pid}}",
+      "body": {
+        "description": "edited by live test",
+        "expectedUpdatedAt": "{{pUpdated}}"
+      },
+      "save": {
+        "pUpdated2": "data.updatedAt"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.description": "edited by live test"
+        }
+      }
+    },
+    {
+      "id": "adm-040",
+      "title": "the new product appears in the public shop",
+      "method": "GET",
+      "path": "/products?q=LT%20Phone%20{{runId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-041",
+      "title": "the public product page shows both variants",
+      "method": "GET",
+      "path": "/products/{{pid}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "adm-042",
+      "title": "hide the product",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/bulk",
+      "body": {
+        "ids": [
+          "{{pid}}"
+        ],
+        "action": "hide"
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "adm-043",
+      "title": "a hidden product disappears from the public list",
+      "method": "GET",
+      "path": "/products?q=LT%20Phone%20{{runId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-044",
+      "title": "a hidden product is not sold by the public product page",
+      "method": "GET",
+      "path": "/products/{{pid}}",
+      "expect": {
+        "status": [
+          404,
+          200
+        ]
+      }
+    },
+    {
+      "id": "adm-045",
+      "title": "show the product again",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/bulk",
+      "body": {
+        "ids": [
+          "{{pid}}"
+        ],
+        "action": "show"
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "adm-046",
+      "title": "visible again in the public list",
+      "method": "GET",
+      "path": "/products?q=LT%20Phone%20{{runId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-047",
+      "title": "admin product search by SKU",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/products?q=LT-{{runId}}-A",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-048",
+      "title": "admin product filter by stock state 'in'",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/products?stock=in&q=LT%20Phone%20{{runId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "adm-049",
+      "title": "add a third variant to the product",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/{{pid}}/variants",
+      "body": {
+        "variantName": "256GB",
+        "sku": "LT-{{runId}}-C",
+        "sellPrice": 2000,
+        "buyPrice": 1200,
+        "stock": 0,
+        "alertStock": 1
+      },
+      "save": {
+        "vC": "data.id"
+      },
+      "saveOptional": true,
+      "expect": {
+        "status": [
+          200,
+          201
+        ]
+      }
+    },
+    {
+      "id": "adm-050",
+      "title": "database: price range now covers the third variant",
+      "sql": [
+        {
+          "q": "select max_price::float mx from products where product_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.mx": 2000
+          }
+        }
+      ]
+    },
+    {
+      "id": "img-001",
+      "title": "upload a picture: stored as WebP on the CDN",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/{{pid}}/images",
+      "multipart": {
+        "files": {
+          "png": [
+            900,
+            600
+          ]
+        }
+      },
+      "save": {
+        "imgEntityId": "data.images.0.imageEntityId",
+        "imgUrl": "data.images.0.url"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "data.images": {
+            "$length": 1
+          },
+          "data.images.0.url": {
+            "$regex": "\\.webp$"
+          }
+        }
+      }
+    },
+    {
+      "id": "img-002",
+      "title": "the uploaded picture loads from the CDN",
+      "method": "GET",
+      "path": "{{imgUrl}}",
+      "expect": {
+        "status": 200,
+        "headers": {
+          "content-type": "image/webp",
+          "cache-control": "immutable"
+        }
+      }
+    },
+    {
+      "id": "img-003",
+      "title": "a fake image (script renamed .png) is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/{{pid}}/images",
+      "multipart": {
+        "files": {
+          "text": "<?php echo 1; ?>",
+          "type": "image/png",
+          "filename": "evil.png"
+        }
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "img-004",
+      "title": "staff cannot upload pictures",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/products/{{pid}}/images",
+      "multipart": {
+        "files": {
+          "png": [
+            100,
+            100
+          ]
+        }
+      },
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "img-005",
+      "title": "database: exactly one picture is linked to the product",
+      "sql": [
+        {
+          "q": "select count(*)::int n from image_entity where entity_category = 'products' and entity_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "img-006",
+      "title": "the product list now has its main picture",
+      "method": "GET",
+      "path": "/products?q=LT%20Phone%20{{runId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.0.mainImage": {
+            "$regex": "^https://"
+          }
+        }
+      }
+    }
+  ]
+}

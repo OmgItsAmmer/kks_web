@@ -20,7 +20,7 @@
    cd kksonline-backend-express
    npm run admin:hash
    ```
-   Type a password (6+ characters). Copy the long text it prints.
+   Type a password (8+ characters). Copy the long text it prints.
 3. Add these lines to `kksonline-backend-express/.env.development` or your personal `.env.local` (the `ADMIN_ACCOUNTS` value must stay on **one line**):
    ```
    ADMIN_ACCOUNTS=[{"email":"you@example.com","name":"Your Name","role":"owner","passwordHash":"PASTE_THE_HASH"}]

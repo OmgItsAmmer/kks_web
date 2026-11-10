@@ -58,17 +58,38 @@ export const validate = (schema: {
   };
 };
 
+// A page number is at least 1 and a page holds at most 100 rows. A bad value falls back to a safe one
+// instead of reaching the database (a negative page used to cause a 500).
+const pageParam = z.string().optional().transform((val) => {
+  const n = val ? parseInt(val, 10) : 1;
+  return Number.isFinite(n) && n >= 1 && n <= 1_000_000 ? n : 1;
+});
+const pageSizeParam = (fallback: number) =>
+  z.string().optional().transform((val) => {
+    const n = val ? parseInt(val, 10) : fallback;
+    return Number.isFinite(n) && n >= 1 ? Math.min(n, 100) : fallback;
+  });
+
+// A whole-number id in a URL such as /cart/12. Text like "abc" is refused with a 400 instead of reaching the database.
+export const numericParam = z
+  .string()
+  .regex(/^\d{1,9}$/, 'must be a whole number')
+  .transform((val) => parseInt(val, 10));
+
 // Common validation schemas
 export const schemas = {
   // Pagination
   pagination: z.object({
-    page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-    pageSize: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 20)),
+    page: pageParam,
+    pageSize: pageSizeParam(20),
   }),
 
-  // ID parameter
+  // ID parameter (a bad id such as "abc" used to reach the database and cause a 500)
   idParam: z.object({
-    id: z.string().transform((val) => parseInt(val, 10)),
+    id: z
+      .string()
+      .regex(/^\d{1,9}$/, 'must be a whole number')
+      .transform((val) => parseInt(val, 10)),
   }),
 
   // Search query
@@ -82,8 +103,8 @@ export const schemas = {
     tag: z.string().optional(),
     sortBy: z.enum(['name', 'price', 'created_at', 'popularity']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
-    page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-    pageSize: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 20)),
+    page: pageParam,
+    pageSize: pageSizeParam(20),
   }),
 
   // Google auth

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { collectionRepository } from '../repositories/collection.repository';
-import { validate, schemas } from '../middleware/validation.middleware';
+import { validate, schemas, numericParam } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { sendSuccess, sendError, sendPaginated, sendNotFound } from '../utils/response';
 import { requireCustomer } from '../middleware/customer.middleware';
@@ -173,7 +173,7 @@ router.get(
   '/cart/:customerId',
   requireCustomer,
   validate({
-    params: z.object({ customerId: z.string().transform(Number) }),
+    params: z.object({ customerId: numericParam }),
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const customerId = parseInt(req.params.customerId!, 10);
@@ -198,7 +198,7 @@ router.delete(
   '/cart/:cartId',
   requireCustomer,
   validate({
-    params: z.object({ cartId: z.string().transform(Number) }),
+    params: z.object({ cartId: numericParam }),
     body: z.object({
       customer_id: z.number().int().positive().optional(),
     }),

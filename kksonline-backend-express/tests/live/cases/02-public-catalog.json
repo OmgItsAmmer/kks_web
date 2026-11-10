@@ -1,0 +1,644 @@
+{
+  "name": "Storefront catalog (what shoppers see)",
+  "cases": [
+    {
+      "id": "cat-001",
+      "title": "product list works and is paginated",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?page=1&pageSize=5",
+      "save": {
+        "firstId": "data.0.product_id",
+        "total": "pagination.total"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "data": {
+            "$length": 5
+          },
+          "pagination.total": {
+            "$gt": 10
+          },
+          "pagination.pageSize": 5
+        }
+      }
+    },
+    {
+      "id": "cat-002",
+      "title": "page 2 returns different products",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?page=2&pageSize=5",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 5
+          },
+          "data.0.product_id": {
+            "$not": {
+              "$eq": "{{firstId}}"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-003",
+      "title": "page beyond the end is empty, not an error",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?page=9999&pageSize=5",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-004",
+      "title": "every listed product is visible",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.isVisible": {
+            "$each": {
+              "$eq": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-005",
+      "title": "price sort ascending is numeric (999 before 1500)",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?sortBy=price&sortOrder=asc&pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.min_price": {
+            "$sorted": "asc"
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-006",
+      "title": "price sort descending is numeric",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?sortBy=price&sortOrder=desc&pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.min_price": {
+            "$sorted": "desc"
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-007",
+      "title": "price range filter keeps products inside the range",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?minPrice=200&maxPrice=1000&pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.min_price": {
+            "$each": {
+              "$lte": 1000
+            }
+          },
+          "data.*.max_price": {
+            "$each": {
+              "$gte": 200
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-008",
+      "title": "category filter returns only that category",
+      "readonly": true,
+      "method": "GET",
+      "path": "/categories",
+      "save": {
+        "catId": "data.0.category_id"
+      },
+      "saveOptional": true,
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$type": "array"
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-009",
+      "title": "products of one category all belong to it",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?categoryId=9&pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.category_id": {
+            "$each": {
+              "$eq": 9
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-010",
+      "title": "search finds Rice by name",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?q=rice&pageSize=20",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gt": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-011",
+      "title": "search with no match is an empty list",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?q=zzzqxqxqx",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-012",
+      "title": "search text with quotes and symbols is safe",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?q=%27%3B%20DROP%20TABLE%20products%3B--",
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true
+        }
+      }
+    },
+    {
+      "id": "cat-013",
+      "title": "huge pageSize is refused or capped",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=100000",
+      "expect": {
+        "status": [
+          200,
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-014",
+      "title": "negative page is refused or treated as page 1",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?page=-5",
+      "expect": {
+        "status": [
+          200,
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-015",
+      "title": "popular products list",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/popular",
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true
+        }
+      }
+    },
+    {
+      "id": "cat-016",
+      "title": "search suggestions",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/search/suggestions?q=ri",
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true
+        }
+      }
+    },
+    {
+      "id": "cat-017",
+      "title": "a product page loads with variants",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/{{firstId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "data.product_id": "{{firstId}}"
+        }
+      }
+    },
+    {
+      "id": "cat-018",
+      "title": "unknown product id is a 404",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/99999999",
+      "expect": {
+        "status": 404
+      }
+    },
+    {
+      "id": "cat-019",
+      "title": "non-numeric product id is a 4xx, never a 500",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-020",
+      "title": "catalog responses can be cached at the edge",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=1",
+      "expect": {
+        "status": 200,
+        "headers": {
+          "cache-control": "public.*s-maxage=60"
+        }
+      }
+    },
+    {
+      "id": "cat-021",
+      "title": "a request that carries a login token is never cached (no personal data can leak through the edge)",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=1",
+      "headers": {
+        "Authorization": "Bearer not.a.token"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "cache-control": "no-store"
+        }
+      }
+    },
+    {
+      "id": "cat-022",
+      "title": "product picture URL loads from the CDN",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=1",
+      "save": {
+        "imgUrl": "data.0.mainImage"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.0.mainImage": {
+            "$regex": "^https://"
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-023",
+      "title": "the picture file itself is served as an image",
+      "readonly": true,
+      "method": "GET",
+      "path": "{{imgUrl}}",
+      "expect": {
+        "status": 200,
+        "headers": {
+          "content-type": "^image/",
+          "cache-control": "immutable"
+        }
+      }
+    },
+    {
+      "id": "cat-030",
+      "title": "categories list",
+      "readonly": true,
+      "method": "GET",
+      "path": "/categories",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gt": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-031",
+      "title": "brands list",
+      "readonly": true,
+      "method": "GET",
+      "path": "/brands",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gt": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-032",
+      "title": "shop config is public",
+      "readonly": true,
+      "method": "GET",
+      "path": "/shop/config",
+      "expect": {
+        "status": 200,
+        "json": {
+          "success": true
+        }
+      }
+    },
+    {
+      "id": "col-001",
+      "title": "collections list shows active collections with counts",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections?pageSize=50",
+      "save": {
+        "colId": "data.0.collection_id"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gt": 0
+            }
+          },
+          "data.*.item_count": {
+            "$each": {
+              "$gte": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "col-002",
+      "title": "a collection page has its products",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections/{{colId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.items": {
+            "$type": "array"
+          }
+        }
+      }
+    },
+    {
+      "id": "col-003",
+      "title": "main banner collection exists and is flagged premium",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections/premium",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.is_premium": true
+        }
+      }
+    },
+    {
+      "id": "col-004",
+      "title": "featured collections list",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections/featured",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$type": "array"
+          }
+        }
+      }
+    },
+    {
+      "id": "col-005",
+      "title": "unknown collection is a 404",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections/99999999",
+      "expect": {
+        "status": 404
+      }
+    },
+    {
+      "id": "web-001",
+      "title": "storefront site loads",
+      "readonly": true,
+      "method": "GET",
+      "path": "{{storefront}}/",
+      "needsVar": "storefront",
+      "expect": {
+        "status": 200,
+        "text": "<div id=\"root\""
+      }
+    },
+    {
+      "id": "web-002",
+      "title": "admin site loads",
+      "readonly": true,
+      "method": "GET",
+      "path": "{{adminSite}}/",
+      "needsVar": "adminSite",
+      "expect": {
+        "status": 200,
+        "text": "KKS Admin"
+      }
+    },
+    {
+      "id": "web-003",
+      "title": "admin site forwards /api to the backend",
+      "readonly": true,
+      "method": "GET",
+      "path": "{{adminSite}}/api/v1/health",
+      "needsVar": "adminSite",
+      "expect": {
+        "status": 200,
+        "json": {
+          "status": "ok"
+        }
+      }
+    },
+    {
+      "id": "web-004",
+      "title": "admin site is not indexable and not frameable",
+      "readonly": true,
+      "method": "GET",
+      "path": "{{adminSite}}/",
+      "needsVar": "adminSite",
+      "expect": {
+        "status": 200,
+        "headers": {
+          "x-robots-tag": "noindex",
+          "x-frame-options": "DENY"
+        }
+      }
+    },
+    {
+      "id": "cat-040",
+      "title": "non-numeric collection id is a 4xx, never a 500",
+      "readonly": true,
+      "method": "GET",
+      "path": "/collections/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-041",
+      "title": "non-numeric category id is a 4xx, never a 500",
+      "readonly": true,
+      "method": "GET",
+      "path": "/categories/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-042",
+      "title": "non-numeric brand id is a 4xx, never a 500",
+      "readonly": true,
+      "method": "GET",
+      "path": "/brands/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-043",
+      "title": "a huge product id is a 4xx, never a 500",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products/99999999999999999999",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-044",
+      "title": "negative pageSize falls back safely",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=-3",
+      "expect": {
+        "status": [
+          200,
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cat-045",
+      "title": "pageSize is capped at 100",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?pageSize=100000",
+      "expect": {
+        "status": 200,
+        "json": {
+          "pagination.pageSize": {
+            "$lte": 100
+          }
+        }
+      }
+    },
+    {
+      "id": "cat-046",
+      "title": "text instead of a number in page is safe",
+      "readonly": true,
+      "method": "GET",
+      "path": "/products?page=abc&pageSize=xyz",
+      "expect": {
+        "status": [
+          200,
+          400,
+          422
+        ]
+      }
+    }
+  ]
+}

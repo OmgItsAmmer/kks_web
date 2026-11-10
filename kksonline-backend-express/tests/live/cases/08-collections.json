@@ -1,0 +1,463 @@
+{
+  "name": "Collections (bundles on the home page)",
+  "cases": [
+    {
+      "id": "col-099",
+      "title": "remember which collection is the main banner now",
+      "sql": [
+        {
+          "q": "select collection_id from collections where is_premium order by collection_id limit 1",
+          "save": {
+            "origPremium": "rows.0.collection_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "col-100",
+      "title": "owner lists collections",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/collections",
+      "save": {
+        "oldPremium": "data.0.id"
+      },
+      "saveOptional": true,
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gte": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "col-101",
+      "title": "staff can view but not create",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/collections",
+      "body": {
+        "name": "LT staff {{runId}}"
+      },
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "col-102",
+      "title": "empty name is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/collections",
+      "body": {
+        "name": ""
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "col-103",
+      "title": "create a collection as the main banner",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/collections",
+      "body": {
+        "name": "LT Bundle {{runId}}",
+        "description": "live test",
+        "isPremium": true,
+        "isFeatured": true
+      },
+      "save": {
+        "colId": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "col-104",
+      "title": "database: it is the only main banner",
+      "sql": [
+        {
+          "q": "select count(*)::int n, bool_and(collection_id = $1) only_me from collections where is_premium",
+          "args": [
+            "{{colId}}"
+          ],
+          "expect": {
+            "rows.0.n": 1,
+            "rows.0.only_me": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "col-105",
+      "title": "put two products into it (order matters)",
+      "as": "owner",
+      "method": "PUT",
+      "path": "/admin/collections/{{colId}}/items",
+      "body": {
+        "items": [
+          {
+            "variantId": "{{vB}}",
+            "defaultQuantity": 3
+          },
+          {
+            "variantId": "{{vA}}",
+            "defaultQuantity": 2
+          }
+        ]
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-106",
+      "title": "the same product twice is refused",
+      "as": "owner",
+      "method": "PUT",
+      "path": "/admin/collections/{{colId}}/items",
+      "body": {
+        "items": [
+          {
+            "variantId": "{{vA}}",
+            "defaultQuantity": 1
+          },
+          {
+            "variantId": "{{vA}}",
+            "defaultQuantity": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "col-107",
+      "title": "a deleted product is refused",
+      "as": "owner",
+      "method": "PUT",
+      "path": "/admin/collections/{{colId}}/items",
+      "body": {
+        "items": [
+          {
+            "variantId": 99999999,
+            "defaultQuantity": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": 409
+      }
+    },
+    {
+      "id": "col-108",
+      "title": "detail: order and quantities were kept",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/collections/{{colId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.items.0.variantId": "{{vB}}",
+          "data.items.0.defaultQuantity": 3,
+          "data.items.1.variantId": "{{vA}}",
+          "data.itemCount": 2
+        }
+      }
+    },
+    {
+      "id": "col-109",
+      "title": "the bundle price is 3 x 1500.50 + 2 x 1000 = 6501.50",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/collections/{{colId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.total": {
+            "$num": 6501.5
+          }
+        }
+      }
+    },
+    {
+      "id": "col-110",
+      "title": "the shop shows it with the right count and price",
+      "method": "GET",
+      "path": "/collections?pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.collection_id": {
+            "$contains": "{{colId}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "col-111",
+      "title": "the shop's main banner is this collection",
+      "method": "GET",
+      "path": "/collections/premium",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.collection_id": "{{colId}}"
+        }
+      }
+    },
+    {
+      "id": "col-112",
+      "title": "the shop's collection page lists both products",
+      "method": "GET",
+      "path": "/collections/{{colId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.items": {
+            "$length": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "col-113",
+      "title": "customers can add a collection to their cart",
+      "as": "cust5",
+      "method": "GET",
+      "path": "/collections/{{colId}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-114",
+      "title": "hide it: it disappears from the shop",
+      "as": "owner",
+      "method": "PATCH",
+      "path": "/admin/collections/{{colId}}",
+      "body": {
+        "isActive": false
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-115",
+      "title": "hidden collection is not in the public list",
+      "method": "GET",
+      "path": "/collections?pageSize=50",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.collection_id": {
+            "$not": {
+              "$contains": "{{colId}}"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "col-116",
+      "title": "show it again",
+      "as": "owner",
+      "method": "PATCH",
+      "path": "/admin/collections/{{colId}}",
+      "body": {
+        "isActive": true
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-117",
+      "title": "turning on main banner for another collection moves it (only one at a time)",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/collections",
+      "body": {
+        "name": "LT Bundle 2 {{runId}}",
+        "isPremium": true
+      },
+      "save": {
+        "colId2": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "col-118",
+      "title": "database: banner moved to the second one, the first is not premium",
+      "sql": [
+        {
+          "q": "select count(*)::int n, bool_and(collection_id = $1) only_me from collections where is_premium",
+          "args": [
+            "{{colId2}}"
+          ],
+          "expect": {
+            "rows.0.n": 1,
+            "rows.0.only_me": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "col-119",
+      "title": "upload a collection picture",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/collections/{{colId}}/image",
+      "multipart": {
+        "file": {
+          "png": [
+            800,
+            450
+          ]
+        }
+      },
+      "save": {
+        "colImg": "data.url"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.url": {
+            "$regex": "^https://"
+          }
+        }
+      }
+    },
+    {
+      "id": "col-120",
+      "title": "the collection picture loads",
+      "method": "GET",
+      "path": "{{colImg}}",
+      "expect": {
+        "status": 200,
+        "headers": {
+          "content-type": "image/"
+        }
+      }
+    },
+    {
+      "id": "col-121",
+      "title": "a fake collection picture is refused",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/collections/{{colId}}/image",
+      "multipart": {
+        "file": {
+          "text": "not an image",
+          "type": "image/png",
+          "filename": "x.png"
+        }
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "col-122",
+      "title": "reorder collections",
+      "as": "owner",
+      "method": "PUT",
+      "path": "/admin/collections-order",
+      "body": {
+        "ids": [
+          "{{colId2}}",
+          "{{colId}}"
+        ]
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-123",
+      "title": "deleting a product removes it from collections too",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/collections/{{colId}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.itemCount": 2
+        }
+      }
+    },
+    {
+      "id": "col-124",
+      "title": "delete the first collection",
+      "as": "owner",
+      "method": "DELETE",
+      "path": "/admin/collections/{{colId}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-125",
+      "title": "delete the second collection",
+      "as": "owner",
+      "method": "DELETE",
+      "path": "/admin/collections/{{colId2}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "col-126",
+      "title": "deleted collection is a 404 in the admin and the shop",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/collections/{{colId}}",
+      "expect": {
+        "status": 404
+      }
+    },
+    {
+      "id": "col-127",
+      "title": "database: their picture rows are gone",
+      "sql": [
+        {
+          "q": "select count(*)::int n from image_entity where entity_category = 'collections' and entity_id = $1",
+          "args": [
+            "{{colId}}"
+          ],
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "col-128",
+      "title": "put the original main banner back",
+      "needsVar": "origPremium",
+      "as": "owner",
+      "method": "PATCH",
+      "path": "/admin/collections/{{origPremium}}",
+      "body": {
+        "isPremium": true
+      },
+      "expect": {
+        "status": 200
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { wishlistRepository } from '../repositories/wishlist.repository';
 import { supabaseImageService } from '../services/image.service';
-import { validate, schemas } from '../middleware/validation.middleware';
+import { validate, schemas, numericParam } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
 import { sendSuccess, sendCreated, sendNoContent, sendError } from '../utils/response';
@@ -68,7 +68,7 @@ router.post(
  */
 router.delete(
   '/:productId',
-  validate({ params: z.object({ productId: z.string().transform(Number) }) }),
+  validate({ params: z.object({ productId: numericParam }) }),
   asyncHandler(async (req: CustomerRequest, res: Response) => {
     if (!req.customerId) {
       return sendError(res, 'Unauthorized', 401);
@@ -89,7 +89,7 @@ router.delete(
  */
 router.get(
   '/check/:productId',
-  validate({ params: z.object({ productId: z.string().transform(Number) }) }),
+  validate({ params: z.object({ productId: numericParam }) }),
   asyncHandler(async (req: CustomerRequest, res: Response) => {
     if (!req.customerId) {
       return sendError(res, 'Unauthorized', 401);

@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { cartRepository } from '../repositories/cart.repository';
 import { supabaseImageService } from '../services/image.service';
-import { validate, schemas } from '../middleware/validation.middleware';
+import { validate, schemas, numericParam } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { requireCustomer } from '../middleware/customer.middleware';
 import { sendSuccess, sendError, sendCreated, sendNoContent } from '../utils/response';
@@ -98,7 +98,7 @@ router.post(
 router.put(
   '/:cartId',
   validate({
-    params: z.object({ cartId: z.string().transform(Number) }),
+    params: z.object({ cartId: numericParam }),
     body: schemas.cartUpdate,
   }),
   asyncHandler(async (req: CustomerRequest, res: Response) => {
@@ -110,7 +110,7 @@ router.put(
     const { quantity } = req.body;
 
     try {
-      const item = await cartRepository.updateQuantity(cartId, quantity);
+      const item = await cartRepository.updateQuantity(cartId, quantity, req.customerId);
       return sendSuccess(res, item, 'Cart updated');
     } catch (error: unknown) {
       if (error instanceof Error && error.message === 'Item removed from cart') {
@@ -128,7 +128,7 @@ router.put(
  */
 router.delete(
   '/:cartId',
-  validate({ params: z.object({ cartId: z.string().transform(Number) }) }),
+  validate({ params: z.object({ cartId: numericParam }) }),
   asyncHandler(async (req: CustomerRequest, res: Response) => {
     if (!req.customerId) {
       return sendError(res, 'Unauthorized', 401);
@@ -136,7 +136,7 @@ router.delete(
 
     const cartId = parseInt(req.params.cartId!, 10);
 
-    await cartRepository.removeItem(cartId);
+    await cartRepository.removeItem(cartId, req.customerId);
 
     return sendNoContent(res);
   })

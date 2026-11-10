@@ -110,7 +110,7 @@ export class CartRepository {
       if (existing) {
         // Update existing item
         const newQuantity = parseInt(existing.quantity, 10) + quantity;
-        return this.updateQuantity(existing.cart_id, newQuantity);
+        return this.updateQuantity(existing.cart_id, newQuantity, customerId);
       }
 
       // Insert new item
@@ -132,15 +132,16 @@ export class CartRepository {
   /**
    * Update cart item quantity by cart ID
    */
-  async updateQuantity(cartId: number, newQuantity: number): Promise<Cart> {
+  // customerId scopes the change to that customer's own cart row (a customer must not touch anyone else's).
+  async updateQuantity(cartId: number, newQuantity: number, customerId?: number): Promise<Cart> {
     if (newQuantity <= 0) {
-      await this.removeItem(cartId);
+      await this.removeItem(cartId, customerId);
       throw new BadRequestError('Item removed from cart');
     }
 
     try {
       const cartItem = await db.cart.update({
-        where: { cart_id: cartId },
+        where: { cart_id: cartId, ...(customerId !== undefined ? { customer_id: customerId } : {}) },
         data: { quantity: newQuantity.toString() },
       });
 
@@ -191,10 +192,10 @@ export class CartRepository {
   /**
    * Remove item from cart by cart ID
    */
-  async removeItem(cartId: number): Promise<boolean> {
+  async removeItem(cartId: number, customerId?: number): Promise<boolean> {
     try {
       await db.cart.delete({
-        where: { cart_id: cartId },
+        where: { cart_id: cartId, ...(customerId !== undefined ? { customer_id: customerId } : {}) },
       });
       return true;
     } catch (error) {

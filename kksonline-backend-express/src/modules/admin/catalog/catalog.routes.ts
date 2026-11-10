@@ -76,11 +76,17 @@ const lookups: LookupConfig[] = [
     },
     create: async (b) => {
       const body = b as z.infer<typeof categoryBody>;
+      const dup = await db.category.findFirst({ where: { category_name: { equals: body.name.trim(), mode: 'insensitive' } }, select: { category_id: true } });
+      if (dup) throw new ConflictError('Category already exists');
       const row = await db.category.create({ data: { category_name: body.name, isFeatured: body.isFeatured ?? false } });
       return { id: row.category_id, name: row.category_name };
     },
     update: async (id, b) => {
       const body = b as Partial<z.infer<typeof categoryBody>>;
+      if (body.name) {
+        const dup = await db.category.findFirst({ where: { category_name: { equals: body.name.trim(), mode: 'insensitive' }, NOT: { category_id: id } }, select: { category_id: true } });
+        if (dup) throw new ConflictError('Category already exists');
+      }
       const row = await db.category.update({
         where: { category_id: id },
         data: { category_name: body.name, isFeatured: body.isFeatured },
@@ -114,6 +120,8 @@ const lookups: LookupConfig[] = [
     },
     create: async (b) => {
       const body = b as z.infer<typeof brandBody>;
+      const dup = await db.brand.findFirst({ where: { brandname: { equals: body.name.trim(), mode: 'insensitive' } }, select: { brandID: true } });
+      if (dup) throw new ConflictError('Brand already exists');
       const row = await db.brand.create({
         data: { brandname: body.name, isFeatured: body.isFeatured ?? false, isVerified: body.isVerified ?? false },
       });
@@ -121,6 +129,10 @@ const lookups: LookupConfig[] = [
     },
     update: async (id, b) => {
       const body = b as Partial<z.infer<typeof brandBody>>;
+      if (body.name) {
+        const dup = await db.brand.findFirst({ where: { brandname: { equals: body.name.trim(), mode: 'insensitive' }, NOT: { brandID: id } }, select: { brandID: true } });
+        if (dup) throw new ConflictError('Brand already exists');
+      }
       const row = await db.brand.update({
         where: { brandID: id },
         data: { brandname: body.name, isFeatured: body.isFeatured, isVerified: body.isVerified },

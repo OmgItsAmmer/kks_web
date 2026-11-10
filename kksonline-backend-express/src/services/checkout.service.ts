@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { db, Prisma } from '../config/database.config';
 import { logger } from '../utils/logger';
 import {
+  ApiError,
   BadRequestError,
   DuplicateOrderError,
   InventoryUnavailableError,
@@ -84,6 +85,15 @@ export class CheckoutService {
       throw new PhoneNumberRequiredError();
     }
 
+    // Step 1b: The address must belong to this customer. Without this check a customer could pass someone
+    // else's address id and receive that person's name, address and phone number copied into their own order.
+    if (request.addressId > 0) {
+      const address = await addressRepository.findById(request.addressId);
+      if (!address || address.customer_id !== customerId) {
+        throw new BadRequestError('Selected address was not found');
+      }
+    }
+
     // Step 2: Prepare cart items
     let cartItems: CartItem[];
     if (request.directCheckout) {
@@ -130,6 +140,7 @@ export class CheckoutService {
     // Step 7: Reserve inventory
     const reservationResult = await this.reserveInventory(cartItems, idempotencyKey);
     if (!reservationResult.success) {
+      if (reservationResult.duplicate) throw new DuplicateOrderError();
       throw new InventoryUnavailableError(reservationResult.message);
     }
 
@@ -161,6 +172,7 @@ export class CheckoutService {
 
       if (!orderResult.success) {
         await this.rollbackInventoryReservation(idempotencyKey);
+        if (orderResult.duplicate) throw new DuplicateOrderError();
         throw new OrderCreationFailedError(orderResult.message);
       }
 
@@ -405,7 +417,7 @@ export class CheckoutService {
   private async reserveInventory(
     cartItems: CartItem[],
     reservationId: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; duplicate?: boolean }> {
     try {
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
@@ -438,8 +450,13 @@ export class CheckoutService {
       markReservationsPending();
       return { success: true, message: 'Inventory reserved successfully' };
     } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        // The same checkout was sent twice at the same moment: the other copy holds this reservation.
+        return { success: false, duplicate: true, message: 'Order already processed. Please refresh and try again.' };
+      }
       logger.error('Error in inventory reservation', { error });
-      const message = error instanceof Error ? error.message : 'Unable to reserve inventory';
+      // Only our own readable errors (such as "not enough stock") are shown to the customer, never database text.
+      const message = error instanceof ApiError ? error.message : 'Unable to reserve inventory';
       return { success: false, message };
     }
   }
@@ -513,7 +530,7 @@ export class CheckoutService {
     totals: CheckoutTotals,
     idempotencyKey: string,
     paymentReceiptPath?: string
-  ): Promise<{ success: boolean; orderId?: number; message: string }> {
+  ): Promise<{ success: boolean; orderId?: number; message: string; duplicate?: boolean }> {
     try {
       // Copy address to order_addresses if shipping
       if (addressId > 0) {
@@ -586,6 +603,10 @@ export class CheckoutService {
       return { success: true, orderId: order.order_id, message: 'Order created successfully' };
 
     } catch (error) {
+      if ((error as { errorCode?: string } | null)?.errorCode === 'DUPLICATE_ORDER') {
+        // Another copy of this same checkout created the order a moment earlier.
+        return { success: false, duplicate: true, message: 'Order already processed. Please refresh and try again.' };
+      }
       logger.error('Error creating order', { error, customerId });
       return { success: false, message: 'Order creation failed' };
     }

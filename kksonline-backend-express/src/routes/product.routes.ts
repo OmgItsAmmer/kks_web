@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { productRepository } from '../repositories/product.repository';
 import { reviewRepository } from '../repositories/review.repository';
 import { supabaseImageService } from '../services/image.service';
-import { validate, schemas } from '../middleware/validation.middleware';
+import { validate, schemas, numericParam } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { sendSuccess, sendPaginated, sendNotFound } from '../utils/response';
 import { logger } from '../utils/logger';
@@ -135,7 +135,7 @@ router.get(
 router.get(
   '/category/:categoryId',
   validate({
-    params: z.object({ categoryId: z.string().transform(Number) }),
+    params: z.object({ categoryId: numericParam }),
     query: schemas.pagination,
   }),
   asyncHandler(async (req: Request, res: Response) => {
@@ -165,7 +165,7 @@ router.get(
 router.get(
   '/brand/:brandId',
   validate({
-    params: z.object({ brandId: z.string().transform(Number) }),
+    params: z.object({ brandId: numericParam }),
   }),
   asyncHandler(async (req: Request, res: Response) => {
     const brandId = parseInt(req.params.brandId!, 10);

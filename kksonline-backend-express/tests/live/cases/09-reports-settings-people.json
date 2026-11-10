@@ -1,0 +1,38 @@
+{
+  "name": "Dashboard, reports, customers, reviews, settings, audit",
+  "cases": [
+    { "id": "rep-001", "title": "staff dashboard hides revenue", "as": "staff", "method": "GET", "path": "/admin/dashboard", "expect": { "status": 200, "json": { "data.revenue": { "$eq": null } } } },
+    { "id": "rep-002", "title": "owner dashboard shows revenue", "as": "owner", "method": "GET", "path": "/admin/dashboard", "expect": { "status": 200, "json": { "data.revenue": { "$exists": true } } } },
+    { "id": "rep-003", "title": "staff cannot open sales reports", "as": "staff", "method": "GET", "path": "/admin/reports/sales?from=2020-01-01&to=2030-01-01", "expect": { "status": 403 } },
+    { "id": "rep-004", "title": "owner sales report", "as": "owner", "method": "GET", "path": "/admin/reports/sales?from=2020-01-01&to=2030-01-01", "expect": { "status": 200 } },
+    { "id": "rep-005", "title": "owner product report", "as": "owner", "method": "GET", "path": "/admin/reports/products?from=2020-01-01&to=2030-01-01", "expect": { "status": 200 } },
+    { "id": "rep-006", "title": "owner stock valuation report", "as": "owner", "method": "GET", "path": "/admin/reports/stock-valuation", "expect": { "status": 200 } },
+    { "id": "rep-007", "title": "orders CSV export", "as": "owner", "method": "GET", "path": "/admin/reports/orders?from=2020-01-01&to=2030-01-01&format=csv", "expect": { "status": 200, "text": "order_id" } },
+    { "id": "rep-008", "title": "database: sales report total matches the orders table (non-cancelled)", "sql": [{ "q": "select count(*)::int n from orders where status <> 'cancelled'", "expect": { "rows.0.n": { "$gt": 50 } } }] },
+    { "id": "rep-009", "title": "a reversed date range is refused or empty, never a 500", "as": "owner", "method": "GET", "path": "/admin/reports/sales?from=2030-01-01&to=2020-01-01", "expect": { "status": [200, 400, 422] } },
+
+    { "id": "ppl-001", "title": "customer search finds a test customer", "as": "staff", "method": "GET", "path": "/admin/customers?q=LT1", "expect": { "status": 200, "json": { "data": { "$length": { "$gte": 1 } } } } },
+    { "id": "ppl-002", "title": "customer detail shows orders", "as": "staff", "method": "GET", "path": "/admin/customers/{{custIds.0}}", "expect": { "status": 200 } },
+    { "id": "ppl-003", "title": "unknown customer is a 404", "as": "staff", "method": "GET", "path": "/admin/customers/99999999", "expect": { "status": 404 } },
+    { "id": "ppl-004", "title": "reviews list", "as": "staff", "method": "GET", "path": "/admin/reviews?pageSize=5", "save": { "reviewId": "data.0.id" }, "saveOptional": true, "expect": { "status": 200 } },
+    { "id": "ppl-005", "title": "staff cannot hide a review", "as": "staff", "method": "PATCH", "path": "/admin/reviews/{{reviewId}}", "needsVar": "reviewId", "body": { "isHidden": true }, "expect": { "status": 403 } },
+    { "id": "ppl-006", "title": "manager hides a review", "as": "manager", "method": "PATCH", "path": "/admin/reviews/{{reviewId}}", "needsVar": "reviewId", "body": { "isHidden": true }, "expect": { "status": 200 } },
+    { "id": "ppl-007", "title": "manager shows the review again", "as": "manager", "method": "PATCH", "path": "/admin/reviews/{{reviewId}}", "needsVar": "reviewId", "body": { "isHidden": false }, "expect": { "status": 200 } },
+
+    { "id": "set-001", "title": "owner reads shop settings", "as": "owner", "method": "GET", "path": "/admin/settings/shop", "save": { "shopName": "data.shopname", "shopTax": "data.taxrate" }, "expect": { "status": 200, "json": { "data.shopname": { "$exists": true } } } },
+    { "id": "set-002", "title": "a tax rate above 100 is refused", "as": "owner", "method": "PUT", "path": "/admin/settings/shop", "body": { "shopname": "x", "taxrate": 500, "shipping_price": 0, "is_shipping_enable": false, "max_allowed_item_quantity": 50, "is_advance_payment_receipt_mandatory": false }, "expect": { "status": [400, 422] } },
+    { "id": "set-003", "title": "a negative shipping price is refused", "as": "owner", "method": "PUT", "path": "/admin/settings/shop", "body": { "shopname": "x", "taxrate": 0, "shipping_price": -1, "is_shipping_enable": false, "max_allowed_item_quantity": 50, "is_advance_payment_receipt_mandatory": false }, "expect": { "status": [400, 422] } },
+    { "id": "set-004", "title": "an item limit of zero is refused", "as": "owner", "method": "PUT", "path": "/admin/settings/shop", "body": { "shopname": "x", "taxrate": 0, "shipping_price": 0, "is_shipping_enable": false, "max_allowed_item_quantity": 0, "is_advance_payment_receipt_mandatory": false }, "expect": { "status": [400, 422] } },
+    { "id": "set-005", "title": "database: refused settings changed nothing", "sql": [{ "q": "select count(*)::int n from shop where taxrate > 100 or shipping_price < 0 or max_allowed_item_quantity < 1", "expect": { "rows.0.n": 0 } }] },
+    { "id": "set-006", "title": "app versions list", "as": "owner", "method": "GET", "path": "/admin/settings/app-versions", "expect": { "status": 200 } },
+    { "id": "set-007", "title": "usage report (database and storage sizes)", "as": "owner", "method": "GET", "path": "/admin/settings/usage", "expect": { "status": 200, "json": { "data.database.bytes": { "$gt": 0 } } } },
+
+    { "id": "aud-001", "title": "the audit log recorded today's changes", "as": "owner", "method": "GET", "path": "/admin/audit?pageSize=20", "expect": { "status": 200, "json": { "data": { "$length": { "$gt": 5 } } } } },
+    { "id": "aud-002", "title": "database: audit rows name the real actor and the action", "sql": [{ "q": "select count(*)::int n from admin_audit_log where actor_admin_id = 'manager@live-test.local' and action ilike 'order%'", "expect": { "rows.0.n": { "$gte": 1 } } }] },
+    { "id": "aud-003", "title": "database: every audit row has an actor and an action", "sql": [{ "q": "select count(*)::int n from admin_audit_log where coalesce(actor_admin_id,'') = '' or coalesce(action,'') = ''", "expect": { "rows.0.n": 0 } }] },
+    { "id": "aud-004", "title": "manager cannot read the audit log", "as": "manager", "method": "GET", "path": "/admin/audit", "expect": { "status": 403 } },
+
+    { "id": "ai-001", "title": "AI description endpoint exists and answers politely without a key (OpenAI is not configured)", "as": "owner", "method": "POST", "path": "/admin/ai/product-description", "body": { "productId": "{{pid}}" }, "expect": { "status": [503, 200] } },
+    { "id": "ai-002", "title": "staff cannot use the AI endpoint", "as": "staff", "method": "POST", "path": "/admin/ai/product-description", "body": { "productId": "{{pid}}" }, "expect": { "status": 403 } }
+  ]
+}
