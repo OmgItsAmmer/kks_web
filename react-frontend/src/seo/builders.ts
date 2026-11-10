@@ -1,5 +1,5 @@
 // Pure functions that build SEO text and schema.org objects. No React in here, so they are easy to test.
-import { LOGO_URL, SITE_NAME, SITE_URL } from './config';
+import { LOGO_URL, SITE_NAME, SITE_URL, STORE_FULL_NAME, STORE_OTHER_NAMES } from './config';
 
 export type JsonLd = Record<string, unknown>;
 
@@ -117,6 +117,8 @@ export const storeJsonLd = (description: string, telephone: string, email: strin
     '@type': ['GroceryStore', 'Organization'],
     '@id': `${SITE_URL}/#store`,
     name: SITE_NAME,
+    alternateName: STORE_OTHER_NAMES,
+    legalName: STORE_FULL_NAME,
     url: `${SITE_URL}/`,
     logo: LOGO_URL,
     image: `${SITE_URL}/og-image.jpg`,
@@ -134,6 +136,7 @@ export const storeJsonLd = (description: string, telephone: string, email: strin
     '@id': `${SITE_URL}/#website`,
     url: `${SITE_URL}/`,
     name: SITE_NAME,
+    alternateName: [STORE_FULL_NAME, 'KKS'],
     publisher: { '@id': `${SITE_URL}/#store` },
     potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
   },

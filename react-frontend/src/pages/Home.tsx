@@ -82,6 +82,8 @@ const Home: React.FC = () => {
 
   return (
     <main>
+      <h1 className="visually-hidden">Kashif Karyana Store (KKS Online): online grocery, karyana and household essentials in Pakistan since 1995</h1>
+
       {/* Features Bar - Trust indicators */}
       <FeaturesBar />
 
