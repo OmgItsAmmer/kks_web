@@ -248,11 +248,11 @@ const Footer: React.FC = () => {
             {/* Brand Column */}
             <div className={styles.brandColumn}>
               <Link to="/" className={styles.logo}>
-                <img src={logo} alt="KKS Online" className={styles.logoImage} />
+                <img src={logo} alt="Kashif Karyana Store - KKS Online" className={styles.logoImage} />
                 <span className={styles.logoText}>KKS Online</span>
               </Link>
               <p className={styles.brandDescription}>
-                KKS is your trusted local karyana (grocery) store, serving your daily needs since 1995. 
+                KKS Online is the online store of Kashif Karyana Store (KKS), your trusted local karyana (grocery) store serving your daily needs since 1995. 
                 Founded by M Saeed Sarwar, we've been providing quality grocery items and household essentials 
                 to our community for over 31 years. We're committed to bringing fresh produce, daily necessities, 
                 and premium quality products right to your doorstep.
