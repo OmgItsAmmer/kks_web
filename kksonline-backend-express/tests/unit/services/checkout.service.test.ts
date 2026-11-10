@@ -104,7 +104,7 @@ describe('CheckoutService', () => {
     mockGetMaxAllowedQuantity.mockResolvedValue(10);
     mockGetTaxRate.mockResolvedValue(0);
     mockIsAdvancePaymentReceiptMandatory.mockResolvedValue(false);
-    mockFindAddressById.mockResolvedValue({ address_id: 1 });
+    mockFindAddressById.mockResolvedValue({ address_id: 1, customer_id: 1 });
     mockCopyToOrderAddress.mockResolvedValue(true);
     mockSecurityAuditLogCreate.mockResolvedValue({});
     mockInventoryReservationDeleteMany.mockResolvedValue({ count: 0 });
@@ -189,6 +189,21 @@ describe('CheckoutService', () => {
         paymentMethod: 'cod',
       })
     ).rejects.toThrow('Phone number required');
+  });
+
+  it("refuses another customer's saved address (their name, address and phone must not be copied into this order)", async () => {
+    mockFindAddressById.mockResolvedValue({ address_id: 7, customer_id: 999 });
+
+    const { checkoutService } = await import('../../../src/services/checkout.service');
+    await expect(
+      checkoutService.processCheckout(1, {
+        cartItems: [{ variantId: 1, quantity: 1, sellPrice: 1150 }],
+        addressId: 7,
+        shippingMethod: 'pickup',
+        paymentMethod: 'cod',
+      })
+    ).rejects.toThrow('Selected address was not found');
+    expect(mockCopyToOrderAddress).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestError when cart is empty', async () => {

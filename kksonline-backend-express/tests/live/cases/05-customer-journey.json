@@ -1,0 +1,1265 @@
+{
+  "name": "Customer journey: cart, checkout, security of orders",
+  "cases": [
+    {
+      "id": "cus-001",
+      "title": "set up: read the shop's tax and item limit",
+      "sql": [
+        {
+          "q": "select taxrate::float t, max_allowed_item_quantity::int m from shop order by shop_id limit 1",
+          "save": {
+            "tax": "rows.0.t",
+            "maxQty": "rows.0.m"
+          },
+          "expect": {
+            "rows.0.m": {
+              "$gte": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-002",
+      "title": "set up: a hidden product with stock",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT Hidden {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "isVisible": false,
+        "variants": [
+          {
+            "variantName": "std",
+            "sku": "LT-{{runId}}-H",
+            "sellPrice": 100,
+            "buyPrice": 50,
+            "stock": 5
+          }
+        ]
+      },
+      "save": {
+        "vH": "data.variants.0.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "cus-003",
+      "title": "set up: a product with exactly 3 in stock (for the race test)",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT Race {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "isVisible": true,
+        "variants": [
+          {
+            "variantName": "std",
+            "sku": "LT-{{runId}}-R",
+            "sellPrice": 500,
+            "buyPrice": 300,
+            "stock": 3
+          }
+        ]
+      },
+      "save": {
+        "vR": "data.variants.0.id",
+        "pR": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "cus-004",
+      "title": "set up: a product with plenty of stock for edge cases",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT Misc {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "isVisible": true,
+        "variants": [
+          {
+            "variantName": "std",
+            "sku": "LT-{{runId}}-M",
+            "sellPrice": 200,
+            "buyPrice": 100,
+            "stock": 500
+          }
+        ]
+      },
+      "save": {
+        "vM": "data.variants.0.id",
+        "pM": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "cus-005",
+      "title": "set up: 12 test customers with phone numbers",
+      "sql": [
+        {
+          "q": "insert into customers (first_name, last_name, email, phone_number) select 'LT'||g, 'Buyer', 'lt'||g||'-{{runId}}@live-test.local', '0300123456'||(g%10) from generate_series(1,12) g order by g returning customer_id",
+          "save": {
+            "custIds": "rows.*.customer_id"
+          },
+          "expect": {
+            "rowCount": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-006",
+      "title": "set up: one address per customer",
+      "sql": [
+        {
+          "q": "insert into addresses (full_name, shipping_address, phone_number, city, country, customer_id) select 'LT Buyer', 'Test street 1', '03001234567', 'Lahore', 'PK', customer_id from customers where email like 'lt%-{{runId}}@live-test.local' order by customer_id returning address_id",
+          "save": {
+            "addrIds": "rows.*.address_id"
+          },
+          "expect": {
+            "rowCount": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-007",
+      "title": "set up: a customer with no phone number",
+      "sql": [
+        {
+          "q": "insert into customers (first_name, email, phone_number) values ('LT NoPhone', 'ltnp-{{runId}}@live-test.local', '') returning customer_id",
+          "save": {
+            "npId": "rows.0.customer_id"
+          }
+        },
+        {
+          "q": "insert into addresses (full_name, customer_id) values ('LT NoPhone', $1) returning address_id",
+          "args": [
+            "{{npId}}"
+          ],
+          "save": {
+            "npAddr": "rows.0.address_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-008",
+      "title": "set up: sign tokens for the test customers",
+      "mint": [
+        {
+          "actor": "cust1",
+          "customerId": "{{custIds.0}}"
+        },
+        {
+          "actor": "cust2",
+          "customerId": "{{custIds.1}}"
+        },
+        {
+          "actor": "cust3",
+          "customerId": "{{custIds.2}}"
+        },
+        {
+          "actor": "cust4",
+          "customerId": "{{custIds.3}}"
+        },
+        {
+          "actor": "cust5",
+          "customerId": "{{custIds.4}}"
+        },
+        {
+          "actor": "cust6",
+          "customerId": "{{custIds.5}}"
+        },
+        {
+          "actor": "cust7",
+          "customerId": "{{custIds.6}}"
+        },
+        {
+          "actor": "cust8",
+          "customerId": "{{custIds.7}}"
+        },
+        {
+          "actor": "cust9",
+          "customerId": "{{custIds.8}}"
+        },
+        {
+          "actor": "cust10",
+          "customerId": "{{custIds.9}}"
+        },
+        {
+          "actor": "cust11",
+          "customerId": "{{custIds.10}}"
+        },
+        {
+          "actor": "cust12",
+          "customerId": "{{custIds.11}}"
+        },
+        {
+          "actor": "cust13",
+          "customerId": "{{npId}}"
+        }
+      ]
+    },
+    {
+      "id": "cus-010",
+      "title": "a customer token opens the customer's own orders (empty at first)",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/orders",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "cus-011",
+      "title": "a customer token cannot use admin routes",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/admin/orders",
+      "expect": {
+        "status": 401
+      }
+    },
+    {
+      "id": "cus-012",
+      "title": "an admin session cookie cannot act as a customer",
+      "as": "owner",
+      "method": "GET",
+      "path": "/orders",
+      "expect": {
+        "status": 401
+      }
+    },
+    {
+      "id": "cus-013",
+      "title": "an expired or foreign-signed token is refused",
+      "method": "GET",
+      "path": "/orders",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjdXN0b21lcklkIjoxLCJpZCI6MSwiZW1haWwiOiJ4QHguY29tIiwicm9sZSI6ImN1c3RvbWVyIn0.invalidsignatureinvalidsignatureinvalidsig"
+      },
+      "expect": {
+        "status": 401
+      }
+    },
+    {
+      "id": "crt-001",
+      "title": "add 2 of a product to the cart",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vA}}",
+        "quantity": 2
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ]
+      }
+    },
+    {
+      "id": "crt-002",
+      "title": "database: the cart holds 2",
+      "sql": [
+        {
+          "q": "select coalesce(sum(quantity::int),0)::int q from cart where customer_id = $1 and variant_id = $2",
+          "args": [
+            "{{custIds.0}}",
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.q": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "crt-003",
+      "title": "adding more of the same product accumulates",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vA}}",
+        "quantity": 1
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ]
+      }
+    },
+    {
+      "id": "crt-004",
+      "title": "database: the cart now holds 3 in total",
+      "sql": [
+        {
+          "q": "select coalesce(sum(quantity::int),0)::int q from cart where customer_id = $1 and variant_id = $2",
+          "args": [
+            "{{custIds.0}}",
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.q": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "crt-005",
+      "title": "the cart endpoint lists the item",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/cart",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.items": {
+            "$length": {
+              "$gte": 1
+            }
+          }
+        }
+      },
+      "save": {
+        "cartId": "data.items.0.cartId"
+      }
+    },
+    {
+      "id": "crt-005a",
+      "title": "the customer changes the quantity of their own cart item",
+      "as": "cust1",
+      "method": "PUT",
+      "path": "/cart/{{cartId}}",
+      "body": {
+        "quantity": 2
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "crt-005b",
+      "title": "database: quantity is now 2",
+      "sql": [
+        {
+          "q": "select quantity::int q from cart where cart_id = $1",
+          "args": [
+            "{{cartId}}"
+          ],
+          "expect": {
+            "rows.0.q": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "crt-005c",
+      "title": "another customer cannot change someone else's cart item",
+      "as": "cust2",
+      "method": "PUT",
+      "path": "/cart/{{cartId}}",
+      "body": {
+        "quantity": 9
+      },
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "crt-005d",
+      "title": "another customer cannot delete someone else's cart item",
+      "as": "cust2",
+      "method": "DELETE",
+      "path": "/cart/{{cartId}}",
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "crt-005e",
+      "title": "database: the item is untouched (still quantity 2, still cust1's)",
+      "sql": [
+        {
+          "q": "select quantity::int q, customer_id c from cart where cart_id = $1",
+          "args": [
+            "{{cartId}}"
+          ],
+          "expect": {
+            "rows.0.q": 2,
+            "rows.0.c": "{{custIds.0}}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "crt-005f",
+      "title": "the owner can remove their own cart item",
+      "as": "cust1",
+      "method": "DELETE",
+      "path": "/cart/{{cartId}}",
+      "expect": {
+        "status": [
+          200,
+          204
+        ]
+      }
+    },
+    {
+      "id": "crt-005g",
+      "title": "database: it is gone",
+      "sql": [
+        {
+          "q": "select count(*)::int n from cart where cart_id = $1",
+          "args": [
+            "{{cartId}}"
+          ],
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "crt-006",
+      "title": "quantity zero is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vA}}",
+        "quantity": 0
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "crt-007",
+      "title": "quantity above 100 is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vA}}",
+        "quantity": 101
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "crt-008",
+      "title": "adding more than the stock is refused",
+      "as": "cust2",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vR}}",
+        "quantity": 4
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "crt-009",
+      "title": "adding more than the shop's item limit is refused",
+      "as": "cust2",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vM}}",
+        "quantity": 100
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "crt-010",
+      "title": "a variant that does not exist cannot be added",
+      "as": "cust2",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": 99999999,
+        "quantity": 1
+      },
+      "expect": {
+        "status": [
+          400,
+          404
+        ]
+      }
+    },
+    {
+      "id": "crt-011",
+      "title": "clean up the cart",
+      "sql": [
+        {
+          "q": "delete from cart where customer_id = $1",
+          "args": [
+            "{{custIds.0}}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chk-001",
+      "title": "checkout with nothing in it is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "chk-002",
+      "title": "quantity zero is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 0,
+          "price": 200
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "chk-003",
+      "title": "home delivery is switched off (pickup only)",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "shipping",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400,
+        "json": {
+          "errorCode": "SHIPPING_METHOD_INVALID"
+        }
+      }
+    },
+    {
+      "id": "chk-004",
+      "title": "a lower price than the real one is refused (price tampering)",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 1,
+          "price": 1
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400,
+        "json": {
+          "errorCode": "SECURITY_VIOLATION"
+        }
+      }
+    },
+    {
+      "id": "chk-005",
+      "title": "a higher price than the real one is refused too",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 1,
+          "price": 99999
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400,
+        "json": {
+          "errorCode": "SECURITY_VIOLATION"
+        }
+      }
+    },
+    {
+      "id": "chk-006",
+      "title": "a hidden product cannot be bought",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vH}}",
+          "quantity": 1,
+          "price": 100
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "chk-007",
+      "title": "more than the stock is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vR}}",
+          "quantity": 4,
+          "price": 500
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "chk-008",
+      "title": "a customer with no phone number cannot check out",
+      "as": "cust13",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": "{{npAddr}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400,
+        "json": {
+          "errorCode": "PHONE_NUMBER_REQUIRED"
+        }
+      }
+    },
+    {
+      "id": "chk-009",
+      "title": "a variant that does not exist is refused",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": 99999999,
+          "quantity": 1,
+          "price": 100
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "chk-010",
+      "title": "database: none of the refused checkouts created an order or moved stock",
+      "sql": [
+        {
+          "q": "select (select count(*)::int from orders where customer_id = any($1::int[])) o, (select stock from product_variants where variant_id = $2) s_m, (select stock from product_variants where variant_id = $3) s_r, (select stock from product_variants where variant_id = $4) s_h",
+          "args": [
+            "{{custIds}}",
+            "{{vM}}",
+            "{{vR}}",
+            "{{vH}}"
+          ],
+          "expect": {
+            "rows.0.o": 0,
+            "rows.0.s_m": 500,
+            "rows.0.s_r": 3,
+            "rows.0.s_h": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "chk-011",
+      "title": "someone else's saved address cannot be used",
+      "as": "cust2",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-foreign-addr"
+      },
+      "expect": {
+        "status": [
+          400,
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "ord-001",
+      "title": "set up: expected total for 2 x 1000",
+      "sql": [
+        {
+          "q": "select (2000 + taxrate)::float tot from shop order by shop_id limit 1",
+          "save": {
+            "exp1": "rows.0.tot"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-002",
+      "title": "a valid checkout places the order",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vA}}",
+          "quantity": 2,
+          "price": 1000
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-order1"
+      },
+      "save": {
+        "orderId": "data.orderId"
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ],
+        "json": {
+          "success": true,
+          "data.orderId": {
+            "$gt": 0
+          },
+          "data.total": {
+            "$approx": [
+              "{{exp1}}",
+              0.01
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ord-003",
+      "title": "database: the order is pending, cash on delivery, for the right customer and amount",
+      "sql": [
+        {
+          "q": "select status::text st, payment_method::text pm, customer_id c, sub_total::float s from orders where order_id = $1",
+          "args": [
+            "{{orderId}}"
+          ],
+          "expect": {
+            "rows.0.st": "pending",
+            "rows.0.pm": "cod",
+            "rows.0.c": "{{custIds.0}}",
+            "rows.0.s": 2000
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-004",
+      "title": "database: one order line, quantity 2 at price 1000",
+      "sql": [
+        {
+          "q": "select count(*)::int n, sum(quantity)::int q, max(price)::float p from order_items where order_id = $1",
+          "args": [
+            "{{orderId}}"
+          ],
+          "expect": {
+            "rows.0.n": 1,
+            "rows.0.q": 2,
+            "rows.0.p": 1000
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-005",
+      "title": "database: stock dropped by exactly 2 (8 to 6)",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-006",
+      "title": "database: the stock ledger recorded the sale against the order",
+      "sql": [
+        {
+          "q": "select count(*)::int n from inventory_movements where variant_id = $1 and reason = 'order_placed' and delta = -2 and ref_type = 'order' and ref_id = $2::text",
+          "args": [
+            "{{vA}}",
+            "{{orderId}}"
+          ],
+          "expect": {
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-007",
+      "title": "database: the admin got a new-order notification",
+      "sql": [
+        {
+          "q": "select count(*)::int n from notifications where order_id = $1",
+          "args": [
+            "{{orderId}}"
+          ],
+          "expect": {
+            "rows.0.n": {
+              "$gte": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-008",
+      "title": "submitting the same order again (double click) is refused as a duplicate",
+      "as": "cust1",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vA}}",
+          "quantity": 2,
+          "price": 1000
+        },
+        "addressId": "{{addrIds.0}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-order1"
+      },
+      "expect": {
+        "status": 409,
+        "json": {
+          "errorCode": "DUPLICATE_ORDER"
+        }
+      }
+    },
+    {
+      "id": "ord-009",
+      "title": "database: still one order for that key and stock taken only once",
+      "sql": [
+        {
+          "q": "select (select count(*)::int from orders where idempotency_key = $1) n, (select stock from product_variants where variant_id = $2) s",
+          "args": [
+            "lt-{{runId}}-order1",
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.n": 1,
+            "rows.0.s": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-010",
+      "title": "the customer sees the order in their list",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/orders",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.*.order_id": {
+            "$contains": "{{orderId}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "ord-011",
+      "title": "the customer can open the order",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/orders/{{orderId}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "ord-012",
+      "title": "another customer cannot open it",
+      "as": "cust2",
+      "method": "GET",
+      "path": "/orders/{{orderId}}",
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "ord-013",
+      "title": "another customer's list does not contain it",
+      "as": "cust2",
+      "method": "GET",
+      "path": "/orders",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "ord-014",
+      "title": "without a token the order cannot be read",
+      "method": "GET",
+      "path": "/orders/{{orderId}}",
+      "expect": {
+        "status": 401
+      }
+    },
+    {
+      "id": "ord-020",
+      "title": "cart checkout: add an item to the cart",
+      "as": "cust3",
+      "method": "POST",
+      "path": "/cart",
+      "body": {
+        "variantId": "{{vB}}",
+        "quantity": 1
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ]
+      }
+    },
+    {
+      "id": "ord-021",
+      "title": "cart checkout places the order",
+      "as": "cust3",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "cartItems": [
+          {
+            "variantId": "{{vB}}",
+            "quantity": 1,
+            "sellPrice": 1500.5
+          }
+        ],
+        "addressId": "{{addrIds.2}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-order2"
+      },
+      "save": {
+        "orderId2": "data.orderId"
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ],
+        "json": {
+          "data.orderId": {
+            "$gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "ord-022",
+      "title": "database: the cart was cleared and stock dropped 5 to 4",
+      "sql": [
+        {
+          "q": "select (select count(*)::int from cart where customer_id = $1) c, (select stock from product_variants where variant_id = $2) s",
+          "args": [
+            "{{custIds.2}}",
+            "{{vB}}"
+          ],
+          "expect": {
+            "rows.0.c": 0,
+            "rows.0.s": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-023",
+      "title": "ordering more than what is left is refused",
+      "as": "cust3",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vB}}",
+          "quantity": 5,
+          "price": 1500.5
+        },
+        "addressId": "{{addrIds.2}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-order3"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "ord-024",
+      "title": "database: refused order left stock at 4",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vB}}"
+          ],
+          "expect": {
+            "rows.0.stock": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-025",
+      "title": "the order total adds up: subtotal + tax",
+      "sql": [
+        {
+          "q": "select (sub_total + coalesce(tax,0) + coalesce(shipping_fee,0) - coalesce(discount,0))::float t, sub_total::float s from orders where order_id = $1",
+          "args": [
+            "{{orderId2}}"
+          ],
+          "expect": {
+            "rows.0.s": 1500.5,
+            "rows.0.t": {
+              "$approx": [
+                1500.5,
+                1000000
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-020",
+      "title": "order id that is not a number is a 4xx, never a 500",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/orders/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cus-021",
+      "title": "address id that is not a number is a 4xx, never a 500",
+      "as": "cust1",
+      "method": "GET",
+      "path": "/addresses/abc",
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cus-022",
+      "title": "another customer's address cannot be read",
+      "as": "cust2",
+      "method": "GET",
+      "path": "/addresses/{{addrIds.0}}",
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "cus-023",
+      "title": "another customer's address cannot be changed",
+      "as": "cust2",
+      "method": "PUT",
+      "path": "/addresses/{{addrIds.0}}",
+      "body": {
+        "fullName": "hacked",
+        "shippingAddress": "x",
+        "phoneNumber": "03001234567",
+        "city": "x",
+        "country": "x"
+      },
+      "expect": {
+        "status": [
+          400,
+          403,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cus-024",
+      "title": "another customer's address cannot be deleted",
+      "as": "cust2",
+      "method": "DELETE",
+      "path": "/addresses/{{addrIds.0}}",
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    },
+    {
+      "id": "cus-025",
+      "title": "database: the address is still there and unchanged",
+      "sql": [
+        {
+          "q": "select count(*)::int n from addresses where address_id = $1 and full_name = 'LT Buyer'",
+          "args": [
+            "{{addrIds.0}}"
+          ],
+          "expect": {
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "cus-026",
+      "title": "cart item id that is not a number is a 4xx, never a 500",
+      "as": "cust1",
+      "method": "PUT",
+      "path": "/cart/abc",
+      "body": {
+        "quantity": 1
+      },
+      "expect": {
+        "status": [
+          400,
+          404,
+          422
+        ]
+      }
+    },
+    {
+      "id": "cus-027",
+      "title": "a cart item id that does not exist cannot be changed",
+      "as": "cust2",
+      "method": "PUT",
+      "path": "/cart/999999999",
+      "body": {
+        "quantity": 1
+      },
+      "expect": {
+        "status": [
+          403,
+          404
+        ]
+      }
+    }
+  ]
+}

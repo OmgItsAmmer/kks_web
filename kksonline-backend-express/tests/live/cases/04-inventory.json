@@ -1,0 +1,639 @@
+{
+  "name": "Inventory: adjustments, receipts, cost, ledger",
+  "cases": [
+    {
+      "id": "inv-001",
+      "title": "owner adjusts stock by -2",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": -2,
+        "note": "live test: damaged"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 8
+        }
+      }
+    },
+    {
+      "id": "inv-002",
+      "title": "database: stock is 8 and the ledger has an adjustment row",
+      "sql": [
+        {
+          "q": "select v.stock, (select count(*)::int from inventory_movements m where m.variant_id = v.variant_id and m.reason = 'manual_adjustment' and m.delta = -2 and m.stock_after = 8) n from product_variants v where v.variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8,
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-003",
+      "title": "stock can never go below zero",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": -999,
+        "note": "too many"
+      },
+      "expect": {
+        "status": 409
+      }
+    },
+    {
+      "id": "inv-004",
+      "title": "database: refused adjustment changed nothing",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-005",
+      "title": "staff cannot adjust stock",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": 1,
+        "note": "staff attempt"
+      },
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "inv-006",
+      "title": "an adjustment needs a reason",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": 1
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "inv-007",
+      "title": "setting the stock to the number it already is is refused (nothing to change)",
+      "as": "manager",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "set",
+        "value": 8,
+        "note": "live test: recount"
+      },
+      "expect": {
+        "status": 400
+      }
+    },
+    {
+      "id": "inv-010",
+      "title": "staff creates a stock receipt (draft)",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts",
+      "body": {
+        "supplierName": "LT Supplier {{runId}}",
+        "items": [
+          {
+            "variantId": "{{vA}}",
+            "quantity": 10,
+            "unitCost": 800
+          }
+        ]
+      },
+      "save": {
+        "rcpt": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "inv-011",
+      "title": "a draft receipt has not changed stock",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-012",
+      "title": "staff receives the receipt",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/receive",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.status": "received"
+        }
+      }
+    },
+    {
+      "id": "inv-013",
+      "title": "receiving twice is harmless",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/receive",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "inv-014",
+      "title": "database: stock is 18 (added once) and cost is the weighted average 755.56",
+      "sql": [
+        {
+          "q": "select stock, buy_price::float bp from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 18,
+            "rows.0.bp": {
+              "$approx": [
+                755.56,
+                0.01
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-015",
+      "title": "database: ledger row for the receipt",
+      "sql": [
+        {
+          "q": "select count(*)::int n from inventory_movements where variant_id = $1 and reason = 'purchase_received' and delta = 10 and stock_after = 18",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-016",
+      "title": "a received receipt can no longer be edited",
+      "as": "staff",
+      "method": "PUT",
+      "path": "/admin/inventory/receipts/{{rcpt}}",
+      "body": {
+        "supplierName": "changed",
+        "items": [
+          {
+            "variantId": "{{vA}}",
+            "quantity": 99,
+            "unitCost": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": [
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "inv-017",
+      "title": "a received receipt can no longer be deleted",
+      "as": "staff",
+      "method": "DELETE",
+      "path": "/admin/inventory/receipts/{{rcpt}}",
+      "expect": {
+        "status": [
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "inv-018",
+      "title": "receipt detail lists its lines",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/inventory/receipts/{{rcpt}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.status": "received"
+        }
+      }
+    },
+    {
+      "id": "inv-019",
+      "title": "receipt for a missing variant is refused",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts",
+      "body": {
+        "supplierName": "x",
+        "items": [
+          {
+            "variantId": 99999999,
+            "quantity": 1,
+            "unitCost": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": [
+          400,
+          404,
+          409,
+          422
+        ]
+      }
+    },
+    {
+      "id": "inv-020",
+      "title": "receipt with zero quantity is refused",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts",
+      "body": {
+        "supplierName": "x",
+        "items": [
+          {
+            "variantId": "{{vA}}",
+            "quantity": 0,
+            "unitCost": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": [
+          400,
+          422
+        ]
+      }
+    },
+    {
+      "id": "inv-030",
+      "title": "draft receipt can be edited and deleted",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts",
+      "body": {
+        "supplierName": "LT draft {{runId}}",
+        "items": [
+          {
+            "variantId": "{{vB}}",
+            "quantity": 4,
+            "unitCost": 850
+          }
+        ]
+      },
+      "save": {
+        "rcpt2": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "inv-031",
+      "title": "edit the draft",
+      "as": "staff",
+      "method": "PUT",
+      "path": "/admin/inventory/receipts/{{rcpt2}}",
+      "body": {
+        "supplierName": "LT draft edited {{runId}}",
+        "items": [
+          {
+            "variantId": "{{vB}}",
+            "quantity": 6,
+            "unitCost": 850
+          }
+        ]
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "inv-032",
+      "title": "delete the draft",
+      "as": "staff",
+      "method": "DELETE",
+      "path": "/admin/inventory/receipts/{{rcpt2}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "inv-033",
+      "title": "deleted draft is gone",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/inventory/receipts/{{rcpt2}}",
+      "expect": {
+        "status": 404
+      }
+    },
+    {
+      "id": "inv-040",
+      "title": "set up: sell part of the received stock (adjust -10 to 8)",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": -10,
+        "note": "live test: sold elsewhere"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 8
+        }
+      }
+    },
+    {
+      "id": "inv-041",
+      "title": "cancelling the received receipt is refused when stock is too low",
+      "as": "manager",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/cancel",
+      "expect": {
+        "status": 409
+      }
+    },
+    {
+      "id": "inv-042",
+      "title": "database: refused reversal changed nothing",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-043",
+      "title": "restore the stock, then reverse the receipt",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vA}}",
+        "mode": "delta",
+        "value": 10,
+        "note": "live test: found again"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 18
+        }
+      }
+    },
+    {
+      "id": "inv-044",
+      "title": "staff cannot cancel a received receipt",
+      "as": "staff",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/cancel",
+      "expect": {
+        "status": 403
+      }
+    },
+    {
+      "id": "inv-045",
+      "title": "manager reverses the receipt",
+      "as": "manager",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/cancel",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "inv-046",
+      "title": "database: stock back to 8 with a receipt_reversed ledger row",
+      "sql": [
+        {
+          "q": "select v.stock, (select count(*)::int from inventory_movements m where m.variant_id = v.variant_id and m.reason = 'purchase_reversed' and m.delta = -10) n from product_variants v where v.variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8,
+            "rows.0.n": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-047",
+      "title": "reversing twice does not remove stock twice",
+      "as": "manager",
+      "method": "POST",
+      "path": "/admin/inventory/receipts/{{rcpt}}/cancel",
+      "expect": {
+        "status": [
+          200,
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "inv-048",
+      "title": "database: stock is still 8",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.stock": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-049",
+      "title": "database: ledger still adds up for this product",
+      "sql": [
+        {
+          "q": "select (select coalesce(sum(delta),0)::int from inventory_movements where variant_id = $1) s, (select stock from product_variants where variant_id = $1) st",
+          "args": [
+            "{{vA}}"
+          ],
+          "expect": {
+            "rows.0.s": 8,
+            "rows.0.st": 8
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-050",
+      "title": "movement history for one variant lists every change",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/inventory/movements?variantId={{vA}}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": {
+              "$gte": 6
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "inv-051",
+      "title": "stock overview: low-stock filter works",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/inventory/stock?q=LT-{{runId}}-A",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data": {
+            "$length": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "inv-052",
+      "title": "staff does not see costs in the stock overview",
+      "as": "staff",
+      "method": "GET",
+      "path": "/admin/inventory/stock?q=LT-{{runId}}-A",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.0.buyPrice": {
+            "$exists": false
+          }
+        }
+      }
+    },
+    {
+      "id": "inv-053",
+      "title": "owner sees costs in the stock overview",
+      "as": "owner",
+      "method": "GET",
+      "path": "/admin/inventory/stock?q=LT-{{runId}}-A",
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.0.buyPrice": {
+            "$exists": true
+          }
+        }
+      }
+    },
+    {
+      "id": "inv-054",
+      "title": "low stock notification exists after dropping below the alert level",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vB}}",
+        "mode": "set",
+        "value": 1,
+        "note": "live test: low stock trigger"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 1
+        }
+      }
+    },
+    {
+      "id": "inv-055",
+      "title": "database: a low-stock notification was written",
+      "sql": [
+        {
+          "q": "select count(*)::int n from notifications where created_at > now() - interval '10 minutes' and product_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.n": {
+              "$gte": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-056",
+      "title": "put variant B stock back to 5",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vB}}",
+        "mode": "set",
+        "value": 5,
+        "note": "live test: restore"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 5
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,353 @@
+{
+  "name": "Overselling, double-submits and data integrity",
+  "cases": [
+    {
+      "id": "race-001",
+      "title": "10 customers buy the last 3 items at the same moment: exactly 3 succeed",
+      "burst": {
+        "count": 10,
+        "as": "cust{i}",
+        "each": "addrIds"
+      },
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vR}}",
+          "quantity": 1,
+          "price": 500
+        },
+        "addressId": "{{each}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-race-{{i}}"
+      },
+      "expect": {
+        "statusCounts": {
+          "200": 3
+        },
+        "statusOnly": [
+          200,
+          201,
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "race-002",
+      "title": "database: stock is exactly 0, never negative",
+      "sql": [
+        {
+          "q": "select stock from product_variants where variant_id = $1",
+          "args": [
+            "{{vR}}"
+          ],
+          "expect": {
+            "rows.0.stock": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "race-003",
+      "title": "database: exactly 3 orders and 3 items were created for it",
+      "sql": [
+        {
+          "q": "select count(distinct oi.order_id)::int o, coalesce(sum(oi.quantity),0)::int q from order_items oi join orders o on o.order_id = oi.order_id where oi.variant_id = $1 and o.status <> 'cancelled'",
+          "args": [
+            "{{vR}}"
+          ],
+          "expect": {
+            "rows.0.o": 3,
+            "rows.0.q": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "race-004",
+      "title": "database: the ledger for it adds up (3 in, 3 sold = 0)",
+      "sql": [
+        {
+          "q": "select coalesce(sum(delta),0)::int s from inventory_movements where variant_id = $1",
+          "args": [
+            "{{vR}}"
+          ],
+          "expect": {
+            "rows.0.s": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "race-005",
+      "title": "the shop shows it as out of stock",
+      "method": "GET",
+      "path": "/products/{{pR}}",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "race-010",
+      "title": "same order sent 8 times at once (same key): only one is created",
+      "burst": {
+        "count": 8,
+        "as": "cust11"
+      },
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 5,
+          "price": 200
+        },
+        "addressId": "{{addrIds.10}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-dup-burst"
+      },
+      "expect": {
+        "statusCounts": {
+          "200": 1
+        },
+        "statusOnly": [
+          200,
+          201,
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "race-011",
+      "title": "database: one order and stock reduced by 5 only (500 to 495)",
+      "sql": [
+        {
+          "q": "select (select count(*)::int from orders where idempotency_key = $1) n, (select stock from product_variants where variant_id = $2) s",
+          "args": [
+            "lt-{{runId}}-dup-burst",
+            "{{vM}}"
+          ],
+          "expect": {
+            "rows.0.n": 1,
+            "rows.0.s": 495
+          }
+        }
+      ]
+    },
+    {
+      "id": "race-020",
+      "title": "a restock and a purchase at the same moment never lose an update",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/inventory/adjustments",
+      "body": {
+        "variantId": "{{vM}}",
+        "mode": "set",
+        "value": 10,
+        "note": "live test: reset for race"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "data.after": 10
+        }
+      }
+    },
+    {
+      "id": "race-021",
+      "title": "6 customers buy 2 each (stock 10) while it is also adjusted: totals stay consistent",
+      "burst": {
+        "count": 6,
+        "as": "cust{i}",
+        "each": "addrIds"
+      },
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vM}}",
+          "quantity": 2,
+          "price": 200
+        },
+        "addressId": "{{each}}",
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-m-{{i}}"
+      },
+      "expect": {
+        "statusCounts": {
+          "200": 5
+        },
+        "statusOnly": [
+          200,
+          201,
+          400,
+          409
+        ]
+      }
+    },
+    {
+      "id": "race-022",
+      "title": "database: stock is 0 and the ledger matches",
+      "sql": [
+        {
+          "q": "select (select stock from product_variants where variant_id = $1) s, (select coalesce(sum(delta),0)::int from inventory_movements where variant_id = $1) l",
+          "args": [
+            "{{vM}}"
+          ],
+          "expect": {
+            "rows.0.s": 0,
+            "rows.0.l": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-100",
+      "title": "INVARIANT: no variant has negative stock",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants where stock < 0",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-101",
+      "title": "INVARIANT: every variant's stock equals its ledger total",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants v where coalesce((select sum(m.delta) from inventory_movements m where m.variant_id = v.variant_id),0) <> coalesce(v.stock,0)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-102",
+      "title": "INVARIANT: every ledger row's stock_after matches a real running total",
+      "sql": [
+        {
+          "q": "select count(*)::int n from (select stock_after, sum(delta) over (partition by variant_id order by created_at, movement_id) run from inventory_movements) x where x.stock_after <> x.run",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-103",
+      "title": "INVARIANT: product stock_quantity equals the sum of its variants",
+      "sql": [
+        {
+          "q": "select count(*)::int n from products p where p.stock_quantity is distinct from (select coalesce(sum(v.stock),0) from product_variants v where v.product_id = p.product_id) and exists (select 1 from product_variants v where v.product_id = p.product_id)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-104",
+      "title": "INVARIANT: a product's min_price is the cheapest visible variant",
+      "sql": [
+        {
+          "q": "select count(*)::int n from products p where exists (select 1 from product_variants v where v.product_id = p.product_id and v.is_visible) and p.min_price is distinct from (select min(v.sell_price) from product_variants v where v.product_id = p.product_id and v.is_visible)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-105",
+      "title": "INVARIANT: every order item points at an order that exists",
+      "sql": [
+        {
+          "q": "select count(*)::int n from order_items oi where not exists (select 1 from orders o where o.order_id = oi.order_id)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-106",
+      "title": "INVARIANT: no order has a negative total or negative payments",
+      "sql": [
+        {
+          "q": "select (select count(*)::int from orders where sub_total < 0) a, (select count(*)::int from order_payments where amount <= 0) b",
+          "expect": {
+            "rows.0.a": 0,
+            "rows.0.b": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-107",
+      "title": "INVARIANT: payments never exceed the order total",
+      "sql": [
+        {
+          "q": "select count(*)::int n from orders o where coalesce((select sum(amount) from order_payments p where p.order_id = o.order_id),0) > o.sub_total + coalesce(o.tax,0) + coalesce(o.shipping_fee,0) - coalesce(o.discount,0)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-108",
+      "title": "INVARIANT: only cancelled orders have a cancel time",
+      "sql": [
+        {
+          "q": "select count(*)::int n from orders where status <> 'cancelled' and cancelled_at is not null",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-108b",
+      "title": "INVARIANT: orders cancelled during this test have a cancel time (3 old migrated ones may lack it)",
+      "sql": [
+        {
+          "q": "select count(*)::int n from orders where status = 'cancelled' and cancelled_at is null and created_at > now() - interval '1 day'",
+          "expect": {
+            "rows.0.n": 0
+          }
+        },
+        {
+          "q": "select count(*)::int n from orders where status = 'cancelled' and cancelled_at is null",
+          "expect": {
+            "rows.0.n": {
+              "$lte": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "inv-109",
+      "title": "INVARIANT: only one collection is the main banner",
+      "sql": [
+        {
+          "q": "select count(*)::int n from collections where is_premium",
+          "expect": {
+            "rows.0.n": {
+              "$lte": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -32,7 +32,8 @@ export const createApp = (): Express => {
       if (config.cors.allowedOrigins.includes(origin) || config.server.isDevelopment || config.server.nodeEnv === 'test') {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // Not an error: no CORS headers are sent, so a browser on another site cannot read the answer.
+        callback(null, false);
       }
     },
     credentials: true,

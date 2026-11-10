@@ -27,7 +27,9 @@
     "db:migrate": "node scripts/prisma-env.cjs migrate deploy",
     "db:status": "node scripts/prisma-env.cjs migrate status",
     "preflight": "node scripts/preflight.cjs",
-    "smoke:admin": "node scripts/smoke-admin.mjs"
+    "smoke:admin": "node scripts/smoke-admin.mjs",
+    "live:prod": "node tests/live/run.mjs --mode prod",
+    "live:branch": "node tests/live/branch-run.cjs"
   },
   "keywords": [
     "ecommerce",

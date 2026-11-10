@@ -1,0 +1,130 @@
+{
+  "name": "Clean-up and final checks",
+  "cases": [
+    {
+      "id": "end-001",
+      "title": "a product with orders cannot be silently destroyed",
+      "as": "owner",
+      "method": "DELETE",
+      "path": "/admin/products/{{pid}}",
+      "expect": {
+        "status": [
+          200,
+          409
+        ]
+      }
+    },
+    {
+      "id": "end-002",
+      "title": "delete the test products (this also removes their R2 pictures)",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products/bulk",
+      "body": {
+        "ids": [
+          "{{pM}}",
+          "{{pR}}"
+        ],
+        "action": "delete"
+      },
+      "expect": {
+        "status": [
+          200,
+          409
+        ]
+      }
+    },
+    {
+      "id": "end-003",
+      "title": "delete the uploaded picture of the first test product",
+      "as": "owner",
+      "method": "DELETE",
+      "path": "/admin/products/{{pid}}/images/{{imgEntityId}}",
+      "needsVar": "imgEntityId",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "end-004",
+      "title": "database: the test picture rows are gone",
+      "sql": [
+        {
+          "q": "select count(*)::int n from image_entity where entity_category = 'products' and entity_id = $1",
+          "args": [
+            "{{pid}}"
+          ],
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "end-010",
+      "title": "FINAL: no variant has negative stock",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants where stock < 0",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "end-011",
+      "title": "FINAL: every variant's stock equals its ledger total",
+      "sql": [
+        {
+          "q": "select count(*)::int n from product_variants v where coalesce((select sum(m.delta) from inventory_movements m where m.variant_id = v.variant_id),0) <> coalesce(v.stock,0)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "end-012",
+      "title": "FINAL: product stock totals still match their variants",
+      "sql": [
+        {
+          "q": "select count(*)::int n from products p where p.stock_quantity is distinct from (select coalesce(sum(v.stock),0) from product_variants v where v.product_id = p.product_id) and exists (select 1 from product_variants v where v.product_id = p.product_id)",
+          "expect": {
+            "rows.0.n": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "end-013",
+      "title": "FINAL: the real data is intact (153 products from the migration are still there)",
+      "sql": [
+        {
+          "q": "select count(*)::int n from products where name not like 'LT %'",
+          "expect": {
+            "rows.0.n": 153
+          }
+        }
+      ]
+    },
+    {
+      "id": "end-014",
+      "title": "FINAL: the 83 real orders are untouched",
+      "sql": [
+        {
+          "q": "select count(*)::int n from orders where customer_id <> all($1::int[]) and customer_id <> $2",
+          "args": [
+            "{{custIds}}",
+            "{{npId}}"
+          ],
+          "expect": {
+            "rows.0.n": {
+              "$gte": 83
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

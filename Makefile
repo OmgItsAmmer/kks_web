@@ -1,4 +1,4 @@
-.PHONY: dev admin-dev backend frontend admin install admin-hash db-migrate db-status preflight smoke test test-backend test-admin build-admin lint-admin help
+.PHONY: live-prod dev admin-dev backend frontend admin install admin-hash db-migrate db-status preflight smoke test test-backend test-admin build-admin lint-admin help
 
 BACKEND = kksonline-backend-express
 ADMIN   = admin-frontend
@@ -73,3 +73,7 @@ lint-admin:
 
 build-admin:
 	npm run build --prefix $(ADMIN)
+
+# Read-only check of the real production site (API, storefront, admin, CDN)
+live-prod:
+	npm run live:prod --prefix $(BACKEND)

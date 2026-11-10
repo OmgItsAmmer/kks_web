@@ -8,3 +8,7 @@ admin-frontend/dist
 .env*
 !.env.example
 
+
+# live check reports
+kksonline-backend-express/tests/live/last-report.json
+kksonline-backend-express/tests/live/last-prod-report.json

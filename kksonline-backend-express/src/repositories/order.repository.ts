@@ -1,6 +1,6 @@
 import { db, Prisma } from '../config/database.config';
 import { logger } from '../utils/logger';
-import { InternalServerError, NotFoundError } from '../utils/errors';
+import { DuplicateOrderError, InternalServerError, NotFoundError } from '../utils/errors';
 import type { Order, OrderItem, Address, Customer, OrderStatus } from '@prisma/client';
 
 export interface OrderItemWithProduct {
@@ -141,6 +141,10 @@ export class OrderRepository {
       });
       return order;
     } catch (error) {
+      // The same checkout sent twice at once: the other copy already created this order (unique idempotency key).
+      if ((error as { code?: string }).code === 'P2002' && String((error as { meta?: { target?: unknown } }).meta?.target ?? '').includes('idempotency_key')) {
+        throw new DuplicateOrderError();
+      }
       logger.error('Error creating order', { error });
       throw new InternalServerError('Failed to create order');
     }
