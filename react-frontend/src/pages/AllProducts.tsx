@@ -3,10 +3,19 @@ import { useInfiniteAllProducts } from '../hooks/useProducts';
 import ProductCard from '../components/ProductCard';
 import { ProductGridSkeleton } from '../components/LoadingSkeleton';
 import styles from './AllProducts.module.css';
+import { useSeo } from '../seo/useSeo';
+import { breadcrumbJsonLd } from '../seo/builders';
+import { SITE_NAME } from '../seo/config';
 
 const PAGE_SIZE = 20;
 
 const AllProducts: React.FC = () => {
+  useSeo({
+    title: `Browse All Products & Categories | ${SITE_NAME}`,
+    description: 'Browse the full KKS Online catalog: daily grocery, karyana, household essentials and pantry staples, delivered across Pakistan.',
+    path: '/products',
+    jsonLd: breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'All Products', path: '/products' }]),
+  });
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const {

@@ -1,0 +1,21 @@
+{
+  "name": "KKS Online",
+  "short_name": "KKS Online",
+  "description": "Order daily grocery items online from KKS Online. Serving quality karyana, household essentials, and pantry staples in Pakistan since 1995.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0b",
+  "theme_color": "#e30613",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

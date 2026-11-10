@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePrivateSeo } from '../seo/useSeo';
 import { MapPin, Plus, Trash2 } from 'lucide-react';
 import { addressService } from '../services/address.service';
 import { useProtectedAction } from '../hooks/useProtectedAction';
@@ -8,6 +9,7 @@ import type { Address } from '../types/address';
 import styles from './Addresses.module.css';
 
 const Addresses: React.FC = () => {
+  usePrivateSeo('My Addresses');
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);

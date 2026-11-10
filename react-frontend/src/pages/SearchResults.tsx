@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { productService } from '../services/product.service';
+import { useSeo } from '../seo/useSeo';
+import { SITE_NAME } from '../seo/config';
 import type { BackendProduct } from '../services/product.service';
 import Loader from '../components/Loader';
 import styles from './SearchResults.module.css';
@@ -8,6 +10,13 @@ import styles from './SearchResults.module.css';
 const SearchResults: React.FC = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
+  // Search result pages are different for every word typed, so they stay out of search engines
+  useSeo({
+    title: query ? `Search results for "${query}" | ${SITE_NAME}` : `Search | ${SITE_NAME}`,
+    description: query ? `Products matching "${query}" at ${SITE_NAME}.` : `Search the ${SITE_NAME} catalog.`,
+    path: '/search',
+    noindex: true,
+  });
   const [products, setProducts] = useState<BackendProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
