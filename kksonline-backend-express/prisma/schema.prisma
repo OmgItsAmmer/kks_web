@@ -622,3 +622,18 @@ model CollectionCartItem {
 
   @@map("collection_cart_items")
 }
+
+/// One row per browser that turned on admin desktop alerts (Web Push).
+model AdminPushSubscription {
+  subscription_id Int       @id @default(autoincrement())
+  admin_email     String
+  endpoint        String    @unique
+  p256dh          String
+  auth            String
+  user_agent      String?
+  created_at      DateTime  @default(now()) @db.Timestamptz()
+  last_success_at DateTime? @db.Timestamptz()
+
+  @@index([admin_email])
+  @@map("admin_push_subscriptions")
+}

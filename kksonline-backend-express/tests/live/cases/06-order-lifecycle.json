@@ -49,6 +49,19 @@
     { "id": "can-020", "title": "set up: a third order to cancel from two requests at once", "as": "cust4", "method": "POST", "path": "/orders/checkout", "body": { "directCheckout": { "variantId": "{{vM}}", "quantity": 4, "price": 200 }, "addressId": "{{addrIds.3}}", "shippingMethod": "pickup", "paymentMethod": "cod", "idempotencyKey": "lt-{{runId}}-order4" }, "save": { "orderId4": "data.orderId" }, "expect": { "status": [200, 201] } },
     { "id": "can-021", "title": "database: stock for Misc is 496", "sql": [{ "q": "select stock from product_variants where variant_id = $1", "args": ["{{vM}}"], "expect": { "rows.0.stock": 496 } }] },
     { "id": "can-022", "title": "two cancel requests at the same moment: one wins, none double-restock", "as": "owner", "burst": { "count": 2, "as": "owner" }, "method": "POST", "path": "/admin/orders/{{orderId4}}/transition", "body": { "to": "cancelled", "note": "parallel cancel" }, "expect": { "statusCounts": { "200": 1 }, "statusOnly": [200, 400, 409] } },
-    { "id": "can-023", "title": "database: Misc stock is exactly 500 again (restocked once, not twice)", "sql": [{ "q": "select stock from product_variants where variant_id = $1", "args": ["{{vM}}"], "expect": { "rows.0.stock": 500 } }] }
+    { "id": "can-023", "title": "database: Misc stock is exactly 500 again (restocked once, not twice)", "sql": [{ "q": "select stock from product_variants where variant_id = $1", "args": ["{{vM}}"], "expect": { "rows.0.stock": 500 } }] },
+
+    { "id": "can-030", "title": "set up: a pending order the customer will cancel themselves", "as": "cust4", "method": "POST", "path": "/orders/checkout", "body": { "directCheckout": { "variantId": "{{vM}}", "quantity": 3, "price": 200 }, "addressId": "{{addrIds.3}}", "shippingMethod": "pickup", "paymentMethod": "cod", "idempotencyKey": "lt-{{runId}}-order5" }, "save": { "orderId5": "data.orderId" }, "expect": { "status": [200, 201] } },
+    { "id": "can-031", "title": "database: Misc stock is 497 after the order", "sql": [{ "q": "select stock from product_variants where variant_id = $1", "args": ["{{vM}}"], "expect": { "rows.0.stock": 497 } }] },
+    { "id": "can-032", "title": "another customer cannot cancel it", "as": "cust3", "method": "POST", "path": "/orders/{{orderId5}}/cancel", "expect": { "status": 403 } },
+    { "id": "can-033", "title": "customer double-clicks cancel: one wins, the other is refused", "as": "cust4", "burst": { "count": 2, "as": "cust4" }, "method": "POST", "path": "/orders/{{orderId5}}/cancel", "expect": { "statusCounts": { "200": 1 }, "statusOnly": [200, 400] } },
+    { "id": "can-034", "title": "database: customer cancel returned the stock exactly once (back to 500)", "sql": [{ "q": "select stock from product_variants where variant_id = $1", "args": ["{{vM}}"], "expect": { "rows.0.stock": 500 } }] },
+    { "id": "can-035", "title": "database: ledger has one order_cancelled row of +3 for it", "sql": [{ "q": "select count(*)::int n from inventory_movements where variant_id = $1 and reason = 'order_cancelled' and delta = 3 and ref_id = $2::text", "args": ["{{vM}}", "{{orderId5}}"], "expect": { "rows.0.n": 1 } }] },
+    { "id": "can-036", "title": "database: cancel time, status history and admin notification are recorded", "sql": [
+      { "q": "select count(*)::int n from orders where order_id = $1 and status = 'cancelled' and cancelled_at is not null", "args": ["{{orderId5}}"], "expect": { "rows.0.n": 1 } },
+      { "q": "select count(*)::int n from order_status_history where order_id = $1 and to_status = 'cancelled' and actor like 'customer:%'", "args": ["{{orderId5}}"], "expect": { "rows.0.n": 1 } },
+      { "q": "select count(*)::int n from notifications where order_id = $1 and \"NotificationType\" = 'order_cancelled'", "args": ["{{orderId5}}"], "expect": { "rows.0.n": 1 } }
+    ] },
+    { "id": "can-037", "title": "the admin cannot move a customer-cancelled order on", "as": "owner", "method": "POST", "path": "/admin/orders/{{orderId5}}/transition", "body": { "to": "confirmed" }, "expect": { "status": 400 } }
   ]
 }

@@ -10,6 +10,11 @@ import { requireCustomer } from '../middleware/customer.middleware';
 import { sendSuccess, sendPaginated, sendNotFound, sendError } from '../utils/response';
 import type { CustomerRequest, ErrorCode } from '../types/api.types';
 import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
+import { db } from '../config/database.config';
+import { applyStockChanges } from '../services/inventory.service';
+import { invalidateCatalog } from '../modules/admin/common/after-write';
+import { markNotificationsDirty } from '../services/notification-state';
+import { notifyAdmins } from '../services/push.service';
 
 const router = Router();
 
@@ -157,7 +162,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/orders/:id/cancel
- * @desc    Cancel an order (only if status is pending)
+ * @desc    Cancel an order (only if status is pending). Returns the stock.
  * @access  Private
  */
 router.post(
@@ -169,24 +174,67 @@ router.post(
     }
 
     const orderId = parseInt(req.params.id!, 10);
-    const order = await orderRepository.findById(orderId);
+    const customerId = req.customerId;
 
-    if (!order) {
-      return sendNotFound(res, 'Order not found');
+    // One transaction, same as the admin cancel: lock the order, re-check it, return the stock,
+    // record the history and the admin notification. Locking stops a double click (or the admin
+    // confirming it at the same moment) from returning the stock twice or cancelling a confirmed order.
+    type Outcome = { ok: true; restocked: boolean } | { ok: false; status: number; message: string };
+    const outcome = await db.$transaction(async (tx): Promise<Outcome> => {
+      await tx.$queryRaw`SELECT order_id FROM orders WHERE order_id = ${orderId} FOR UPDATE`;
+      const order = await tx.order.findUnique({ where: { order_id: orderId }, include: { order_items: true } });
+      if (!order) return { ok: false, status: 404, message: 'Order not found' };
+      if (order.customer_id !== customerId) return { ok: false, status: 403, message: 'Access denied' };
+      if (order.status === 'cancelled') return { ok: false, status: 400, message: 'This order is already cancelled' };
+      if (order.status !== 'pending') return { ok: false, status: 400, message: 'Can only cancel pending orders' };
+
+      await applyStockChanges(
+        tx,
+        order.order_items.map((i) => ({
+          variantId: i.variant_id,
+          delta: i.quantity,
+          reason: 'order_cancelled' as const,
+          refType: 'order',
+          refId: orderId,
+          note: 'Cancelled by the customer',
+        })),
+        'customer'
+      );
+      const now = new Date();
+      await tx.order.update({
+        where: { order_id: orderId },
+        data: { status: 'cancelled', cancelled_at: now, cancel_reason: 'Cancelled by the customer', updated_at: now },
+      });
+      await tx.orderStatusHistory.create({
+        data: { order_id: orderId, from_status: order.status, to_status: 'cancelled', note: 'Cancelled by the customer', actor: `customer:${customerId}` },
+      });
+      await tx.notification.create({
+        data: {
+          NotificationType: 'order_cancelled',
+          description: `Order #${orderId} cancelled by the customer`,
+          sub_description: 'Stock has been returned. Stop packing or shipping it.',
+          order_id: orderId,
+          isRead: false,
+        },
+      });
+      return { ok: true, restocked: order.order_items.length > 0 };
+    });
+
+    if (!outcome.ok) {
+      return outcome.status === 404 ? sendNotFound(res, outcome.message) : sendError(res, outcome.message, outcome.status);
     }
 
-    // Verify ownership
-    if (order.customer_id !== req.customerId) {
-      return sendError(res, 'Access denied', 403);
-    }
+    markNotificationsDirty();
+    if (outcome.restocked) invalidateCatalog();
+    notifyAdmins({
+      kind: 'order_cancelled',
+      title: `Order #${orderId} was cancelled`,
+      body: 'The customer cancelled it. Stock has been returned. Stop packing or shipping it.',
+      url: `/orders/${orderId}`,
+      tag: `order-${orderId}`,
+    });
 
-    // Can only cancel pending orders
-    if (order.status !== 'pending') {
-      return sendError(res, 'Can only cancel pending orders', 400);
-    }
-
-    const updated = await orderRepository.updateStatus(orderId, 'cancelled');
-
+    const updated = await orderRepository.findById(orderId);
     return sendSuccess(res, updated, 'Order cancelled successfully');
   })
 );

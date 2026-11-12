@@ -27,6 +27,7 @@ const mockNotificationCreate = vi.fn();
 vi.mock('../../../src/services/inventory.service', () => ({
   applyStockChanges: mockApplyStockChanges,
 }));
+vi.mock('../../../src/services/push.service', () => ({ notifyAdmins: vi.fn(), notifyAdminsAfterCommit: vi.fn() }));
 vi.mock('../../../src/services/notification-state', () => ({
   markNotificationsDirty: vi.fn(),
 }));

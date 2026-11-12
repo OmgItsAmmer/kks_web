@@ -21,6 +21,15 @@ import { shopRepository } from '../repositories/shop.repository';
 import { supabaseImageService } from './image.service';
 import { applyStockChanges } from './inventory.service';
 import { markNotificationsDirty } from './notification-state';
+import { notifyAdmins } from './push.service';
+
+const PAYMENT_LABEL: Record<string, string> = {
+  cod: 'Cash on delivery',
+  credit_card: 'Card',
+  bank_transfer: 'Bank transfer',
+  pickup: 'Pickup',
+  jazzcash: 'JazzCash',
+};
 import { markReservationsPending } from './reservation-state';
 import { ADVANCE_PAYMENT_RECEIPT_ENABLED } from '../config/feature-flags';
 import type { PaymentMethod, SeverityLevel, OrderStatus } from '@prisma/client';
@@ -600,6 +609,13 @@ export class CheckoutService {
       ]);
 
       markNotificationsDirty();
+      notifyAdmins({
+        kind: 'new_order',
+        title: `New order #${order.order_id}`,
+        body: `Rs ${Number(totals.total).toLocaleString('en-PK')} · ${cartItems.length} item${cartItems.length === 1 ? '' : 's'} · ${PAYMENT_LABEL[paymentMethod] ?? paymentMethod}`,
+        url: `/orders/${order.order_id}`,
+        tag: `order-${order.order_id}`,
+      });
       return { success: true, orderId: order.order_id, message: 'Order created successfully' };
 
     } catch (error) {

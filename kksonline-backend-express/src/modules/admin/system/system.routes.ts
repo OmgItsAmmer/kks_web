@@ -5,12 +5,14 @@ import { db } from '../../../config/database.config';
 import { asyncHandler } from '../../../middleware/error.middleware';
 import { validate } from '../../../middleware/validation.middleware';
 import { getNotificationState, markNotificationsDirty } from '../../../services/notification-state';
+import { pushPublicKey, sendAdminPush } from '../../../services/push.service';
 import { NotFoundError } from '../../../utils/errors';
 import { sendCreated, sendPaginated, sendSuccess } from '../../../utils/response';
 import { invalidateCatalog } from '../common/after-write';
 import { audit } from '../common/audit';
 import { boolQuery, idParams, nonNegativeMoney, paging, skipTake } from '../common/http';
 import { can } from '../common/middleware';
+import { adminOf } from '../common/types';
 
 const router = Router();
 
@@ -173,6 +175,65 @@ router.post(
     });
     markNotificationsDirty();
     return sendSuccess(res, { updated: result.count });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Desktop alerts (Web Push), see services/push.service.ts
+// ---------------------------------------------------------------------------
+
+/** The VAPID public key the browser needs to subscribe; null when alerts are not configured. */
+router.get(
+  '/push/config',
+  can('dashboard.view'),
+  asyncHandler(async (_req, res) => sendSuccess(res, { publicKey: pushPublicKey() }))
+);
+
+const pushSubscriptionBody = z.object({
+  endpoint: z.string().url().max(2000).refine((u) => u.startsWith('https://'), 'Push endpoint must be https'),
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+});
+
+router.post(
+  '/push/subscribe',
+  can('dashboard.view'),
+  validate({ body: pushSubscriptionBody }),
+  asyncHandler(async (req, res) => {
+    const admin = adminOf(req);
+    const b = req.body as z.infer<typeof pushSubscriptionBody>;
+    const userAgent = (req.get('user-agent') ?? '').slice(0, 300) || null;
+    // Keyed by endpoint: the same browser re-subscribing (or another admin signing in on it) just updates the row.
+    await db.adminPushSubscription.upsert({
+      where: { endpoint: b.endpoint },
+      create: { admin_email: admin.email, endpoint: b.endpoint, p256dh: b.keys.p256dh, auth: b.keys.auth, user_agent: userAgent },
+      update: { admin_email: admin.email, p256dh: b.keys.p256dh, auth: b.keys.auth, user_agent: userAgent },
+    });
+    return sendSuccess(res, { subscribed: true });
+  })
+);
+
+router.post(
+  '/push/unsubscribe',
+  can('dashboard.view'),
+  validate({ body: z.object({ endpoint: z.string().max(2000) }) }),
+  asyncHandler(async (req, res) => {
+    const { endpoint } = req.body as { endpoint: string };
+    const result = await db.adminPushSubscription.deleteMany({ where: { endpoint } });
+    return sendSuccess(res, { removed: result.count });
+  })
+);
+
+/** Sends a test alert to the signed-in admin's own browsers. */
+router.post(
+  '/push/test',
+  can('dashboard.view'),
+  asyncHandler(async (req, res) => {
+    const admin = adminOf(req);
+    const delivered = await sendAdminPush(
+      { kind: 'test', title: 'Desktop alerts are on', body: 'New orders will pop up here, even when the admin panel is minimised.', url: '/orders', tag: 'test' },
+      admin.email
+    );
+    return sendSuccess(res, { delivered });
   })
 );
 

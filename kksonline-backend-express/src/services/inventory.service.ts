@@ -3,6 +3,7 @@ import type { DbTx } from '../config/database.config';
 import { ApiError } from '../utils/errors';
 import { ErrorCodes } from '../types/api.types';
 import { markNotificationsDirty } from './notification-state';
+import { notifyAdminsAfterCommit } from './push.service';
 
 /**
  * The one place that changes stock (plan 7.4). Every stock change, from checkout, order
@@ -126,15 +127,25 @@ export const applyStockChanges = async (tx: Tx, changes: StockChange[], actor?: 
   }
   if (lowStock.length > 0) {
     markNotificationsDirty();
-    await tx.notification.createMany({
+    const titleOf = (l: LowStockHit): string => (l.stock === 0 ? `Out of stock: ${l.variantName}` : `Low stock: ${l.variantName} (${l.stock} left)`);
+    const created = await tx.notification.createManyAndReturn({
       data: lowStock.map((l) => ({
         NotificationType: 'low_stock',
-        description: l.stock === 0 ? `Out of stock: ${l.variantName}` : `Low stock: ${l.variantName} (${l.stock} left)`,
+        description: titleOf(l),
         sub_description: `Alert level is ${l.alertStock}`,
         product_id: l.productId,
         isRead: false,
       })),
+      select: { notification_id: true },
     });
+    // Pushed only once this transaction has committed (see push.service.ts).
+    const first = lowStock[0] as LowStockHit;
+    notifyAdminsAfterCommit(
+      created.map((c) => c.notification_id),
+      lowStock.length === 1
+        ? { kind: 'low_stock', title: titleOf(first), body: `Alert level is ${first.alertStock}`, url: `/products/${first.productId}`, tag: `stock-${first.variantId}` }
+        : { kind: 'low_stock', title: `${lowStock.length} items are low on stock`, body: lowStock.map(titleOf).slice(0, 4).join(' · '), url: '/inventory', tag: 'low-stock' }
+    );
   }
 
   return { movements: movementRows.length, lowStock, affectedProductIds };
