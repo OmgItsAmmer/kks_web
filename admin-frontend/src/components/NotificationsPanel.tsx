@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCheck, PackageX, ShoppingBag, TriangleAlert } from 'lucide-react';
+import { Bell, CheckCheck, PackageX, ShoppingBag, TriangleAlert, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { ago } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/overlay';
 import { EmptyState } from '@/components/ui/data';
+import { DesktopAlertsControl } from '@/components/DesktopAlerts';
 
 interface Latest {
   latestId: number;
@@ -98,14 +99,15 @@ export function NotificationsBell() {
           </Button>
         }
       >
+        <DesktopAlertsControl />
         {list.isLoading ? (
           <p className="py-8 text-center text-sm text-muted">Loading…</p>
         ) : !list.data || list.data.items.length === 0 ? (
-          <EmptyState title="Nothing new" hint="New orders and low-stock alerts show up here." />
+          <EmptyState title="Nothing new" hint="New orders, cancellations and low-stock alerts show up here." />
         ) : (
           <ul className="-mx-2 divide-y divide-border">
             {list.data.items.map((n) => {
-              const Icon = n.type === 'new_order' ? ShoppingBag : n.type === 'low_stock' ? PackageX : TriangleAlert;
+              const Icon = n.type === 'new_order' ? ShoppingBag : n.type === 'order_cancelled' ? XCircle : n.type === 'low_stock' ? PackageX : TriangleAlert;
               const to = n.orderId ? `/orders/${n.orderId}` : n.productId ? `/products/${n.productId}` : null;
               const body = (
                 <div className="flex gap-3 px-2 py-3">

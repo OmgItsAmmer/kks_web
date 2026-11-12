@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/services/push.service', () => ({ notifyAdmins: vi.fn(), notifyAdminsAfterCommit: vi.fn() }));
 vi.mock('../../../src/services/notification-state', () => ({ markNotificationsDirty: vi.fn() }));
 
 /** A tiny in-memory stand-in for the Prisma transaction client. */
@@ -16,7 +17,7 @@ const makeTx = (variants: { variant_id: number; product_id: number; stock: numbe
     }),
     productVariant: { update: vi.fn(async ({ where, data }: any) => { state.get(where.variant_id)!.stock = data.stock; }) },
     inventoryMovement: { createMany: vi.fn(async ({ data }: any) => { movements.push(...data); }) },
-    notification: { createMany: vi.fn(async ({ data }: any) => { notifications.push(...data); }) },
+    notification: { createManyAndReturn: vi.fn(async ({ data }: any) => { notifications.push(...data); return data.map((_: unknown, i: number) => ({ notification_id: notifications.length - data.length + i + 1 })); }) },
     product: { update: vi.fn(async () => ({})) },
   };
   return { tx, state, movements, notifications };

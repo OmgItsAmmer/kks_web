@@ -48,6 +48,11 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   AI_DAILY_LIMIT_PER_ADMIN: z.string().default('300').transform(Number),
 
+  // Admin desktop alerts (Web Push). Generate a pair with `npm run push:keys`. Unset = alerts off.
+  VAPID_PUBLIC_KEY: optionalString,
+  VAPID_PRIVATE_KEY: optionalString,
+  VAPID_SUBJECT: z.string().default('mailto:admin@kks-online.com'),
+
   // Scheduled jobs and monitoring
   JOBS_SECRET: optionalString,
   SENTRY_DSN: optionalString,
@@ -148,6 +153,11 @@ export const config = {
     apiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL,
     dailyLimitPerAdmin: env.AI_DAILY_LIMIT_PER_ADMIN,
+  },
+  push: {
+    publicKey: env.VAPID_PUBLIC_KEY,
+    privateKey: env.VAPID_PRIVATE_KEY,
+    subject: env.VAPID_SUBJECT,
   },
   jobs: {
     secret: env.JOBS_SECRET,

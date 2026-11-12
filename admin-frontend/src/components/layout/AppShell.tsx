@@ -20,7 +20,9 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTheme } from '@/lib/theme';
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { DesktopAlertsBanner } from '@/components/DesktopAlerts';
 import { NotificationsBell } from '@/components/NotificationsPanel';
+import { usePushBridge } from '@/lib/push';
 import { Button } from '@/components/ui/button';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/overlay';
 import { useAuth } from '@/lib/auth';
@@ -71,6 +73,7 @@ const NAV: { heading?: string; items: NavItem[] }[] = [
 
 export function AppShell() {
   const { me, signOut, can } = useAuth();
+  usePushBridge();
   const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -163,6 +166,7 @@ export function AppShell() {
           </Menu>
         </header>
         <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 sm:p-6">
+          <DesktopAlertsBanner />
           <Outlet />
         </main>
       </div>

@@ -5,6 +5,7 @@ import { db } from '../../config/database.config';
 import { asyncHandler } from '../../middleware/error.middleware';
 import { applyStockChanges } from '../../services/inventory.service';
 import { markNotificationsDirty } from '../../services/notification-state';
+import { notifyAdmins } from '../../services/push.service';
 import { markReservationsClear, reservationsMayExist } from '../../services/reservation-state';
 import { logger } from '../../utils/logger';
 import { sendError, sendSuccess } from '../../utils/response';
@@ -109,6 +110,13 @@ router.post(
           },
         });
         markNotificationsDirty();
+        notifyAdmins({
+          kind: 'usage_warning',
+          title: `Database is ${percent.toFixed(0)}% of the free plan`,
+          body: 'Plan an upgrade or remove old data (Settings, Usage).',
+          url: '/settings',
+          tag: 'usage-warning',
+        });
         notified = true;
       }
     }
