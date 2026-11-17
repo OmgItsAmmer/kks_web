@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CreditCard, Pencil, Printer, XCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Eye, Pencil, Printer, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -56,6 +56,24 @@ const ACTION_LABEL: Record<string, string> = {
   completed: 'Complete order',
 };
 
+/** Prints the invoice straight from a hidden frame: no preview page, no navigation. */
+function printInvoice(orderId: number) {
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  frame.src = `/orders/${orderId}/invoice?autoprint=1`;
+  const cleanup = () => {
+    window.removeEventListener('message', onMsg);
+    window.clearTimeout(timer);
+    frame.remove();
+  };
+  const onMsg = (e: MessageEvent) => {
+    if (e.origin === window.location.origin && e.data?.type === 'invoice-printed') cleanup();
+  };
+  const timer = window.setTimeout(cleanup, 120_000);
+  window.addEventListener('message', onMsg);
+  document.body.appendChild(frame);
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const { can } = useAuth();
@@ -105,9 +123,12 @@ export default function OrderDetail() {
             <StatusBadge status={order.status} />
             <Link to={`/orders/${order.id}/invoice`} target="_blank">
               <Button variant="outline" size="sm">
-                <Printer className="h-4 w-4" /> Invoice
+                <Eye className="h-4 w-4" /> Preview
               </Button>
             </Link>
+            <Button variant="outline" size="sm" onClick={() => printInvoice(order.id)}>
+              <Printer className="h-4 w-4" /> Print
+            </Button>
             {!final &&
               forward.map((s, i) => (
                 <Button key={s} size="sm" variant={i === 0 ? 'primary' : 'soft'} loading={move.isPending && move.variables?.to === s} onClick={() => move.mutate({ to: s })}>
