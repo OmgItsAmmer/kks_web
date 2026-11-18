@@ -23,7 +23,8 @@
       "body": {
         "ids": [
           "{{pM}}",
-          "{{pR}}"
+          "{{pR}}",
+          "{{pP}}"
         ],
         "action": "delete"
       },

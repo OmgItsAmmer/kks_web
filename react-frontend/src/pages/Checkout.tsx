@@ -8,6 +8,8 @@ import Loader from '../components/Loader';
 // TEMP: Advance payment receipt + bank details disabled — see src/config/feature-flags.ts
 import { checkoutService } from '../services/checkout.service';
 import { cartService } from '../services/cart.service';
+import { authService } from '../services/auth.service';
+import { normalizePakistaniMobile } from '../utils/phone';
 import type { CartItem } from '../types/cart';
 import styles from './Checkout.module.css';
 
@@ -25,6 +27,7 @@ interface LocationState {
 
 const STORE_MAP_URL = 'https://maps.app.goo.gl/FnSNEcv2gNYyRhDJA';
 const STORE_NAME = 'Kashif Karyana Store';
+const CHECKOUT_FORM_ID = 'checkout-form';
 const STORE_MAP_EMBED_URL =
   'https://maps.google.com/maps?q=29.7973111,72.8596898&z=16&output=embed';
 
@@ -42,8 +45,10 @@ const Checkout: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
 
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  // Name and phone already on the customer's profile. Google sign-in gives a name but no phone,
+  // so the form only asks for whichever is missing (the backend saves it on the first order).
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
   const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null);
 
@@ -62,6 +67,13 @@ const Checkout: React.FC = () => {
       setCheckoutState('loading');
       setError(null);
 
+      // Fresh profile, not the cached login user: the phone may have been saved since login.
+      // If it can't be loaded, ask for both fields and let the backend decide.
+      const profilePromise = authService.getCurrentUser().catch((err) => {
+        console.error('Error loading profile for checkout:', err);
+        return null;
+      });
+
       if (state?.cartItems && state?.subtotal !== undefined) {
         setCartItems(state.cartItems);
         setSubtotal(state.subtotal);
@@ -70,6 +82,10 @@ const Checkout: React.FC = () => {
         setCartItems(cartData.items);
         setSubtotal(cartData.subtotal);
       }
+
+      const profile = await profilePromise;
+      setProfileName([profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim());
+      setProfilePhone((profile?.phoneNumber || '').trim());
 
       setCheckoutState('ready');
     } catch (err: any) {
@@ -92,9 +108,25 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    if (!fullName || !phoneNumber) {
-      showWarning('Please provide your full name and phone number');
+    // Read straight from the form, not React state: on some phones (iOS autofill especially) the
+    // browser fills the inputs without firing the events React listens to.
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const enteredName = String(formData.get('fullName') ?? '').trim();
+    const enteredPhone = String(formData.get('phoneNumber') ?? '').trim();
+
+    if (!profileName && !enteredName) {
+      showWarning('Please enter your full name');
       return;
+    }
+
+    let phoneToSave: string | undefined;
+    if (!profilePhone) {
+      const normalized = normalizePakistaniMobile(enteredPhone);
+      if (!normalized) {
+        showWarning('Please enter a valid mobile number, like 0300-1234567');
+        return;
+      }
+      phoneToSave = normalized;
     }
 
     try {
@@ -129,10 +161,14 @@ const Checkout: React.FC = () => {
         shippingMethod: 'pickup' as const,
         paymentMethod: 'cod' as const,
         cartItems: checkoutItems,
+        ...(phoneToSave ? { phoneNumber: phoneToSave } : {}),
+        ...(!profileName && enteredName ? { fullName: enteredName } : {}),
       };
 
       const result = await checkoutService.createOrder(checkoutRequest);
 
+      if (phoneToSave) setProfilePhone(phoneToSave);
+      if (!profileName && enteredName) setProfileName(enteredName);
       setPlacedOrderId(result.orderId ?? null);
       setPlacedOrderTotal(result.total ?? null);
       setCheckoutState('success');
@@ -140,6 +176,11 @@ const Checkout: React.FC = () => {
       window.dispatchEvent(new CustomEvent('cart-updated'));
     } catch (err: any) {
       console.error('Error processing checkout:', err);
+
+      // The server has no phone for this account (e.g. it was removed after the page loaded): show the field
+      if (err.response?.errorCode === 'PHONE_NUMBER_REQUIRED') {
+        setProfilePhone('');
+      }
 
       if (err.status === 422 || err.statusCode === 422) {
         let errorMessage = 'Validation failed. Please check your input.';
@@ -262,7 +303,7 @@ const Checkout: React.FC = () => {
 
         <div className={styles.content}>
           <div className={styles.formSection}>
-            <form onSubmit={handleCheckout}>
+            <form id={CHECKOUT_FORM_ID} onSubmit={handleCheckout}>
               <div className={styles.formGroup}>
                 <div className={styles.sectionHeader}>
                   <div className={styles.sectionIcon}>
@@ -272,35 +313,62 @@ const Checkout: React.FC = () => {
                 </div>
 
                 <div className={styles.customerDetails}>
-                  <div className={styles.formRow}>
-                    <div className={styles.formField}>
-                      <label htmlFor="fullName">Full Name *</label>
-                      <input
-                        type="text"
-                        id="fullName"
-                        name="fullName"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        required
-                        className={styles.input}
-                        placeholder="Enter your full name"
-                      />
+                  {(profileName || profilePhone) && (
+                    <div className={styles.savedDetails}>
+                      {profileName && (
+                        <span>
+                          <span className={styles.savedDetailsLabel}>Name:</span>
+                          {profileName}
+                        </span>
+                      )}
+                      {profilePhone && (
+                        <span>
+                          <span className={styles.savedDetailsLabel}>Phone:</span>
+                          {profilePhone}
+                        </span>
+                      )}
                     </div>
+                  )}
 
-                    <div className={styles.formField}>
-                      <label htmlFor="phoneNumber">Phone Number *</label>
-                      <input
-                        type="tel"
-                        id="phoneNumber"
-                        name="phoneNumber"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        required
-                        className={styles.input}
-                        placeholder="03XX-XXXXXXX"
-                      />
+                  {(!profileName || !profilePhone) && (
+                    <div className={styles.formRow}>
+                      {!profileName && (
+                        <div className={styles.formField}>
+                          <label htmlFor="fullName">Full Name *</label>
+                          <input
+                            type="text"
+                            id="fullName"
+                            name="fullName"
+                            autoComplete="name"
+                            required
+                            maxLength={200}
+                            className={styles.input}
+                            placeholder="Enter your full name"
+                          />
+                        </div>
+                      )}
+
+                      {!profilePhone && (
+                        <div className={styles.formField}>
+                          <label htmlFor="phoneNumber">Mobile Number *</label>
+                          <input
+                            type="tel"
+                            id="phoneNumber"
+                            name="phoneNumber"
+                            autoComplete="tel"
+                            inputMode="tel"
+                            required
+                            maxLength={20}
+                            className={styles.input}
+                            placeholder="03XX-XXXXXXX"
+                          />
+                          <span className={styles.fieldHint}>
+                            We'll call or message you when your order is ready. Saved to your account.
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -408,9 +476,11 @@ const Checkout: React.FC = () => {
                 <span>Rs {finalTotal.toFixed(2)}</span>
               </div>
 
+              {/* The button sits in the summary column, outside the <form>; `form` links it so the
+                  browser's required-field checks and the submit event both run. */}
               <button
                 type="submit"
-                onClick={handleCheckout}
+                form={CHECKOUT_FORM_ID}
                 className={styles.checkoutBtn}
                 disabled={checkoutState === 'processing'}
               >

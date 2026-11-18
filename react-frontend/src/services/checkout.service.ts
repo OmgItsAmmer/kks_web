@@ -12,6 +12,10 @@ export interface CheckoutRequest {
   }>;
   idempotencyKey?: string;
   paymentReceiptPath?: string;
+  /** Sent when the customer's profile has no phone yet; the backend saves it to the profile. */
+  phoneNumber?: string;
+  /** Sent when the customer's profile has no name yet. */
+  fullName?: string;
 }
 
 export interface PaymentReceiptUploadResponse {
