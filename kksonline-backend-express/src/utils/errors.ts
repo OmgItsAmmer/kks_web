@@ -129,7 +129,7 @@ export class ShippingMethodInvalidError extends BadRequestError {
 
 export class PhoneNumberRequiredError extends BadRequestError {
   constructor() {
-    super('Phone number required for checkout. Please add your phone number to your profile.', ErrorCodes.PHONE_NUMBER_REQUIRED);
+    super('Phone number required for checkout. Please enter your mobile number to place the order.', ErrorCodes.PHONE_NUMBER_REQUIRED);
   }
 }
 

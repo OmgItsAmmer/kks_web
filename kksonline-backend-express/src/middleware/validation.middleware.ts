@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { ValidationError } from "../utils/errors";
+import { PK_MOBILE_REGEX, preprocessPakistaniMobile } from '../utils/phone';
+
+// Accepts "0300-1234567", "+92 300 1234567" etc. and hands the route the stored shape 03XXXXXXXXX
+const pkMobile = z.preprocess(
+  preprocessPakistaniMobile,
+  z.string().regex(PK_MOBILE_REGEX, 'Enter a valid mobile number, like 03001234567').optional()
+);
 
 /**
  * Validation middleware factory using Zod schemas
@@ -122,7 +129,7 @@ export const schemas = {
   customerUpdate: z.object({
     firstName: z.string().min(1).max(100).optional(),
     lastName: z.string().max(100).optional(),
-    phoneNumber: z.string().regex(/^03[0-9]{9}$/, 'Invalid phone number format').optional(),
+    phoneNumber: pkMobile,
     cnic: z.string().regex(/^[0-9]{13}$/, 'CNIC must be 13 digits').optional(),
     gender: z.enum(['male', 'female', 'other']).optional(),
     dob: z.string().datetime().optional(),
@@ -172,6 +179,9 @@ export const schemas = {
     paymentMethod: z.enum(['cod', 'credit_card', 'bank_transfer', 'pickup', 'jazzcash']),
     idempotencyKey: z.string().optional(),
     paymentReceiptPath: z.string().min(1).max(500).optional(),
+    // Only used when the customer's profile has no phone/name yet; saved to the profile then
+    phoneNumber: pkMobile,
+    fullName: z.string().trim().min(1).max(200).optional(),
   }),
 
   // Review

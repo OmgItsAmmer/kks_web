@@ -684,6 +684,28 @@
     border-top: 1px solid var(--gray-200);
 }
 
+.savedDetails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background-color: var(--bg-light);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.savedDetailsLabel {
+    color: var(--text-muted);
+    margin-right: var(--space-1);
+}
+
+.fieldHint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
 .selectedAddress {
     display: flex;
     align-items: center;

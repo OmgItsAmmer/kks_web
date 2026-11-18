@@ -776,6 +776,193 @@
       }
     },
     {
+      "id": "chk-011a",
+      "title": "set up: a product for the phone-at-checkout orders (keeps Misc stock exact for later suites)",
+      "as": "owner",
+      "method": "POST",
+      "path": "/admin/products",
+      "body": {
+        "name": "LT Phone {{runId}}",
+        "categoryId": "{{catId}}",
+        "brandId": "{{brandId}}",
+        "isVisible": true,
+        "variants": [
+          {
+            "variantName": "std",
+            "sku": "LT-{{runId}}-P",
+            "sellPrice": 200,
+            "buyPrice": 100,
+            "stock": 50
+          }
+        ]
+      },
+      "save": {
+        "vP": "data.variants.0.id",
+        "pP": "data.id"
+      },
+      "expect": {
+        "status": 201
+      }
+    },
+    {
+      "id": "chk-012",
+      "title": "database: the refused no-phone checkout was written to the security log",
+      "sql": [
+        {
+          "q": "select count(*)::int n from security_audit_log where customer_id = $1 and event_type = 'checkout_rejected' and event_data->>'reason' = 'phone_number_missing'",
+          "args": [
+            "{{npId}}"
+          ],
+          "expect": {
+            "rows.0.n": {
+              "$gte": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "chk-013",
+      "title": "a no-phone customer who types an invalid number is refused",
+      "as": "cust13",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vP}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": 0,
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "phoneNumber": "12345",
+        "idempotencyKey": "lt-{{runId}}-np-bad"
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "errorCode": "VALIDATION_ERROR"
+        }
+      }
+    },
+    {
+      "id": "chk-014",
+      "title": "a no-phone customer who types their number at checkout places the order",
+      "as": "cust13",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vP}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": 0,
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "phoneNumber": "+92 311-7654321",
+        "fullName": "Someone Else",
+        "idempotencyKey": "lt-{{runId}}-np-1"
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ],
+        "json": {
+          "success": true,
+          "data.orderId": {
+            "$gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "chk-015",
+      "title": "database: the number was saved to the profile in the stored shape, and the name was left alone",
+      "sql": [
+        {
+          "q": "select phone_number, first_name from customers where customer_id = $1",
+          "args": [
+            "{{npId}}"
+          ],
+          "expect": {
+            "rows.0.phone_number": "03117654321",
+            "rows.0.first_name": "LT NoPhone"
+          }
+        }
+      ]
+    },
+    {
+      "id": "chk-016",
+      "title": "the next checkout works without sending the number again",
+      "as": "cust13",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vP}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": 0,
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "idempotencyKey": "lt-{{runId}}-np-2"
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ],
+        "json": {
+          "success": true
+        }
+      }
+    },
+    {
+      "id": "chk-017",
+      "title": "a customer who already has a phone checks out, and a sent number does not overwrite it",
+      "as": "cust12",
+      "method": "POST",
+      "path": "/orders/checkout",
+      "body": {
+        "directCheckout": {
+          "variantId": "{{vP}}",
+          "quantity": 1,
+          "price": 200
+        },
+        "addressId": 0,
+        "shippingMethod": "pickup",
+        "paymentMethod": "cod",
+        "phoneNumber": "03119999999",
+        "idempotencyKey": "lt-{{runId}}-np-3"
+      },
+      "expect": {
+        "status": [
+          200,
+          201
+        ],
+        "json": {
+          "success": true
+        }
+      },
+      "sql": [
+        {
+          "q": "select phone_number from customers where customer_id = $1",
+          "args": [
+            "{{custIds.11}}"
+          ],
+          "expect": {
+            "rows.0.phone_number": {
+              "$not": "03119999999"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "ord-001",
       "title": "set up: expected total for 2 x 1000",
       "sql": [

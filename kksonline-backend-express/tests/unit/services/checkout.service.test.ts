@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockCustomer } from '../../helpers/factories';
 
 const mockFindCustomerById = vi.fn();
+const mockUpdateProfile = vi.fn();
 const mockFindByIdempotencyKey = vi.fn();
 const mockFindAddressById = vi.fn();
 const mockCopyToOrderAddress = vi.fn();
@@ -36,7 +37,7 @@ vi.mock('../../../src/services/reservation-state', () => ({
 }));
 
 vi.mock('../../../src/repositories/customer.repository', () => ({
-  customerRepository: { findById: mockFindCustomerById },
+  customerRepository: { findById: mockFindCustomerById, updateProfile: mockUpdateProfile },
 }));
 
 vi.mock('../../../src/repositories/cart.repository', () => ({
@@ -190,6 +191,81 @@ describe('CheckoutService', () => {
         paymentMethod: 'cod',
       })
     ).rejects.toThrow('Phone number required');
+  });
+
+  it('logs the rejection when a customer with no phone checks out without giving one', async () => {
+    mockFindCustomerById.mockResolvedValue({ ...mockCustomer, phone_number: null });
+
+    const { checkoutService } = await import('../../../src/services/checkout.service');
+    await expect(
+      checkoutService.processCheckout(1, {
+        cartItems: [{ variantId: 1, quantity: 1, sellPrice: 1150 }],
+        addressId: 0,
+        shippingMethod: 'pickup',
+        paymentMethod: 'cod',
+      }, { ip: '1.2.3.4', userAgent: 'test-agent' })
+    ).rejects.toThrow('Phone number required');
+
+    expect(mockUpdateProfile).not.toHaveBeenCalled();
+    expect(mockSecurityAuditLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        event_type: 'checkout_rejected',
+        event_data: expect.objectContaining({ reason: 'phone_number_missing' }),
+        user_agent: 'test-agent',
+      }),
+    }));
+  });
+
+  it('saves the phone given at checkout when the profile has none, then places the order', async () => {
+    mockFindCustomerById.mockResolvedValue({ ...mockCustomer, phone_number: '' });
+
+    const { checkoutService } = await import('../../../src/services/checkout.service');
+    const result = await checkoutService.processCheckout(1, {
+      cartItems: [{ variantId: 1, quantity: 1, sellPrice: 1150 }],
+      addressId: 0,
+      shippingMethod: 'pickup',
+      paymentMethod: 'cod',
+      phoneNumber: '03111234567',
+      fullName: 'Someone Else',
+    });
+
+    expect(result.success).toBe(true);
+    // Name already on the profile is left alone
+    expect(mockUpdateProfile).toHaveBeenCalledWith(1, { phoneNumber: '03111234567' });
+  });
+
+  it('also saves the name given at checkout when the profile has no name', async () => {
+    mockFindCustomerById.mockResolvedValue({ ...mockCustomer, phone_number: '', first_name: '', last_name: '' });
+
+    const { checkoutService } = await import('../../../src/services/checkout.service');
+    await checkoutService.processCheckout(1, {
+      cartItems: [{ variantId: 1, quantity: 1, sellPrice: 1150 }],
+      addressId: 0,
+      shippingMethod: 'pickup',
+      paymentMethod: 'cod',
+      phoneNumber: '03111234567',
+      fullName: '  Muhammad  Ali Khan ',
+    });
+
+    expect(mockUpdateProfile).toHaveBeenCalledWith(1, {
+      phoneNumber: '03111234567',
+      firstName: 'Muhammad',
+      lastName: 'Ali Khan',
+    });
+  });
+
+  it('never overwrites a phone already on the profile', async () => {
+    const { checkoutService } = await import('../../../src/services/checkout.service');
+    const result = await checkoutService.processCheckout(1, {
+      cartItems: [{ variantId: 1, quantity: 1, sellPrice: 1150 }],
+      addressId: 0,
+      shippingMethod: 'pickup',
+      paymentMethod: 'cod',
+      phoneNumber: '03119999999',
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockUpdateProfile).not.toHaveBeenCalled();
   });
 
   it("refuses another customer's saved address (their name, address and phone must not be copied into this order)", async () => {

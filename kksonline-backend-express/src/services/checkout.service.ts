@@ -53,6 +53,10 @@ export interface CheckoutRequest {
   paymentMethod: PaymentMethod;
   idempotencyKey?: string;
   paymentReceiptPath?: string;
+  /** Asked for at checkout when the profile has none (Google sign-in doesn't give one). Already normalised. */
+  phoneNumber?: string;
+  /** Asked for at checkout when the profile has no name. */
+  fullName?: string;
 }
 
 export interface CheckoutTotals {
@@ -89,9 +93,28 @@ export class CheckoutService {
       throw new BadRequestError('Customer not found');
     }
 
-    const phoneNumber = (customer.phone_number || '').trim();
-    if (!phoneNumber) {
-      throw new PhoneNumberRequiredError();
+    // Customers who signed in with Google have no phone on their profile. The checkout page asks for it,
+    // and the first checkout saves it so the shop can reach them about the order.
+    const savedPhone = (customer.phone_number || '').trim();
+    if (!savedPhone) {
+      if (!request.phoneNumber) {
+        await this.logSecurityEvent('checkout_rejected', {
+          customer_id: customerId,
+          reason: 'phone_number_missing',
+        }, clientInfo);
+        throw new PhoneNumberRequiredError();
+      }
+
+      const profileUpdate: { phoneNumber: string; firstName?: string; lastName?: string } = {
+        phoneNumber: request.phoneNumber,
+      };
+      if (!(customer.first_name || '').trim() && request.fullName) {
+        const [first, ...rest] = request.fullName.trim().split(/\s+/);
+        profileUpdate.firstName = first;
+        if (rest.length > 0) profileUpdate.lastName = rest.join(' ');
+      }
+      await customerRepository.updateProfile(customerId, profileUpdate);
+      logger.info('Saved phone number from checkout to customer profile', { customerId });
     }
 
     // Step 1b: The address must belong to this customer. Without this check a customer could pass someone
@@ -701,7 +724,7 @@ export class CheckoutService {
 
   private getSeverityLevel(eventType: string): SeverityLevel {
     const criticalEvents = ['price_manipulation_detected', 'checkout_error'];
-    const warningEvents = ['cart_validation_failed', 'inventory_unavailable'];
+    const warningEvents = ['cart_validation_failed', 'inventory_unavailable', 'checkout_rejected'];
 
     if (criticalEvents.includes(eventType)) return 'critical' as SeverityLevel;
     if (warningEvents.includes(eventType)) return 'warning' as SeverityLevel;
